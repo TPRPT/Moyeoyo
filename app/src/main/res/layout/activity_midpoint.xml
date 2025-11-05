@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingBottom="120dp">
+
+        <!-- 헤더 -->
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:src="@drawable/ic_arrow_left"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_width="40dp"
+            android:layout_height="40dp"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="중간 지점 계산"
+            android:textStyle="bold"
+            android:textSize="20sp"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/txtSub"
+            android:text="모두에게 공평한 중간 지점 결과"
+            android:textColor="?attr/colorSecondary"/>
+
+        <!-- 계산중 패널 -->
+        <LinearLayout
+            android:id="@+id/panelLoading"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:layout_marginTop="8dp">
+            <ProgressBar
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+            <TextView android:text="계산 중..." android:layout_marginTop="8dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <!-- 지도 -->
+        <fragment
+            android:id="@+id/mapFragment"
+            android:name="com.google.android.gms.maps.SupportMapFragment"
+            android:layout_width="match_parent"
+            android:layout_height="280dp"
+            android:layout_marginTop="8dp"/>
+
+        <!-- 중간지점 카드 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardCenter"
+            style="@style/Widget.Material3.CardView.Filled"
+            android:layout_marginTop="12dp">
+            <LinearLayout
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="계산된 중간 지점" android:textStyle="bold"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:id="@+id/txtCenterCoord" android:text="위도/경도"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:id="@+id/txtNearestStation" android:text="가까운 지하철: -"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSeeNearby"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:text="주변 후보 보기"
+                    android:layout_marginTop="8dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="멤버별 이동 거리"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvDistances"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+    </LinearLayout>
+
+    <!-- 하단 버튼 -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNearbyPlaces"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="주변 장소 추천 보기"
+        android:layout_gravity="bottom"
+        android:layout_margin="16dp"/>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
