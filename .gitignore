@@ -25,3 +25,20 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+
+
+##########################
+
+
+# Google API Keys 및 Firebase Secrets (필수)
+/app/google-services.json
+
+# Android Studio와 Gradle 자동 생성 파일
+.gradle/
+/local.properties
+/build
+
+# Firebase CLI 및 Functions 관련
+.firebase/
+.firebaserc
+node_modules/
