@@ -79,7 +79,17 @@ class MapActivity : AppCompatActivity() {
 
         // 확정 버튼 → 중간지점 화면으로 이동
         btnConfirm.setOnClickListener {
-            startActivity(Intent(this@MapActivity, MidpointActivity::class.java))
+            // groupId 인텐트로 전달 (Auth/Group 화면에서 넘겨주는 값 기대)
+            val groupId = intent.getStringExtra("groupId")
+            if (groupId != null) {
+                // Firestore에 내 선택 위치 저장 후 이동
+                viewModel.saveSelectedToGroup(groupId)
+                startActivity(Intent(this@MapActivity, MidpointActivity::class.java).apply {
+                    putExtra("groupId", groupId)
+                })
+            } else {
+                startActivity(Intent(this@MapActivity, MidpointActivity::class.java))
+            }
         }
     }
 

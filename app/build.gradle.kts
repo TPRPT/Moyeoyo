@@ -62,4 +62,9 @@ dependencies {
     // Distance Matrix 호출용 (간단히 OkHttp)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+
+    // Firebase (Firestore/Auth) - Firestore 스키마 연동용
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
 }

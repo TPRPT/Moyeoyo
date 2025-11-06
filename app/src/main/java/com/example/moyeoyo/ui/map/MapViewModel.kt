@@ -91,4 +91,30 @@ class MapViewModel(
             }
         }
     }
+
+    // Firestore: 그룹 멤버 입력 위치 로드 → 상태 반영 후 중간지점 계산
+    fun loadGroupMembers(groupId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val members = repo.getInputLocations(groupId)
+                val center = repo.computeWeightedCenter(members)
+                update { it.copy(members = members, weightedCenter = center) }
+                if (center != null) computeDistances(members, center)
+            } catch (e: Exception) {
+                update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    // Firestore: 현재 선택된 위치를 그룹에 저장
+    fun saveSelectedToGroup(groupId: String) {
+        val sel = _state.value?.selected ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repo.saveMyInputLocation(groupId, sel)
+            } catch (e: Exception) {
+                update { it.copy(error = e.message) }
+            }
+        }
+    }
 }

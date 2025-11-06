@@ -56,14 +56,11 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.rvDistances.layoutManager = LinearLayoutManager(this)
         binding.rvDistances.adapter = adapter
 
-        // 샘플 멤버 (Firestore 연동 시 대체 예정)
-        val members = listOf(
-            InputLocation("철수", LatLngData(37.498, 127.027), TransportMode.SUBWAY),
-            InputLocation("영희", LatLngData(37.487, 127.015), TransportMode.WALK),
-            InputLocation("민수", LatLngData(37.503, 127.045), TransportMode.DRIVE),
-            InputLocation("지은", LatLngData(37.495, 127.035), TransportMode.BUS)
-        )
-        viewModel.computeWeightedCenter(members)
+        // 그룹 ID로 Firestore에서 멤버 입력 위치 로드
+        val groupId = intent.getStringExtra("groupId")
+        if (groupId != null) {
+            viewModel.loadGroupMembers(groupId)
+        }
 
         observe()
     }

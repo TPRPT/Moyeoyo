@@ -19,6 +19,10 @@ import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -34,7 +38,9 @@ class MapRepository(
     private val fusedClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context),
     private val geocoder: Geocoder = Geocoder(context),
-    private val http: OkHttpClient = OkHttpClient()
+    private val http: OkHttpClient = OkHttpClient(),
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) {
 
     // 내부에서 Places 초기화(중복 초기화 방지)
@@ -47,6 +53,80 @@ class MapRepository(
                 context.getString(R.string.maps_android_key),
                 Locale.getDefault()
             )
+        }
+    }
+
+    // =========================
+    // Firestore (groups/{groupId}/inputLocations)
+    // =========================
+
+    // 현재 사용자 UID
+    private fun currentUid(): String? = auth.currentUser?.uid
+
+    // 그룹의 입력 위치 목록 1회 조회
+    suspend fun getInputLocations(groupId: String): List<InputLocation> {
+        val snap = firestore.collection("groups")
+            .document(groupId)
+            .collection("inputLocations")
+            .get()
+            .await()
+        return snap.documents.mapNotNull { it.toObject(InputLocation::class.java) }
+    }
+
+    // 내 입력 위치 저장/업데이트
+    suspend fun saveMyInputLocation(groupId: String, location: InputLocation) {
+        val uid = currentUid() ?: location.uid
+        firestore.collection("groups")
+            .document(groupId)
+            .collection("inputLocations")
+            .document(uid)
+            .set(location)
+            .await()
+    }
+
+    // =========================
+    // Firestore: users / groups / placeCandidates / timeCandidates (조회)
+    // =========================
+
+    // users/{uid}
+    suspend fun getUserProfile(uid: String): UserProfile? {
+        val doc = firestore.collection("users").document(uid).get().await()
+        return doc.toObject(UserProfile::class.java)
+    }
+
+    suspend fun updateFcmToken(uid: String, token: String) {
+        firestore.collection("users").document(uid)
+            .update(mapOf("fcmToken" to token)).await()
+    }
+
+    suspend fun updateDefaultLocation(uid: String, loc: UserDefaultLocation) {
+        firestore.collection("users").document(uid)
+            .update(mapOf("defaultLocation" to loc)).await()
+    }
+
+    // groups/{groupId}
+    suspend fun getGroup(groupId: String): Group? {
+        val doc = firestore.collection("groups").document(groupId).get().await()
+        return doc.toObject(Group::class.java)?.copy(groupId = groupId)
+    }
+
+    // groups/{groupId}/placeCandidates
+    suspend fun getPlaceCandidates(groupId: String): List<PlaceCandidate> {
+        val snap = firestore.collection("groups").document(groupId)
+            .collection("placeCandidates").get().await()
+        return snap.documents.mapNotNull { d ->
+            val pc = d.toObject(PlaceCandidate::class.java)
+            pc?.copy(id = d.id)
+        }
+    }
+
+    // groups/{groupId}/timeCandidates
+    suspend fun getTimeCandidates(groupId: String): List<TimeCandidate> {
+        val snap = firestore.collection("groups").document(groupId)
+            .collection("timeCandidates").get().await()
+        return snap.documents.mapNotNull { d ->
+            val tc = d.toObject(TimeCandidate::class.java)
+            tc?.copy(id = d.id)
         }
     }
 
