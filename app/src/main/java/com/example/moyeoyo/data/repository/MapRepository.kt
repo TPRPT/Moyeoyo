@@ -37,10 +37,10 @@ class MapRepository(
     private val context: Context,
     private val fusedClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context),
-    private val geocoder: Geocoder = Geocoder(context),
+    private val geocoder: Geocoder = Geocoder(context, Locale.KOREA),
     private val http: OkHttpClient = OkHttpClient(),
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val firestore: FirebaseFirestore? = null, // ⬅️ null 허용 및 기본값 null
+    private val auth: FirebaseAuth? = null           // ⬅️ null 허용 및 기본값 null
 ) {
 
     // 내부에서 Places 초기화(중복 초기화 방지)
@@ -50,7 +50,7 @@ class MapRepository(
             // strings.xml에 외부 API Key 받아와서 넣어둘 자리
             Places.initialize(
                 context.applicationContext,
-                context.getString(R.string.maps_android_key),
+                context.getString(R.string.google_maps_key),
                 Locale.getDefault()
             )
         }
@@ -61,11 +61,12 @@ class MapRepository(
     // =========================
 
     // 현재 사용자 UID
-    private fun currentUid(): String? = auth.currentUser?.uid
+    private fun currentUid(): String? = auth?.currentUser?.uid
 
     // 그룹의 입력 위치 목록 1회 조회
     suspend fun getInputLocations(groupId: String): List<InputLocation> {
-        val snap = firestore.collection("groups")
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
+        val snap = db.collection("groups")
             .document(groupId)
             .collection("inputLocations")
             .get()
@@ -75,8 +76,9 @@ class MapRepository(
 
     // 내 입력 위치 저장/업데이트
     suspend fun saveMyInputLocation(groupId: String, location: InputLocation) {
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
         val uid = currentUid() ?: location.uid
-        firestore.collection("groups")
+        db.collection("groups")
             .document(groupId)
             .collection("inputLocations")
             .document(uid)
@@ -90,29 +92,34 @@ class MapRepository(
 
     // users/{uid}
     suspend fun getUserProfile(uid: String): UserProfile? {
-        val doc = firestore.collection("users").document(uid).get().await()
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
+        val doc = db.collection("users").document(uid).get().await()
         return doc.toObject(UserProfile::class.java)
     }
 
     suspend fun updateFcmToken(uid: String, token: String) {
-        firestore.collection("users").document(uid)
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
+        db.collection("users").document(uid)
             .update(mapOf("fcmToken" to token)).await()
     }
 
     suspend fun updateDefaultLocation(uid: String, loc: UserDefaultLocation) {
-        firestore.collection("users").document(uid)
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
+        db.collection("users").document(uid)
             .update(mapOf("defaultLocation" to loc)).await()
     }
 
     // groups/{groupId}
     suspend fun getGroup(groupId: String): Group? {
-        val doc = firestore.collection("groups").document(groupId).get().await()
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
+        val doc = db.collection("groups").document(groupId).get().await()
         return doc.toObject(Group::class.java)?.copy(groupId = groupId)
     }
 
     // groups/{groupId}/placeCandidates
     suspend fun getPlaceCandidates(groupId: String): List<PlaceCandidate> {
-        val snap = firestore.collection("groups").document(groupId)
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
+        val snap = db.collection("groups").document(groupId)
             .collection("placeCandidates").get().await()
         return snap.documents.mapNotNull { d ->
             val pc = d.toObject(PlaceCandidate::class.java)
@@ -122,7 +129,8 @@ class MapRepository(
 
     // groups/{groupId}/timeCandidates
     suspend fun getTimeCandidates(groupId: String): List<TimeCandidate> {
-        val snap = firestore.collection("groups").document(groupId)
+        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
+        val snap = db.collection("groups").document(groupId)
             .collection("timeCandidates").get().await()
         return snap.documents.mapNotNull { d ->
             val tc = d.toObject(TimeCandidate::class.java)

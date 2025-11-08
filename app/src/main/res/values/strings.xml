@@ -1,6 +1,9 @@
 <resources>
     <string name="app_name">Moyeoyo</string>
-    <string name="google_maps_key">YOUR_ANDROID_MAPS_SDK_KEY</string>
-    <string name="maps_web_key">YOUR_GOOGLE_MAPS_WEB_KEY</string>
-    <string name="maps_Android_key">DUMMY_KEY_FOR_LOCAL_DEV</string> <!-- 임시 dummy key -->
+
+    <!--
+      이 값들은 build.gradle이 local.properties에서 실제 키를 읽어와 채워줍니다.
+    -->
+    <string name="google_maps_key" translatable="false">${MAPS_API_KEY}</string>
+    <string name="maps_web_key" translatable="false">${DISTANCE_MATRIX_API_KEY}</string>
 </resources>

@@ -4,11 +4,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 스크롤 본문 -->
+    <!-- 스크롤 되는 메인 컨텐츠 영역 -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingBottom="80dp">  <!-- ✅ 하단 버튼과 겹치지 않도록 아래쪽에 여백 추가 -->
 
         <LinearLayout
             android:orientation="vertical"
@@ -68,12 +70,10 @@
                     android:padding="12dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
-
                     <ImageView
                         android:src="@drawable/ic_home"
                         android:layout_width="24dp"
                         android:layout_height="24dp"/>
-
                     <LinearLayout
                         android:orientation="vertical"
                         android:layout_marginStart="12dp"
@@ -102,12 +102,10 @@
                     android:padding="12dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
-
                     <ImageView
                         android:src="@drawable/ic_briefcase"
                         android:layout_width="24dp"
                         android:layout_height="24dp"/>
-
                     <LinearLayout
                         android:orientation="vertical"
                         android:layout_marginStart="12dp"
@@ -128,23 +126,41 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- 주소 검색 컴포넌트 -->
-            <!-- 예시: 상단 툴바/버튼은 생략, 필요한 위치에 아래 뷰 삽입 -->
             <com.example.moyeoyo.ui.map.components.SearchBar
                 android:id="@+id/view_search_bar"
+                android:layout_marginTop="16dp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
 
         </LinearLayout>
     </ScrollView>
 
-    <!-- 하단 고정 버튼 -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnConfirm"
-        android:text="위치 확정하기"
-        android:enabled="false"
-        android:layout_margin="16dp"
-        android:layout_gravity="bottom"
+    <!-- ✅ [수정됨] 하단 고정 버튼 영역 -->
+    <!-- CoordinatorLayout은 겹쳐서 배치하는 특성이 있으므로, 버튼들을 LinearLayout으로 감싸서 관리하는 것이 좋습니다. -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="bottom"
+        android:padding="16dp">
+
+        <!-- [신규 추가] 로컬 테스트용 버튼 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLocalTest"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:text="로컬 테스트" />
+
+        <!-- [기존] 위치 확정하기 버튼 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnConfirm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="위치 확정하기" />
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

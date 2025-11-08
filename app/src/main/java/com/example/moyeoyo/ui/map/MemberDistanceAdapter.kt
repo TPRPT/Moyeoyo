@@ -1,8 +1,5 @@
 package com.example.moyeoyo.ui.map
 
-// MemberDistanceAdapter: Distance Matrix 결과(멤버별 시간/거리)를 리스트로 표시
-// - UID를 키로 DiffUtil 비교, 분/킬로미터로 가공해 바인딩
-
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
@@ -28,7 +25,7 @@ class MemberDistanceAdapter
 
     companion object {
         val DIFF = object : DiffUtil.ItemCallback<DistanceResult>() {
-            override fun areItemsTheSame(o: DistanceResult, n: DistanceResult) = o.originUid == n.originUid
+            override fun areItemsTheSame(o: DistanceResult, n: DistanceResult) = o.uid == n.uid
             override fun areContentsTheSame(o: DistanceResult, n: DistanceResult) = o == n
         }
     }
@@ -39,9 +36,9 @@ class MemberDistanceVH(
 ) : RecyclerView.ViewHolder(binding.root) {
 
     fun bind(item: DistanceResult) {
-        binding.txtUid.text = item.originUid
-        val min = TimeUnit.SECONDS.toMinutes(item.durationSec.toLong()) // 초 → 분 변환
-        val km = item.distanceMeter / 1000.0 // m → km 변환
+        binding.txtUid.text = item.uid
+        val min = TimeUnit.SECONDS.toMinutes(item.durationSeconds.toLong())
+        val km = item.distanceMeters / 1000.0
         binding.txtDetail.text = "약 ${min}분, ${"%.1f".format(km)}km"
     }
 }

@@ -4,7 +4,7 @@ package com.example.moyeoyo.ui.map
 // - UI에서 발생하는 이벤트를 수집하고, Repository를 호출하여 상태(MapState)를 갱신
 // - 코루틴을 이용해 비동기 작업 처리
 
-import android.content.Context
+import android.util.Log // ✅ [신규 추가] 로그 사용을 위한 import
 import androidx.lifecycle.*
 import com.example.moyeoyo.data.model.*
 import com.example.moyeoyo.data.repository.MapRepository
@@ -21,7 +21,7 @@ class MapViewModel(
     // 상태 업데이트 헬퍼
     // - 기존 상태를 받아 변경된 상태를 생성해 LiveData에 반영
     private fun update(block: (MapState) -> MapState) {
-        _state.value = block(_state.value ?: MapState())
+        _state.postValue(block(_state.value ?: MapState())) // 백그라운드 스레드에서도 안전하게 LiveData를 업데이트하기 위해 postValue 사용
     }
 
     // 현재 위치 획득
@@ -115,6 +115,25 @@ class MapViewModel(
             } catch (e: Exception) {
                 update { it.copy(error = e.message) }
             }
+        }
+    }
+
+    // ⬇️⬇️⬇️ [신규 추가] 로컬 테스트용 함수 ⬇️⬇️⬇️
+    /**
+     * [로컬 테스트용] Firebase 연동 없이, 중간지점 및 거리 계산 로직을 실행하는 함수
+     * @param fakeMembers MapActivity에서 생성한 가상의 그룹원 위치 목록
+     */
+    fun runLocalTest(fakeMembers: List<InputLocation>) {
+        // 1. 중간 지점 계산 로직 실행
+        val center = repo.computeWeightedCenter(fakeMembers)
+        Log.d("MapLocalTest", "ViewModel: 중간 지점 계산 완료 -> $center")
+
+        // 2. 계산된 중간 지점을 LiveData(state)에 업데이트
+        update { it.copy(members = fakeMembers, weightedCenter = center) }
+
+        // 3. 중간 지점이 성공적으로 계산되었다면, 이어서 거리/시간 계산 로직 실행
+        if (center != null) {
+            computeDistances(fakeMembers, center)
         }
     }
 }

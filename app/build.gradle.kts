@@ -1,7 +1,18 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
 }
+
+// local.properties 파일을 읽는 설정
+val localProperties = Properties() // 'java.util.Properties'를 정확히 사용합니다.
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
 
 android {
     namespace = "com.example.moyeoyo"
@@ -15,6 +26,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // local.properties의 키를 BuildConfig 및 리소스로 변환하는 부분
+        // Android SDK 키
+        buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY") ?: ""}\"")
+        resValue("string", "google_maps_key", localProperties.getProperty("MAPS_API_KEY") ?: "")
+
+        // Distance Matrix 웹 서비스 키
+        buildConfigField("String", "DISTANCE_MATRIX_API_KEY", "\"${localProperties.getProperty("DISTANCE_MATRIX_API_KEY") ?: ""}\"")
+        resValue("string", "maps_web_key", localProperties.getProperty("DISTANCE_MATRIX_API_KEY") ?: "")
     }
 
     buildTypes {
@@ -36,11 +56,11 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -57,13 +77,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
     implementation("androidx.activity:activity-ktx:1.9.2")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("com.google.android.material:material:1.12.0")
 
-    // Distance Matrix 호출용 (간단히 OkHttp)
+    // Distance Matrix 호출용 (OkHttp)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
 
-    // Firebase (Firestore/Auth) - Firestore 스키마 연동용
+    // Firebase (Firestore/Auth)
     implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")

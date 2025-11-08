@@ -4,8 +4,9 @@ package com.example.moyeoyo.data.model
 // - originUid: 멤버 식별자 (입력 순서 유지)
 // - durationSec: 예상 소요 시간(초)
 // - distanceMeter: 예상 이동 거리(미터)
+
 data class DistanceResult(
-    val originUid: String,      // 사용자 UID
-    val durationSec: Int,       // 소요 시간(초)
-    val distanceMeter: Int      // 거리(m)
+    val uid: String,             // 어느 유저의 결과인지 식별하기 위한 ID
+    val durationSeconds: Int,   // 소요 시간 (초 단위)
+    val distanceMeters: Int     // 거리 (미터 단위)
 )
