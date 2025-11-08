@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+    id("com.google.gms.google-services")
 // local.properties 파일을 읽는 설정
 val localProperties = Properties() // 'java.util.Properties'를 정확히 사용합니다.
 val localPropertiesFile = rootProject.file("local.properties")
@@ -13,13 +14,13 @@ if (localPropertiesFile.exists()) {
     localProperties.load(FileInputStream(localPropertiesFile))
 }
 
-
 android {
-    namespace = "com.example.moyeoyo"
+    namespace = "com.moyeoyo.app"
     compileSdk = 36
 
+
     defaultConfig {
-        applicationId = "com.example.moyeoyo"
+        applicationId = "com.moyeoyo.app"
         minSdk = 33
         targetSdk = 36
         versionCode = 1
@@ -78,12 +79,20 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.2")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 
+    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
+    implementation("com.google.firebase:firebase-analytics:23.0.0")
+
+    implementation("com.google.firebase:firebase-auth:24.0.1")
+    implementation("com.google.firebase:firebase-firestore:26.0.2")
+    implementation("com.google.firebase:firebase-storage:22.0.1")
+    implementation("com.google.firebase:firebase-messaging:25.0.1")
+    implementation("com.google.firebase:firebase-dynamic-links:22.1.0")
+
     // Distance Matrix 호출용 (OkHttp)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
 
-    // Firebase (Firestore/Auth)
-    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+
 }
