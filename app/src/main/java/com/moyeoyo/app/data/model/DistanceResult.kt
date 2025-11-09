@@ -1,4 +1,4 @@
-package com.example.moyeoyo.data.model
+package com.moyeoyo.app.data.model
 
 // Distance Matrix 결과: 각 사용자(origin) -> 목적지까지의 시간/거리
 // - originUid: 멤버 식별자 (입력 순서 유지)

@@ -2,12 +2,19 @@ package com.moyeoyo.app
 
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import com.moyeoyo.app.map.MapViewModel // 경로 수정됨
+import dagger.hilt.android.AndroidEntryPoint
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    // Hilt가 ViewModel을 만들도록 변수 선언 추가됨
+    private val mapViewModel: MapViewModel by viewModels()
 
     /**
      * [환경 설정] Firebase 에뮬레이터 연결 설정
@@ -30,16 +37,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // [TODO] 여기에 레이아웃 설정 코드를 추가합니다. (예: setContentView(R.layout.activity_main))
 
         // 1. 에뮬레이터 설정 및 초기화 (반드시 가장 먼저 실행)
         initializeEmulators()
 
-        // 2. [개발 시작] 로그인 화면으로 이동하는 로직을 여기에 추가합니다.
+        // 2. 테스트 함수 호출 (올바른 방식으로 수정됨)
+        mapViewModel.onTestButtonClick()
+
+        // [TODO] 여기에 레이아웃 설정 코드를 추가합니다. (예: setContentView(R.layout.activity_main))
+        // 예: setContentView(R.layout.activity_main)
+
+        // 3. [개발 시작] 로그인 화면으로 이동하는 로직을 여기에 추가합니다.
         // 이 부분이 LoginActivity를 띄우는 코드로 대체됩니다.
         // 예: startActivity(Intent(this, LoginActivity::class.java))
-
-        // 3. 테스트 코드가 모두 제거되었으므로, 이제 각 팀원은
-        //    자신의 기능 개발에 집중할 수 있습니다.
     }
 }

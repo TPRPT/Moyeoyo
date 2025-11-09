@@ -1,17 +1,22 @@
-package com.example.moyeoyo.ui.map
+package com.moyeoyo.app.map
 
 // MapViewModel: 위치 입력/검색, 중간지점 계산, 거리계산 등
 // - UI에서 발생하는 이벤트를 수집하고, Repository를 호출하여 상태(MapState)를 갱신
 // - 코루틴을 이용해 비동기 작업 처리
 
-import android.util.Log // ✅ [신규 추가] 로그 사용을 위한 import
+import android.util.Log
 import androidx.lifecycle.*
-import com.example.moyeoyo.data.model.*
-import com.example.moyeoyo.data.repository.MapRepository
+import com.moyeoyo.app.data.repository.MapRepository
+import com.moyeoyo.app.data.model.InputLocation
+import com.moyeoyo.app.data.model.LatLngData
+import com.moyeoyo.app.data.model.PlaceSuggestion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class MapViewModel(
+@HiltViewModel
+class MapViewModel @Inject constructor(
     private val repo: MapRepository
 ) : ViewModel() {
 
@@ -24,6 +29,10 @@ class MapViewModel(
         _state.postValue(block(_state.value ?: MapState())) // 백그라운드 스레드에서도 안전하게 LiveData를 업데이트하기 위해 postValue 사용
     }
 
+    fun setGroupId(groupId: String) {
+        update { it.copy(groupId = groupId) }
+    }
+
     // 현재 위치 획득
     // - 권한이 있으면 현재 위치를 repo에서 받아와 selected로 기본 설정
     fun fetchMyLocation() {
@@ -31,9 +40,20 @@ class MapViewModel(
             update { it.copy(isLoading = true) }
             try {
                 val loc = repo.getCurrentLocation()
-                update { it.copy(myLocation = loc, selected = loc?.let { l ->
-                    InputLocation(uid = "me", latLng = l, label = "현재 위치")
-                }, isLoading = false) }
+                val uid = repo.currentUserId() ?: "anonymous"
+                update {
+                    it.copy(
+                        myLocation = loc,
+                        selected = loc?.let { l ->
+                            InputLocation(
+                                uid = uid,
+                                latLng = l,
+                                label = "현재 위치"
+                            )
+                        },
+                        isLoading = false
+                    )
+                }
             } catch (e: Exception) {
                 update { it.copy(isLoading = false, error = e.message) }
             }
@@ -59,9 +79,10 @@ class MapViewModel(
         viewModelScope.launch {
             try {
                 val latLng = repo.fetchPlaceLatLng(s.placeId)
+                val uid = repo.currentUserId() ?: "anonymous"
                 update {
                     it.copy(
-                        selected = InputLocation(uid = "me", latLng = latLng, label = s.label),
+                        selected = InputLocation(uid = uid, latLng = latLng, label = s.label),
                         suggestions = emptyList()
                     )
                 }
@@ -94,21 +115,24 @@ class MapViewModel(
 
     // Firestore: 그룹 멤버 입력 위치 로드 → 상태 반영 후 중간지점 계산
     fun loadGroupMembers(groupId: String) {
+        setGroupId(groupId)
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                update { it.copy(isLoading = true) }
                 val members = repo.getInputLocations(groupId)
                 val center = repo.computeWeightedCenter(members)
-                update { it.copy(members = members, weightedCenter = center) }
+                update { it.copy(members = members, weightedCenter = center, isLoading = false) }
                 if (center != null) computeDistances(members, center)
             } catch (e: Exception) {
-                update { it.copy(error = e.message) }
+                update { it.copy(error = e.message, isLoading = false) }
             }
         }
     }
 
     // Firestore: 현재 선택된 위치를 그룹에 저장
-    fun saveSelectedToGroup(groupId: String) {
+    fun saveSelectedToGroup() {
         val sel = _state.value?.selected ?: return
+        val groupId = _state.value?.groupId ?: return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 repo.saveMyInputLocation(groupId, sel)
@@ -118,22 +142,34 @@ class MapViewModel(
         }
     }
 
-    // ⬇️⬇️⬇️ [신규 추가] 로컬 테스트용 함수 ⬇️⬇️⬇️
-    /**
-     * [로컬 테스트용] Firebase 연동 없이, 중간지점 및 거리 계산 로직을 실행하는 함수
-     * @param fakeMembers MapActivity에서 생성한 가상의 그룹원 위치 목록
-     */
-    fun runLocalTest(fakeMembers: List<InputLocation>) {
-        // 1. 중간 지점 계산 로직 실행
-        val center = repo.computeWeightedCenter(fakeMembers)
-        Log.d("MapLocalTest", "ViewModel: 중간 지점 계산 완료 -> $center")
-
-        // 2. 계산된 중간 지점을 LiveData(state)에 업데이트
-        update { it.copy(members = fakeMembers, weightedCenter = center) }
-
-        // 3. 중간 지점이 성공적으로 계산되었다면, 이어서 거리/시간 계산 로직 실행
-        if (center != null) {
-            computeDistances(fakeMembers, center)
-        }
+    /*
+        init {
+        // ViewModel이 생성되자마자 이 코드가 실행됩니다.
+        // "test-group-123" 그룹의 멤버 위치를 로드해서 중간 지점을 계산해줘!
+        println("====== MapLogic 테스트 시작 ======")
+        loadGroupMembers("test-group-123")
     }
+     */
+
+    fun onTestButtonClick() {
+        Log.d("MapViewModel", "====== 테스트 버튼 클릭! MapLogic 테스트 시작 ======")// 1단계: 저장할 '가짜 데이터'를 먼저 만들어줍니다.
+
+        setGroupId("test-group-123")
+
+        // 사용자가 '강남역'을 검색해서 선택했다고 가정해봅시다.
+        val fakeSelectedLocation = InputLocation(
+            uid = "user_A", // 실제로는 로그인된 사용자의 UID
+            latLng = LatLngData(lat = 37.4979, lng = 127.0276),
+            label = "강남역"
+        )
+
+        // 2단계: 만든 가짜 데이터를 ViewModel의 'selected' 상태에 저장합니다.
+        update { it.copy(selected = fakeSelectedLocation) }
+
+        // 3단계: 이제 드디어 저장 함수를 '호출'합니다!
+        saveSelectedToGroup()
+    }
+
 }
+
+

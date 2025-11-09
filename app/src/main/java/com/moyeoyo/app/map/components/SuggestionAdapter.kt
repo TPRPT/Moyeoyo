@@ -1,13 +1,12 @@
-package com.example.moyeoyo.ui.map.components
+package com.moyeoyo.app.map.components
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.moyeoyo.data.model.PlaceSuggestion
-import com.example.moyeoyo.databinding.ItemSuggestionBinding
-
+import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.databinding.ItemSuggestionBinding
 /**
  * 장소 추천(자동완성) 리스트용 어댑터
  * - PlaceSuggestion(placeId, label, address ...)

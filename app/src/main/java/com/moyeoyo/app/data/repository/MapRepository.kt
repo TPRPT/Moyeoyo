@@ -1,4 +1,4 @@
-package com.example.moyeoyo.data.repository
+package com.moyeoyo.app.data.repository
 
 // MapRepository: 지도/위치 관련 데이터 취득과 연산을 담당하는 계층
 // - 현재 위치 조회(GPS/FusedLocation)
@@ -11,17 +11,29 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import androidx.core.content.ContextCompat
-import com.example.moyeoyo.R
-import com.example.moyeoyo.data.model.*
+import com.moyeoyo.app.R
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.moyeoyo.app.data.model.DistanceResult
+import com.moyeoyo.app.data.model.Group
+import com.moyeoyo.app.data.model.InputLocation
+import com.moyeoyo.app.data.model.LatLngData
+import com.moyeoyo.app.data.model.PlaceCandidate
+import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.data.model.TimeCandidate
+import com.moyeoyo.app.data.model.TransportMode
+import com.moyeoyo.app.data.model.UserDefaultLocation
+import com.moyeoyo.app.data.model.UserProfile
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.OkHttpClient
@@ -30,17 +42,28 @@ import org.json.JSONObject
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import dagger.hilt.android.qualifiers.ApplicationContext
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Response
+import java.io.IOException
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.collections.plusAssign
 
 //MapRepository.kt: 지도와 관련된 모든 데이터 어디서, 어떻게 가져올지 정의
 
-class MapRepository(
-    private val context: Context,
-    private val fusedClient: FusedLocationProviderClient =
-        LocationServices.getFusedLocationProviderClient(context),
-    private val geocoder: Geocoder = Geocoder(context, Locale.KOREA),
+@Singleton
+class MapRepository @Inject constructor(
+    // 1. Hilt에게 주입을 요청하는 부품들 (직접 만들지 않음)
+    private val fusedClient: FusedLocationProviderClient,
+    private val geocoder: Geocoder,
+
+    // 2. 프로젝트 규칙에 따라 직접 만드는 부품들
+    @ApplicationContext private val context: Context, // `Places.initialize`에 필요하므로 유지
     private val http: OkHttpClient = OkHttpClient(),
-    private val firestore: FirebaseFirestore? = null, // ⬅️ null 허용 및 기본값 null
-    private val auth: FirebaseAuth? = null           // ⬅️ null 허용 및 기본값 null
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) {
 
     // 내부에서 Places 초기화(중복 초기화 방지)
@@ -61,28 +84,28 @@ class MapRepository(
     // =========================
 
     // 현재 사용자 UID
-    private fun currentUid(): String? = auth?.currentUser?.uid
+    private fun currentUid(): String? = auth.currentUser?.uid
+
+    fun currentUserId(): String? = currentUid()
 
     // 그룹의 입력 위치 목록 1회 조회
     suspend fun getInputLocations(groupId: String): List<InputLocation> {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
-        val snap = db.collection("groups")
+        val snap = firestore.collection("groups")
             .document(groupId)
             .collection("inputLocations")
             .get()
             .await()
-        return snap.documents.mapNotNull { it.toObject(InputLocation::class.java) }
+        return snap.documents.mapNotNull { it.toInputLocation() }
     }
 
     // 내 입력 위치 저장/업데이트
     suspend fun saveMyInputLocation(groupId: String, location: InputLocation) {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
         val uid = currentUid() ?: location.uid
-        db.collection("groups")
+        firestore.collection("groups")
             .document(groupId)
             .collection("inputLocations")
             .document(uid)
-            .set(location)
+            .set(location.toFirestoreMap())
             .await()
     }
 
@@ -92,34 +115,29 @@ class MapRepository(
 
     // users/{uid}
     suspend fun getUserProfile(uid: String): UserProfile? {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
-        val doc = db.collection("users").document(uid).get().await()
+        val doc = firestore.collection("users").document(uid).get().await()
         return doc.toObject(UserProfile::class.java)
     }
 
     suspend fun updateFcmToken(uid: String, token: String) {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
-        db.collection("users").document(uid)
+        firestore.collection("users").document(uid)
             .update(mapOf("fcmToken" to token)).await()
     }
 
     suspend fun updateDefaultLocation(uid: String, loc: UserDefaultLocation) {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
-        db.collection("users").document(uid)
+        firestore.collection("users").document(uid)
             .update(mapOf("defaultLocation" to loc)).await()
     }
 
     // groups/{groupId}
     suspend fun getGroup(groupId: String): Group? {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
-        val doc = db.collection("groups").document(groupId).get().await()
+        val doc = firestore.collection("groups").document(groupId).get().await()
         return doc.toObject(Group::class.java)?.copy(groupId = groupId)
     }
 
     // groups/{groupId}/placeCandidates
     suspend fun getPlaceCandidates(groupId: String): List<PlaceCandidate> {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
-        val snap = db.collection("groups").document(groupId)
+        val snap = firestore.collection("groups").document(groupId)
             .collection("placeCandidates").get().await()
         return snap.documents.mapNotNull { d ->
             val pc = d.toObject(PlaceCandidate::class.java)
@@ -129,8 +147,7 @@ class MapRepository(
 
     // groups/{groupId}/timeCandidates
     suspend fun getTimeCandidates(groupId: String): List<TimeCandidate> {
-        val db = firestore ?: throw IllegalStateException("Firestore is not initialized")
-        val snap = db.collection("groups").document(groupId)
+        val snap = firestore.collection("groups").document(groupId)
             .collection("timeCandidates").get().await()
         return snap.documents.mapNotNull { d ->
             val tc = d.toObject(TimeCandidate::class.java)
@@ -157,7 +174,7 @@ class MapRepository(
             return@suspendCancellableCoroutine
         }
 
-        val cts = com.google.android.gms.tasks.CancellationTokenSource() // 코루틴 취소 대응
+        val cts = CancellationTokenSource() // 코루틴 취소 대응
         try {
             fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
                 .addOnSuccessListener { loc ->
@@ -265,12 +282,12 @@ class MapRepository(
             "https://maps.googleapis.com/maps/api/distancematrix/json?origins=$originsParam&destinations=$destParam&mode=$mode&key=$key"
 
         val req = Request.Builder().url(url).build()
-        http.newCall(req).enqueue(object : okhttp3.Callback {
-            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
                 cont.resumeWithException(e)
             }
 
-            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+            override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!it.isSuccessful) {
                         cont.resumeWithException(
@@ -291,12 +308,121 @@ class MapRepository(
                             val distanceMeter = el0.getJSONObject("distance").optInt("value")
                             val (uid, _) = origins[i]
                             // 각 origin(uid)에 대한 결과 매핑
-                            results += DistanceResult(uid, durationSec, distanceMeter)
+                            results.plusAssign(DistanceResult(uid, durationSec, distanceMeter)) // ✨ 점(.) 하나 찍고 괄호로 감싸주면 끝!
                         }
                     }
                     cont.resume(results)
                 }
             }
         })
+    }
+
+    // =========================
+    // Firestore: placeCandidates / timeCandidates 쓰기 & 투표
+    // =========================
+
+    suspend fun addPlaceCandidate(groupId: String, candidate: PlaceCandidate): String {
+        val data = mutableMapOf<String, Any>(
+            "placeId" to candidate.placeId,
+            "name" to candidate.name,
+            "voterUids" to candidate.voterUids
+        )
+        candidate.latLng?.let { data["latLng"] = it }
+        val ref = firestore.collection("groups")
+            .document(groupId)
+            .collection("placeCandidates")
+            .add(data)
+            .await()
+        return ref.id
+    }
+
+    suspend fun votePlaceCandidate(groupId: String, candidateId: String, uid: String) {
+        firestore.collection("groups")
+            .document(groupId)
+            .collection("placeCandidates")
+            .document(candidateId)
+            .update("voterUids", FieldValue.arrayUnion(uid))
+            .await()
+    }
+
+    suspend fun unvotePlaceCandidate(groupId: String, candidateId: String, uid: String) {
+        firestore.collection("groups")
+            .document(groupId)
+            .collection("placeCandidates")
+            .document(candidateId)
+            .update("voterUids", FieldValue.arrayRemove(uid))
+            .await()
+    }
+
+    suspend fun addTimeCandidate(groupId: String, candidate: TimeCandidate): String {
+        val data = mutableMapOf<String, Any>(
+            "voterUids" to candidate.voterUids
+        )
+        candidate.time?.let { data["time"] = it }
+        val ref = firestore.collection("groups")
+            .document(groupId)
+            .collection("timeCandidates")
+            .add(data)
+            .await()
+        return ref.id
+    }
+
+    suspend fun voteTimeCandidate(groupId: String, candidateId: String, uid: String) {
+        firestore.collection("groups")
+            .document(groupId)
+            .collection("timeCandidates")
+            .document(candidateId)
+            .update("voterUids", FieldValue.arrayUnion(uid))
+            .await()
+    }
+
+    suspend fun unvoteTimeCandidate(groupId: String, candidateId: String, uid: String) {
+        firestore.collection("groups")
+            .document(groupId)
+            .collection("timeCandidates")
+            .document(candidateId)
+            .update("voterUids", FieldValue.arrayRemove(uid))
+            .await()
+    }
+
+    // =========================
+    // 내부 변환 헬퍼
+    // =========================
+
+    private fun DocumentSnapshot.toInputLocation(): InputLocation? {
+        val data = data ?: return null
+
+        val latLngData = when (val raw = data["latLng"]) {
+            is GeoPoint -> LatLngData(raw.latitude, raw.longitude)
+            is Map<*, *> -> {
+                val lat = (raw["lat"] as? Number)?.toDouble()
+                    ?: (raw["latitude"] as? Number)?.toDouble()
+                val lng = (raw["lng"] as? Number)?.toDouble()
+                    ?: (raw["longitude"] as? Number)?.toDouble()
+                if (lat != null && lng != null) LatLngData(lat, lng) else null
+            }
+            else -> null
+        } ?: return null
+
+        val modeName = data["transportMode"] as? String ?: TransportMode.SUBWAY.name
+        val label = data["label"] as? String
+        val mode = runCatching { TransportMode.valueOf(modeName) }
+            .getOrDefault(TransportMode.SUBWAY)
+
+        return InputLocation(
+            uid = id,
+            latLng = latLngData,
+            transportMode = mode,
+            label = label
+        )
+    }
+
+    private fun InputLocation.toFirestoreMap(): Map<String, Any> {
+        val data = mutableMapOf<String, Any>(
+            "latLng" to GeoPoint(latLng.lat, latLng.lng),
+            "transportMode" to transportMode.name
+        )
+        label?.let { data["label"] = it }
+        return data
     }
 }

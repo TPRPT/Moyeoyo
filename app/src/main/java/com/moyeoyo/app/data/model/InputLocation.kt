@@ -1,4 +1,4 @@
-package com.example.moyeoyo.data.model
+package com.moyeoyo.app.data.model
 
 // 그룹 멤버의 입력 위치 (Firestore inputLocations 문서 구조와 매핑)
 // - uid: 멤버 식별자

@@ -1,12 +1,12 @@
-package com.example.moyeoyo.ui.map
+package com.moyeoyo.app.map
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.moyeoyo.data.model.DistanceResult
-import com.example.moyeoyo.databinding.ItemMemberDistanceBinding
+import com.moyeoyo.app.data.model.DistanceResult
+import com.moyeoyo.app.databinding.ItemMemberDistanceBinding
 import java.util.concurrent.TimeUnit
 
 class MemberDistanceAdapter

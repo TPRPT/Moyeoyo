@@ -126,7 +126,7 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- 주소 검색 컴포넌트 -->
-            <com.example.moyeoyo.ui.map.components.SearchBar
+            <com.moyeoyo.app.map.components.SearchBar
                 android:id="@+id/view_search_bar"
                 android:layout_marginTop="16dp"
                 android:layout_width="match_parent"
