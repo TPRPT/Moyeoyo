@@ -1,8 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-
-    id("com.google.gms.google-services")
+    id("kotlin-parcelize")
+    id("androidx.navigation.safeargs.kotlin")
+    //id("com.google.gms.google-services")
 }
 
 android {
@@ -37,6 +38,10 @@ android {
         jvmTarget = "11"
     }
 
+    buildFeatures {
+        viewBinding = true
+    }
+
 
 }
 
@@ -47,6 +52,8 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -62,6 +69,14 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    implementation("com.google.android.material:material:<latest>")
+    implementation("androidx.cardview:cardview:1.0.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.8.3")
+    implementation("androidx.navigation:navigation-ui-ktx:2.8.3")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.prolificinteractive:material-calendarview:1.4.3") {
+        exclude(group = "com.android.support") }
+    }
 
-}
 

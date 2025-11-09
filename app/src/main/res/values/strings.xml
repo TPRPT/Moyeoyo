@@ -1,3 +1,32 @@
 <resources>
     <string name="app_name">Moyeoyo</string>
+    <string name="member_location_format">%1$s</string>
+    <string name="vote_done">투표 완료</string>
+    <string name="vote_wait">투표 대기</string>
+    <string name="member_count_format">멤버 %1$d명</string>
+    <string name="btn_add_to_calendar">캘린더에 추가</string>
+
+    <string name="back">뒤로</string>
+    <string name="share">공유</string>
+    <string name="more">더보기</string>
+
+    <string name="next_meeting">다음 모임</string>
+    <string name="add_to_calendar">캘린더에 추가</string>
+    <string name="tab_place">장소</string>
+    <string name="tab_member">멤버</string>
+    <string name="default_group_name">그룹</string>
+    <string name="d_day_example">D-5</string>
+
+    <string name="date_example">2025년 10월 20일 (일) 18:00</string>
+    <string name="place_example">스타벅스 역삼역점</string>
+
+    <string name="invite">초대</string>
+
+    <string name="location_input_title">위치 입력</string>
+    <string name="location_input_subtitle">출발 위치를 선택하거나 입력하세요</string>
+    <string name="use_current_location">현재 위치 사용</string>
+    <string name="frequently_used_places">자주 사용하는 위치</string>
+
+
+
 </resources>

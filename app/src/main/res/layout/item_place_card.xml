@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card"
+    android:padding="14dp"
+    android:layout_marginBottom="12dp">
+
+    <TextView
+        android:id="@+id/tvPlaceName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="스타벅스 역삼역점"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/tvPlaceCategory"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="카페"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:layout_marginTop="2dp" />
+
+    <TextView
+        android:id="@+id/tvPlaceDistance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="평균 2.3km"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:layout_marginTop="2dp" />
+</LinearLayout>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layoutHome"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_light_gray_outline_box"
+    android:paddingVertical="14dp"
+    android:paddingHorizontal="16dp"
+    android:layout_marginBottom="12dp"
+    android:clipToOutline="true"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground">
+
+    <!-- 왼쪽 아이콘 + 텍스트 묶음 -->
+    <LinearLayout
+        android:id="@+id/homeContent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- 원형 배경 아이콘 컨테이너 -->
+        <LinearLayout
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:background="@drawable/bg_circle_gray">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_home_24"
+                app:tint="#34C759"
+                android:contentDescription="@string/frequently_used_places" />
+        </LinearLayout>
+
+        <!-- 제목/주소 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="집"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/black" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="서울시 강남구 테헤란로 123"
+                android:textSize="13sp"
+                android:textColor="@color/text_secondary" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 우측 체크 아이콘 (선택 시 표시) -->
+    <ImageView
+        android:id="@+id/icHomeCheck"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:src="@drawable/ic_check_blue_24"
+        android:visibility="gone"
+        android:contentDescription="@string/back" />
+</RelativeLayout>

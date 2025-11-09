@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_surface"
+    android:padding="@dimen/screen_padding"
+    tools:context=".ui.main.MainFragment">
+
+    <!-- 상단: 타이틀 / 서브타이틀 / 알림 & 새 그룹 버튼 -->
+    <TextView
+        android:id="@+id/titleText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="내 그룹"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/actions"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/actions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageButton
+            android:id="@+id/btnBell"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_bell_24" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnNewGroup"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="새 그룹"
+            android:textAllCaps="false"
+            android:textSize="13sp"
+            android:textColor="#161718"
+            android:backgroundTint="@android:color/transparent"
+            app:strokeColor="#E9E9EF"
+            app:strokeWidth="1dp"
+            app:cornerRadius="999dp"
+            app:icon="@drawable/ic_add_24"
+            app:iconGravity="textStart"
+            app:iconPadding="6dp"
+            app:iconTint="#161718"/>
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/subTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="참여중인 그룹 3개"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/titleText"
+        app:layout_constraintBottom_toTopOf="@id/groupRecyclerView"
+        android:layout_marginTop="6dp"/>
+
+    <!-- 리스트 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/groupRecyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:paddingTop="12dp"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+        app:layout_constraintTop_toBottomOf="@id/subTitle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:listitem="@layout/item_group_card"
+        tools:itemCount="3"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

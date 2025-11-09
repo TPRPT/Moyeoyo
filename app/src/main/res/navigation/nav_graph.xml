@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/mainFragment">
+
+    <!-- ✅ 메인 화면 -->
+    <fragment
+        android:id="@+id/mainFragment"
+        android:name="com.moyeoyo.app.ui.main.MainFragment"
+        android:label="MainFragment"
+        tools:layout="@layout/fragment_main">
+        <action
+            android:id="@+id/action_mainFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+
+    <!-- ✅ 그룹 상세 화면 -->
+    <fragment
+        android:id="@+id/groupDetailFragment"
+        android:name="com.moyeoyo.app.ui.group.GroupDetailFragment"
+        android:label="그룹 상세"
+        tools:layout="@layout/fragment_group_detail">
+
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+        <argument
+            android:name="memberCount"
+            app:argType="integer" />
+
+        <!-- ✅ 위치 입력 화면으로 이동하는 액션 -->
+        <action
+            android:id="@+id/action_groupDetailFragment_to_locationInputFragment"
+            app:destination="@id/locationInputFragment" />
+
+        <action
+            android:id="@+id/action_groupDetailFragment_to_timeVoteFragment"
+            app:destination="@id/timeVoteFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/locationInputFragment"
+        android:name="com.moyeoyo.app.ui.group.LocationInputFragment"
+        android:label="위치 입력"
+        tools:layout="@layout/fragment_location_input">
+        <action
+            android:id="@+id/action_locationInputFragment_to_midpointFragment"
+            app:destination="@id/midpointFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/midpointFragment"
+        android:name="com.moyeoyo.app.ui.group.MidpointFragment"
+        android:label="중간 지점 계산"
+        tools:layout="@layout/fragment_midpoint">
+        <argument
+            android:name="selectedLocation"
+            app:argType="com.moyeoyo.app.model.SelectedLocation"
+            app:nullable="true" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/recommendedPlaceFragment"
+        android:name="com.moyeoyo.app.ui.group.RecommendedPlaceFragment"
+        android:label="주변 장소 추천"
+        tools:layout="@layout/fragment_recommended_place" />
+
+    <action
+        android:id="@+id/action_midpointFragment_to_recommendedPlaceFragment"
+        app:destination="@id/recommendedPlaceFragment" />
+
+    <fragment
+        android:id="@+id/timeVoteFragment"
+        android:name="com.moyeoyo.app.ui.group.TimeVoteFragment"
+        android:label="TimeVoteFragment"
+        tools:layout="@layout/fragment_time_vote" />
+
+
+
+</navigation>

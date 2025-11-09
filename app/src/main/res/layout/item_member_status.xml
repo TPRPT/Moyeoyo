@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="12dp"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/bg_card">
+
+    <!-- ✅ 왼쪽 원형 이니셜 -->
+    <TextView
+        android:id="@+id/tvMemberInitial"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:gravity="center"
+        android:text="김"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:background="@drawable/bg_circle_gray" />
+
+    <!-- ✅ 가운데: 이름 + 지역 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="12dp">
+
+        <TextView
+            android:id="@+id/tvMemberName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="김철수"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:textSize="14sp"/>
+
+        <TextView
+            android:id="@+id/tvMemberRegion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="강남구"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:layout_marginTop="2dp"/>
+    </LinearLayout>
+
+    <!-- ✅ 오른쪽: 상태 뱃지 -->
+    <TextView
+        android:id="@+id/tvVoteStatusBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="투표 완료"
+        android:textColor="@color/badge_green_text"
+        android:textSize="12sp"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        android:background="@drawable/bg_badge_green"/>
+</LinearLayout>

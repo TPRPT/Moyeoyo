@@ -1,4 +1,4 @@
-package com.moyeoyo.app
+package com.moyeoyo.app.ui
 
 import android.os.Bundle
 import android.util.Log
@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.moyeoyo.app.R
 
 class MainActivity : AppCompatActivity() {
 
@@ -30,7 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // [TODO] 여기에 레이아웃 설정 코드를 추가합니다. (예: setContentView(R.layout.activity_main))
+        setContentView(R.layout.activity_main)
 
         // 1. 에뮬레이터 설정 및 초기화 (반드시 가장 먼저 실행)
         initializeEmulators()

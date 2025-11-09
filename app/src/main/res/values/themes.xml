@@ -6,4 +6,7 @@
     </style>
 
     <style name="Theme.Moyeoyo" parent="Base.Theme.Moyeoyo" />
+
+    <string name="subtitle_groups_count">참여중인 그룹 %1$d개</string>
+    <string name="subtitle_groups_count_placeholder">참여중인 그룹 0개</string>
 </resources>

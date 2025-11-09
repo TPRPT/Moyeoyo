@@ -1,5 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Base -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#161718</color>
+    <color name="text_secondary">#6D6E73</color>
+    <color name="divider">#E9E9EF</color>
+    <color name="surface_bg">#F7F7FB</color>
+    <color name="bg_surface">#F9F6FF</color>
+    <color name="light_blue">#F5F5F5</color>
+
+
+    <!-- Brand / Accent -->
+    <color name="brand_blue">#2F6FED</color>
+    <color name="brand_purple">#6B4DE6</color>
+    <color name="brand_purple_dark">#4C2ED9</color>
+
+    <!-- Header gradient (다음 모임 카드 배경) -->
+    <color name="header_start">#3D6AFD</color>
+    <color name="header_end">#5E82FF</color>
+
+    <!-- Badges -->
+    <color name="badge_blue_text">#2F6FED</color>
+    <color name="badge_blue_bg">#E8F0FF</color>
+    <color name="badge_green_text">#0F9D58</color>
+    <color name="badge_green_bg">#E6F4EA</color>
+
+    <!-- Tabs -->
+    <color name="tab_text_default">#9A9BA0</color>
+    <color name="tab_text_selected">#3F3E47</color>
+
+
+    <!-- Card shadow color hint (API<28는 elevation으로 대체) -->
+    <color name="shadow_hint">#14000000</color>
+
+    <color name="vote_done_bg">#E6F4EA</color>
+    <color name="vote_done_text">#0F9D58</color>
+    <color name="brand_green">#0F9D58</color>
+    <color name="badge_gray_text">#6D6E73</color>
+
+    <color name="brand_orange">#E07A27</color>
+    <color name="background_light_orange">#FFF8F2</color>
+    <color name="background_light_blue">#F2F6FF</color>
+
+    <color name="text_primary">#161718</color>
+    <color name="divider_gray">#E9E9EF</color>
+    <color name="light_gray">#E0E0E0</color>
+    <color name="button_gray_inactive">#7C7C85</color>
+    <color name="button_black_active">#1A1A1F</color>
+
+
+    <color name="gray_600">#757575</color>
+    <color name="gray_700">#616161</color>
+    <color name="green_700">#2E7D32</color>
+    <color name="light_green">#E6F4EA</color>
+    <color name="light_gray_bg">#F5F5F5</color>
+
+
+
 </resources>
