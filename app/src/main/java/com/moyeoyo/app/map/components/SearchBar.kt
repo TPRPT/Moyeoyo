@@ -1,14 +1,13 @@
-package com.example.moyeoyo.ui.map.components
+package com.moyeoyo.app.map.components
 
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
-import android.view.View
 import android.widget.FrameLayout
 import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.moyeoyo.data.model.PlaceSuggestion
-import com.example.moyeoyo.databinding.ViewSearchBarBinding
+import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.databinding.ViewSearchBarBinding
 
 /**
  * 주소 검색 UI용 커스텀 뷰 (컴파운드 뷰)
@@ -48,14 +47,14 @@ class SearchBar @JvmOverloads constructor(
         binding.rvSuggestions.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = suggestionAdapter
-            visibility = View.GONE // 초기에는 숨김
+            visibility = GONE // 초기에는 숨김
         }
     }
 
     /** ViewModel에서 내려주는 자동완성/추천 리스트 반영 */
     fun submitSuggestions(list: List<PlaceSuggestion>) {
         suggestionAdapter.submitList(list)
-        binding.rvSuggestions.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+        binding.rvSuggestions.visibility = if (list.isEmpty()) GONE else VISIBLE
     }
 
     /** 선택된 후보 라벨 텍스트 반영 */

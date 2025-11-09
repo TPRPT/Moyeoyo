@@ -1,4 +1,4 @@
-package com.example.moyeoyo.data.model
+package com.moyeoyo.app.data.model
 
 // 자동완성/추천 항목 모델
 // - label: UI에 보여질 대표 텍스트(장소명)

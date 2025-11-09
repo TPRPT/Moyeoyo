@@ -1,4 +1,4 @@
-package com.example.moyeoyo.data.model
+package com.moyeoyo.app.data.model
 
 import com.google.firebase.Timestamp
 

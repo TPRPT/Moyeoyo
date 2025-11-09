@@ -1,12 +1,16 @@
-package com.example.moyeoyo.ui.map
+package com.moyeoyo.app.map
 
 // MapState: 위치 입력/중간지점 화면에서 사용하는 UI 상태 집합
 // - 현재 위치, 자동완성 결과, 선택된 위치
 // - 그룹 멤버 목록, 가중중심 결과, Distance Matrix 결과
 
-import com.example.moyeoyo.data.model.*
+import com.moyeoyo.app.data.model.DistanceResult
+import com.moyeoyo.app.data.model.InputLocation
+import com.moyeoyo.app.data.model.LatLngData
+import com.moyeoyo.app.data.model.PlaceSuggestion
 
 data class MapState(
+    val groupId: String? = null,
     // 위치 입력 화면
     val myLocation: LatLngData? = null,           // 현재 위치(GPS)
     val savedHome: LatLngData? = null,            // 자주 사용하는 위치 - 집

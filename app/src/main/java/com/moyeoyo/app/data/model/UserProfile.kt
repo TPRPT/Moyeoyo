@@ -1,4 +1,4 @@
-package com.example.moyeoyo.data.model
+package com.moyeoyo.app.data.model
 
 // users/{uid} 문서 모델
 data class UserProfile(

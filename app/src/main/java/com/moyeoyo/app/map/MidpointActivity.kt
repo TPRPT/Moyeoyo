@@ -1,4 +1,4 @@
-package com.example.moyeoyo.ui.map
+package com.moyeoyo.app.map
 
 // MidpointActivity: 그룹 멤버의 위치로 중간지점을 계산하고 지도에 표시
 // - ViewModel을 통해 가중중심 계산 및 Distance Matrix 결과 표시
@@ -6,15 +6,14 @@ package com.example.moyeoyo.ui.map
 
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.moyeoyo.R
-import com.example.moyeoyo.data.model.InputLocation
-import com.example.moyeoyo.data.model.LatLngData
-import com.example.moyeoyo.data.model.TransportMode
-import com.example.moyeoyo.data.repository.MapRepository
-import com.example.moyeoyo.databinding.ActivityMidpointBinding
+import com.moyeoyo.app.R
+import com.moyeoyo.app.data.model.InputLocation
+import com.moyeoyo.app.data.model.LatLngData
+import com.moyeoyo.app.databinding.ActivityMidpointBinding
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -22,11 +21,13 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var binding: ActivityMidpointBinding
-    private lateinit var viewModel: MapViewModel
+    private val viewModel: MapViewModel by viewModels()
     private lateinit var map: GoogleMap
     private lateinit var adapter: MemberDistanceAdapter
 
@@ -34,16 +35,6 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
         binding = ActivityMidpointBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // VM
-        // - Repository 주입 및 ViewModel 생성
-        val repo = MapRepository(this)
-        viewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return MapViewModel(repo) as T
-            }
-        })[MapViewModel::class.java]
 
         // 지도
         // - GoogleMap 초기화 콜백 등록
@@ -59,7 +50,12 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         // 그룹 ID로 Firestore에서 멤버 입력 위치 로드
         val groupId = intent.getStringExtra("groupId")
         if (groupId != null) {
+            viewModel.setGroupId(groupId)
             viewModel.loadGroupMembers(groupId)
+        } else {
+            Toast.makeText(this, "그룹 정보가 없습니다.", Toast.LENGTH_SHORT).show()
+            finish()
+            return
         }
 
         observe()
@@ -74,8 +70,6 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
             s.weightedCenter?.let { center ->
                 binding.txtCenterCoord.text = "위도: %.6f, 경도: %.6f".format(center.lat, center.lng)
                 if (::map.isInitialized) showMarkersOnMap(s.members, center)
-                // Distance Matrix (중간지점 기준 멤버별 시간/거리)
-                viewModel.computeDistances(s.members, center)
             }
 
             // 멤버별 소요시간 표시
