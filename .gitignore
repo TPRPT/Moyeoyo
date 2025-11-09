@@ -64,4 +64,5 @@ captures/
 # Firebase CLI 및 Functions 관련
 .firebase/
 .firebaserc
-node_modules/
+node_modules/local.properties
+local.properties
