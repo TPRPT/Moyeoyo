@@ -1,10 +1,11 @@
-import java.util.Properties
+//import java.util.Properties
+// val properties = Properties()
+//val localPropertiesFile = rootProject.file("local.properties")
+//if (localPropertiesFile.exists()) {
+//    localPropertiesFile.inputStream().use { properties.load(it) }
+//}
 
-val properties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.inputStream().use { properties.load(it) }
-}
+val apiKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_FALLBACK_KEY_IF_ENV_FAILS"
 
 plugins {
     alias(libs.plugins.android.application)
@@ -27,7 +28,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = properties.getProperty("GOOGLE_MAPS_API_KEY") ?: "YOUR_FALLBACK_KEY_IF_LOCAL_FAILS"
+        // manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = properties.getProperty("GOOGLE_MAPS_API_KEY") ?: "YOUR_FALLBACK_KEY_IF_LOCAL_FAILS"
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = apiKey
     }
 
     buildFeatures {
