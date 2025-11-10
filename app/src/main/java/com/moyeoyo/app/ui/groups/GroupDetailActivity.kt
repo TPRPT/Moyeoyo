@@ -8,7 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.firebase.auth.FirebaseAuth // ⭐ Auth import
+import com.google.firebase.auth.FirebaseAuth // Auth import
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
 import com.moyeoyo.app.MainActivity
@@ -18,7 +18,7 @@ class GroupDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityGroupDetailBinding
     private val groupRepository = GroupRepository()
-    private val auth = FirebaseAuth.getInstance() // ⭐ Auth 인스턴스 추가
+    private val auth = FirebaseAuth.getInstance() // Auth 인스턴스 추가
 
     private lateinit var groupId: String
     private lateinit var groupName: String
@@ -36,7 +36,7 @@ class GroupDetailActivity : AppCompatActivity() {
         // UI에 정보 표시 (로딩 상태)
         binding.groupNameText.text = groupName
 
-        // ⭐ 데이터 로딩 시작 (onResume에서도 호출됨)
+        // 데이터 로딩 시작 (onResume에서도 호출됨)
         loadGroupData()
 
         // 1. 친구 초대 버튼 리스너
@@ -50,7 +50,7 @@ class GroupDetailActivity : AppCompatActivity() {
         }
     }
 
-    // ⭐ Activity가 재개될 때마다 목록을 새로고침 (데이터 동기화)
+    // Activity가 재개될 때마다 목록을 새로고침 (데이터 동기화)
     override fun onResume() {
         super.onResume()
         loadGroupData()
@@ -70,7 +70,7 @@ class GroupDetailActivity : AppCompatActivity() {
                 val memberCount = group.memberUids.size
                 binding.memberCountText.text = "$memberCount 명"
 
-                // 2. ⭐ 삭제 버튼 활성화/비활성화 (권한 확인)
+                // 2. 삭제 버튼 활성화/비활성화 (권한 확인)
                 val isHost = group.hostUid == auth.currentUser?.uid
                 binding.btnDeleteGroup.isEnabled = isHost
 

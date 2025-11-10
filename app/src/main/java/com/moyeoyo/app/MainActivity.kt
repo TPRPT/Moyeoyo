@@ -6,11 +6,11 @@ import android.app.ProgressDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import android.view.LayoutInflater // ⭐ 추가
-import android.view.View // ⭐ 추가
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.Button
 import android.widget.ImageView
-import android.widget.LinearLayout // ⭐ 추가
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -19,7 +19,7 @@ import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.moyeoyo.app.data.model.Group // Group 모델 import 필요
+import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.auth.LoginActivity
 import com.moyeoyo.app.ui.groups.CreateGroupActivity
@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
         // 🔹 앱이 처음 시작될 때 딥링크 확인
         handleIntent(intent)
 
-        // 🔹 사용자 정보 로딩 로직
+        // 🔹 사용자 정보 로딩 로직 (생략된 부분은 기존 코드를 사용하세요)
         textEmail.text = user.email ?: "이메일 없음"
 
         progressDialog.show()
@@ -151,7 +151,8 @@ class MainActivity : AppCompatActivity() {
 
         if (intent.action == Intent.ACTION_VIEW) {
             val uri = intent.data
-            // ⭐ 딥링크 처리 로직: moyeoyo-57ae0.web.app 도메인으로 변경 예정
+            // ⭐ moyeoyo.app 대신 실제 호스팅 도메인(moyeoyo-57ae0.web.app)을 Manifest에 설정해야 합니다.
+            // 여기서는 임시로 moyeoyo.app을 유지하되, Manifest에 실제 도메인을 등록해야 합니다.
             if (uri != null && uri.host == "moyeoyo.app" && uri.path?.startsWith("/join") == true) {
 
                 val groupId = uri.getQueryParameter("groupId")
@@ -227,10 +228,10 @@ class MainActivity : AppCompatActivity() {
             groupNameText.text = group.groupName
             memberCountText.text = "${group.memberUids.size}명 참여 중"
 
-            // 그룹 클릭 시 상세 화면으로 이동 (그룹 ID 전달)
+            // ⭐⭐ 수정: 그룹 클릭 시 Group ID (group.id)를 전달하도록 수정 ⭐⭐
             groupView.setOnClickListener {
                 val intent = Intent(this, GroupDetailActivity::class.java).apply {
-                    putExtra("GROUP_ID", group.groupName) // 실제로는 group.id 사용 권장
+                    putExtra("GROUP_ID", group.id) // ⭐ 수정: Group ID (Document ID) 전달
                     putExtra("GROUP_NAME", group.groupName)
                 }
                 startActivity(intent)
