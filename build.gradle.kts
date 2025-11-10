@@ -6,3 +6,10 @@ plugins {
     id("androidx.navigation.safeargs.kotlin") version "2.8.3" apply false
 }
 
+buildscript {
+    dependencies {
+        classpath("com.google.gms:google-services:4.4.2")
+    }
+}
+
+

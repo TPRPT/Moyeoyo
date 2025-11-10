@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/white">
 
-    <!-- ✅ 스크롤 가능한 메인 콘텐츠 -->
+    <!-- 스크롤 가능한 메인 콘텐츠 -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- 🔙 뒤로가기 버튼 -->
+            <!-- 뒤로가기 버튼 -->
             <ImageView
                 android:id="@+id/btn_back"
                 android:layout_width="24dp"
@@ -29,7 +29,7 @@
                 android:contentDescription="@string/back"
                 app:tint="@color/black" />
 
-            <!-- 🏷 제목 -->
+            <!-- 제목 -->
             <TextView
                 android:id="@+id/tvTitle"
                 android:layout_width="wrap_content"
@@ -49,14 +49,14 @@
                 android:layout_marginTop="6dp"
                 android:layout_marginBottom="12dp" />
 
-            <!-- 🔹 구분선 -->
+            <!-- 구분선 -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="@color/light_gray"
                 android:layout_marginBottom="16dp" />
 
-            <!-- 📍 현재 위치 사용 버튼 -->
+            <!-- 현재 위치 사용 버튼 -->
             <LinearLayout
                 android:id="@+id/btn_use_current_location"
                 android:layout_width="match_parent"
@@ -85,7 +85,7 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- 🏠 자주 사용하는 위치 -->
+            <!-- 자주 사용하는 위치 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -96,11 +96,11 @@
                 android:layout_marginTop="28dp"
                 android:layout_marginBottom="10dp" />
 
-            <!-- ✅ 집 / 회사 영역 (RelativeLayout 구조) -->
+            <!-- 집 / 회사 영역 (RelativeLayout 구조) -->
             <include layout="@layout/item_location_home"/>
             <include layout="@layout/item_location_work"/>
 
-            <!-- 🧭 주소 검색 -->
+            <!-- 주소 검색 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -111,7 +111,7 @@
                 android:layout_marginTop="28dp"
                 android:layout_marginBottom="10dp" />
 
-            <!-- ✅ 돋보기 포함 검색창 -->
+            <!-- 돋보기 포함 검색창 -->
             <LinearLayout
                 android:id="@+id/layoutSearchBar"
                 android:layout_width="match_parent"
@@ -139,7 +139,7 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- ✅ 선택된 위치 박스 (기본적으로 숨김) -->
+            <!-- 선택된 위치 박스 (기본적으로 숨김) -->
             <LinearLayout
                 android:id="@+id/layout_selected_location"
                 android:layout_width="match_parent"
@@ -196,7 +196,7 @@
             </LinearLayout>
 
 
-            <!-- 💡 안내문 -->
+            <!-- 안내문 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -209,7 +209,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ✅ 하단 고정 버튼 영역 -->
+    <!-- 하단 고정 버튼 영역 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

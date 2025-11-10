@@ -23,7 +23,7 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <!-- 🔙 뒤로가기(컨테이너, TextView 아님) -->
+            <!-- 뒤로가기(컨테이너, TextView 아님) -->
             <LinearLayout
                 android:id="@+id/btnBack"
                 android:layout_width="wrap_content"
@@ -66,7 +66,7 @@
                 android:textColor="@color/gray_600"
                 android:layout_marginBottom="20dp"/>
 
-            <!-- 🟥 계산된 중간 지점 카드 -->
+            <!-- 계산된 중간 지점 카드 -->
             <LinearLayout
                 android:id="@+id/cardCalculatedLocation"
                 android:layout_width="match_parent"
@@ -114,7 +114,7 @@
                         app:tint="@color/white"
                         android:layout_marginEnd="6dp"/>
 
-                    <!-- ✅ TextView에만 아이디 부여 -->
+                    <!-- TextView에만 아이디 부여 -->
                     <TextView
                         android:id="@+id/tvMidpointAddress"
                         android:layout_width="wrap_content"
@@ -141,7 +141,7 @@
                         android:textColor="@color/white"
                         android:layout_marginBottom="6dp"/>
 
-                    <!-- ✅ TextView에만 아이디 부여 -->
+                    <!-- TextView에만 아이디 부여 -->
                     <TextView
                         android:id="@+id/tvMidpointCoords"
                         android:layout_width="wrap_content"
@@ -152,7 +152,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- 🟩 가까운 지하철역 카드 -->
+            <!-- 가까운 지하철역 카드 -->
             <LinearLayout
                 android:id="@+id/cardNearestStation"
                 android:layout_width="match_parent"
@@ -264,7 +264,7 @@
                     android:textColor="@color/black"/>
             </LinearLayout>
 
-            <!-- 🩵 평균 이동 거리 카드 -->
+            <!-- 평균 이동 거리 카드 -->
             <LinearLayout
                 android:id="@+id/cardAverage"
                 android:orientation="horizontal"
@@ -275,7 +275,7 @@
                 android:background="@drawable/bg_light_blue_outline_button"
                 android:layout_marginTop="12dp">
 
-                <!-- 🔵 파란색 체크 아이콘 -->
+                <!-- 파란색 체크 아이콘 -->
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
@@ -310,7 +310,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ⚪ 회색 구분선 -->
+    <!-- 회색 구분선 -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"

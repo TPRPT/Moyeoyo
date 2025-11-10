@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     id("kotlin-parcelize")
     id("androidx.navigation.safeargs.kotlin")
-    //id("com.google.gms.google-services")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -66,6 +66,8 @@ dependencies {
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("com.google.firebase:firebase-dynamic-links:22.1.0")
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-firestore")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
@@ -78,5 +80,7 @@ dependencies {
     implementation("com.prolificinteractive:material-calendarview:1.4.3") {
         exclude(group = "com.android.support") }
     }
+
+
 
 

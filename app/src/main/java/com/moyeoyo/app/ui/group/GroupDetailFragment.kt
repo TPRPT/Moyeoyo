@@ -118,6 +118,46 @@ class GroupDetailFragment : Fragment() {
             navController?.navigate(R.id.action_groupDetailFragment_to_timeVoteFragment)
         }
 
+
+        // -----------------------------
+// ✅ Firestore에서 시간 투표 현황 불러오기 (실시간 반영)
+// -----------------------------
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        val groupId = "test-group" // Firestore Emulator에 만든 문서 ID
+
+        db.collection("groups")
+            .document(groupId)
+            .collection("timeVotes")
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    android.util.Log.e("Firestore", "투표 현황 리스너 오류", e)
+                    return@addSnapshotListener
+                }
+
+                // 현재 투표된 사용자 수
+                val votedCount = snapshot?.size() ?: 0
+
+                // 총 멤버 수 (이미 위에서 memberCount로 받아왔음)
+                val totalMembers = memberCount
+
+                // UI 업데이트
+                val tvTimeVoteCount = view.findViewById<TextView>(R.id.tvTimeVoteCount)
+                val timeProgress = view.findViewById<android.widget.ProgressBar>(R.id.timeVoteProgress)
+
+                tvTimeVoteCount.text = "${votedCount}/${totalMembers}명 참여"
+                if (totalMembers > 0) {
+                    timeProgress.progress = (votedCount * 100 / totalMembers)
+                } else {
+                    timeProgress.progress = 0
+                }
+
+                // 디버깅용 로그
+                android.util.Log.d("Firestore", "현재 투표자 수: $votedCount")
+            }
+
+
+
+
         return view
     }
 }
