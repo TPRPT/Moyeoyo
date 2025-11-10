@@ -90,5 +90,9 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
+
+
+        setSupportActionBar(findViewById(R.id.toolbar))
+
     }
 }
