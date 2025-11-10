@@ -8,6 +8,7 @@ import com.moyeoyo.app.data.model.DistanceResult
 import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.data.model.NearbyPlace
 
 data class MapState(
     val groupId: String? = null,
@@ -25,7 +26,11 @@ data class MapState(
     val nearestStationText: String? = null,                // 가까운 지하철 텍스트
     val distanceByMember: List<DistanceResult> = emptyList(), // 멤버별 소요시간
 
+    // 주변 추천 장소
+    val nearbyPlaces: List<NearbyPlace> = emptyList(),
+
     // 상태 공통
     val isLoading: Boolean = false,
+    val isNearbyLoading: Boolean = false,
     val error: String? = null
 )

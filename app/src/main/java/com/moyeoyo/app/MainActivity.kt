@@ -4,51 +4,147 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import com.moyeoyo.app.map.MapViewModel // 경로 수정됨
+import androidx.core.view.isVisible
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.OnMapReadyCallback
+import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
+import com.moyeoyo.app.data.model.InputLocation
+import com.moyeoyo.app.data.model.LatLngData
+import com.moyeoyo.app.databinding.ActivityMainBinding
+import com.moyeoyo.app.map.MapState
+import com.moyeoyo.app.map.MapViewModel
+import com.moyeoyo.app.ui.NearbyPlacesAdapter
 import dagger.hilt.android.AndroidEntryPoint
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
 
 @AndroidEntryPoint
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    // Hilt가 ViewModel을 만들도록 변수 선언 추가됨
     private val mapViewModel: MapViewModel by viewModels()
-
-    /**
-     * [환경 설정] Firebase 에뮬레이터 연결 설정
-     * - 앱이 실제 라이브 서버 대신 로컬 에뮬레이터에 연결되도록 합니다.
-     * - 이 코드는 개발 단계에서만 사용되며, 출시(Release) 시에는 반드시 제거되어야 합니다.
-     */
-    private fun initializeEmulators() {
-        try {
-            // Firestore, Auth, Storage 모듈을 인스턴스화하기 전에 useEmulator를 호출
-            FirebaseFirestore.getInstance().useEmulator("10.0.2.2", 8080)
-            FirebaseAuth.getInstance().useEmulator("10.0.2.2", 9099)
-            FirebaseStorage.getInstance().useEmulator("10.0.2.2", 9199)
-
-            Log.d("INIT", "✅ Local Firebase Emulators에 연결 설정 완료.")
-        } catch (e: Exception) {
-            // 에뮬레이터 서버가 켜져 있지 않을 경우 발생하는 오류는 경고만 남기고 진행
-            Log.e("INIT", "❌ Emulator 연결 실패 (서버가 켜져 있는지 확인): ${e.message}")
-        }
-    }
+    private lateinit var binding: ActivityMainBinding
+    private val nearbyAdapter = NearbyPlacesAdapter()
+    private var googleMap: GoogleMap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. 에뮬레이터 설정 및 초기화 (반드시 가장 먼저 실행)
-        initializeEmulators()
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        // 2. 테스트 함수 호출 (올바른 방식으로 수정됨)
-        mapViewModel.onTestButtonClick()
+        setupMap()
+        setupViews()
+        observeState()
+    }
 
-        // [TODO] 여기에 레이아웃 설정 코드를 추가합니다. (예: setContentView(R.layout.activity_main))
-        // 예: setContentView(R.layout.activity_main)
+    private fun setupMap() {
+        val mapFragment = supportFragmentManager.findFragmentById(R.id.mapContainer) as? SupportMapFragment
+            ?: SupportMapFragment.newInstance().also { fragment ->
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.mapContainer, fragment)
+                    .commitNow()
+            }
+        mapFragment.getMapAsync(this)
+    }
 
-        // 3. [개발 시작] 로그인 화면으로 이동하는 로직을 여기에 추가합니다.
-        // 이 부분이 LoginActivity를 띄우는 코드로 대체됩니다.
-        // 예: startActivity(Intent(this, LoginActivity::class.java))
+    private fun setupViews() = with(binding) {
+        recyclerNearbyPlaces.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = nearbyAdapter
+        }
+
+        testButton.setOnClickListener {
+            mapViewModel.loadGroupMembers("test-group-123")
+        }
+
+        buttonLoadNearby.setOnClickListener {
+            mapViewModel.loadNearbyPlaces()
+        }
+    }
+
+    private fun observeState() {
+        mapViewModel.state.observe(this) { state ->
+            renderState(state)
+        }
+    }
+
+    private fun renderState(state: MapState) = with(binding) {
+        progressBar.isVisible = state.isLoading
+
+        val centerText = state.weightedCenter?.let { center ->
+            getString(R.string.weighted_center_format, center.lat, center.lng)
+        } ?: getString(R.string.weighted_center_placeholder)
+        textWeightedCenter.text = centerText
+
+        buttonLoadNearby.isEnabled = state.weightedCenter != null && !state.isNearbyLoading
+        progressNearby.isVisible = state.isNearbyLoading
+
+        nearbyAdapter.submitList(state.nearbyPlaces)
+
+        val membersText = if (state.members.isEmpty()) {
+            getString(R.string.members_placeholder)
+        } else {
+            state.members.joinToString(separator = "\n") { member ->
+                formatMemberLine(member)
+            }
+        }
+        textMembers.text = membersText
+
+        state.error?.let { Log.e("MainActivity", "상태 에러: $it") }
+
+        updateMapMarkers(state.members, state.weightedCenter)
+    }
+
+    private fun formatMemberLine(member: InputLocation): String =
+        getString(
+            R.string.member_line_format,
+            member.uid,
+            member.latLng.lat,
+            member.latLng.lng,
+            member.label ?: "-"
+        )
+
+    private fun updateMapMarkers(members: List<InputLocation>, center: LatLngData?) {
+        val map = googleMap ?: return
+        map.clear()
+
+        members.forEach { member ->
+            val latLng = LatLng(member.latLng.lat, member.latLng.lng)
+            map.addMarker(
+                MarkerOptions()
+                    .position(latLng)
+                    .title(member.label ?: member.uid)
+            )
+        }
+
+        center?.let {
+            val centerLatLng = LatLng(it.lat, it.lng)
+            map.addMarker(
+                MarkerOptions()
+                    .position(centerLatLng)
+                    .title(getString(R.string.center_marker_title))
+            )
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(centerLatLng, 12f))
+        } ?: run {
+            if (members.isNotEmpty()) {
+                val first = members.first().latLng
+                map.moveCamera(
+                    CameraUpdateFactory.newLatLngZoom(
+                        LatLng(first.lat, first.lng),
+                        11f
+                    )
+                )
+            }
+        }
+    }
+
+    override fun onMapReady(map: GoogleMap) {
+        googleMap = map.apply {
+            uiSettings.isZoomControlsEnabled = true
+            uiSettings.isMapToolbarEnabled = false
+        }
     }
 }
+

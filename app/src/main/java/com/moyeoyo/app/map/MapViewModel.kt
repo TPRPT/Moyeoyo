@@ -118,12 +118,40 @@ class MapViewModel @Inject constructor(
         setGroupId(groupId)
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                update { it.copy(isLoading = true) }
+                update { it.copy(isLoading = true, error = null, nearbyPlaces = emptyList()) }
                 val members = repo.getInputLocations(groupId)
+                Log.d("MapViewModel", "Firestore에서 가져온 멤버 수: ${members.size}명")
+                members.forEach { member ->
+                    Log.d(
+                        "MapViewModel",
+                        "멤버 정보: uid=${member.uid}, lat=${member.latLng.lat}, lng=${member.latLng.lng}, label=${member.label}"
+                    )
+                }
                 val center = repo.computeWeightedCenter(members)
+                if (center != null) {
+                    Log.d(
+                        "MapViewModel",
+                        "✅ 중간 지점 계산 성공: lat=${center.lat}, lng=${center.lng}"
+                    )
+                } else {
+                    Log.e("MapViewModel", "❌ 중간 지점 계산 실패 - 결과가 null입니다.")
+                }
                 update { it.copy(members = members, weightedCenter = center, isLoading = false) }
-                if (center != null) computeDistances(members, center)
+                if (center != null) {
+                    computeDistances(members, center)
+                    runCatching {
+                        repo.saveComputedCenter(groupId, center)
+                        Log.d(
+                            "MapViewModel",
+                            "중간 지점 Firestore 저장 완료: group=$groupId, lat=${center.lat}, lng=${center.lng}"
+                        )
+                    }.onFailure { saveError ->
+                        Log.e("MapViewModel", "중간 지점 저장 실패: ${saveError.message}", saveError)
+                        update { it.copy(error = saveError.message) }
+                    }
+                }
             } catch (e: Exception) {
+                Log.e("MapViewModel", "Firestore 로드 중 예외 발생: ${e.message}", e)
                 update { it.copy(error = e.message, isLoading = false) }
             }
         }
@@ -139,6 +167,24 @@ class MapViewModel @Inject constructor(
             } catch (e: Exception) {
                 update { it.copy(error = e.message) }
             }
+        }
+    }
+
+    fun loadNearbyPlaces(radiusMeters: Int = 1500) {
+        val center = _state.value?.weightedCenter ?: run {
+            update { it.copy(error = "중간 지점이 계산된 후에 주변 장소를 불러올 수 있습니다.") }
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            update { it.copy(isNearbyLoading = true, error = null) }
+            runCatching { repo.fetchNearbyPlaces(center, radiusMeters) }
+                .onSuccess { places ->
+                    update { it.copy(nearbyPlaces = places, isNearbyLoading = false) }
+                }
+                .onFailure { e ->
+                    Log.e("MapViewModel", "주변 장소 로드 실패: ${e.message}", e)
+                    update { it.copy(error = e.message, isNearbyLoading = false) }
+                }
         }
     }
 

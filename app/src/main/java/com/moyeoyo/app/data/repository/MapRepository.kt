@@ -24,12 +24,14 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.moyeoyo.app.data.model.DistanceResult
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.PlaceCandidate
 import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.TimeCandidate
 import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.data.model.UserDefaultLocation
@@ -105,7 +107,7 @@ class MapRepository @Inject constructor(
             .document(groupId)
             .collection("inputLocations")
             .document(uid)
-            .set(location.toFirestoreMap())
+            .set(location.copy(uid = uid).toFirestoreMap())
             .await()
     }
 
@@ -315,6 +317,88 @@ class MapRepository @Inject constructor(
                 }
             }
         })
+    }
+
+    suspend fun fetchNearbyPlaces(
+        center: LatLngData,
+        radiusMeters: Int = 1500,
+        type: String = "point_of_interest"
+    ): List<NearbyPlace> = suspendCancellableCoroutine { cont ->
+        val key = context.getString(R.string.maps_web_key)
+        val url =
+            "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${center.lat},${center.lng}&radius=$radiusMeters&type=$type&language=ko&key=$key"
+
+        val req = Request.Builder().url(url).build()
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                cont.resumeWithException(e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!it.isSuccessful) {
+                        cont.resumeWithException(
+                            IllegalStateException("NearbyPlaces HTTP ${it.code}")
+                        )
+                        return
+                    }
+                    val body = it.body?.string().orEmpty()
+                    val json = JSONObject(body)
+                    val status = json.optString("status")
+                    if (status != "OK" && status != "ZERO_RESULTS") {
+                        val errorMessage = json.optString("error_message", status)
+                        cont.resumeWithException(IllegalStateException(errorMessage))
+                        return
+                    }
+                    val results = json.optJSONArray("results")
+                    if (results == null || results.length() == 0) {
+                        cont.resume(emptyList())
+                        return
+                    }
+                    val places = mutableListOf<NearbyPlace>()
+                    for (i in 0 until results.length()) {
+                        val obj = results.optJSONObject(i) ?: continue
+                        val name = obj.optString("name").takeIf { it.isNotBlank() } ?: continue
+                        val placeId = obj.optString("place_id").takeIf { it.isNotBlank() } ?: continue
+                        val geometry = obj.optJSONObject("geometry")
+                            ?.optJSONObject("location") ?: continue
+                        val lat = geometry.optDouble("lat")
+                        val lng = geometry.optDouble("lng")
+                        if (lat.isNaN() || lng.isNaN()) continue
+                        val typesJson = obj.optJSONArray("types")
+                        val categories = mutableListOf<String>()
+                        if (typesJson != null) {
+                            for (j in 0 until typesJson.length()) {
+                                typesJson.optString(j)?.let { categories += it }
+                            }
+                        }
+                        val rating = obj.optDouble("rating").takeUnless { it.isNaN() }
+                        val vicinity = obj.optString("vicinity").takeIf { it.isNotBlank() }
+
+                        places += NearbyPlace(
+                            placeId = placeId,
+                            name = name,
+                            address = vicinity,
+                            latLng = LatLngData(lat, lng),
+                            categories = categories,
+                            rating = rating
+                        )
+                    }
+                    cont.resume(places)
+                }
+            }
+        })
+    }
+
+    suspend fun saveComputedCenter(groupId: String, center: LatLngData) {
+        val data = mapOf(
+            "computedCenter" to GeoPoint(center.lat, center.lng),
+            "computedCenterUpdatedAt" to FieldValue.serverTimestamp()
+        )
+        firestore.collection("groups")
+            .document(groupId)
+            .set(data, SetOptions.merge())
+            .await()
     }
 
     // =========================
