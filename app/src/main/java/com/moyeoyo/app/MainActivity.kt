@@ -22,6 +22,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.auth.LoginActivity
+// 💡 [추가] ProfileSetupActivity import
+import com.moyeoyo.app.ui.auth.ProfileSetupActivity
 import com.moyeoyo.app.ui.groups.CreateGroupActivity
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import kotlinx.coroutines.launch
@@ -42,6 +44,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLogout: Button
     private lateinit var btnCreateGroup: Button
 
+    // 💡 [추가] 프로필 카드 영역 View 변수 선언
+    private lateinit var profileCardArea: LinearLayout
+
     // 그룹 목록 관련 View
     private lateinit var groupListContainer: LinearLayout
     private lateinit var textNoGroups: TextView
@@ -59,6 +64,11 @@ class MainActivity : AppCompatActivity() {
         textEmail = findViewById(R.id.text_email)
         btnLogout = findViewById(R.id.btn_logout)
         btnCreateGroup = findViewById(R.id.btn_create_group)
+
+        // 💡 [추가] 프로필 카드 영역 연결 (activity_main.xml의 ID를 사용해야 함)
+        // XML에 profile_card_area ID를 추가했다고 가정합니다.
+        profileCardArea = findViewById(R.id.profile_card)
+
 
         // 그룹 목록 View 초기화
         groupListContainer = findViewById(R.id.group_list_container)
@@ -118,6 +128,13 @@ class MainActivity : AppCompatActivity() {
                     Snackbar.LENGTH_LONG).show()
                 Log.e("MAIN", "Firestore error", e)
             }
+
+        // 💡 [추가] 프로필 카드 클릭 리스너 설정
+        profileCardArea.setOnClickListener {
+            val intent = Intent(this, ProfileSetupActivity::class.java)
+            startActivity(intent)
+        }
+
 
         // 🔹 버튼 리스너 설정
         btnLogout.setOnClickListener {

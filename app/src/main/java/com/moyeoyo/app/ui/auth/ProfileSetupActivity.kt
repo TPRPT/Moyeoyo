@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View // 💡 View Import 추가
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -26,7 +27,6 @@ import com.moyeoyo.app.R
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.widget.Autocomplete
-// 💡 모드 Import
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.common.GooglePlayServicesRepairableException
@@ -87,7 +87,7 @@ class ProfileSetupActivity : AppCompatActivity() {
         firestore = FirebaseFirestore.getInstance()
         storage = FirebaseStorage.getInstance()
 
-        // 💡 [수정] Google Places SDK 초기화: Manifest에서 API 키를 직접 읽어와 사용
+        // Google Places SDK 초기화 (Manifest 키 로딩 로직 유지)
         if (!Places.isInitialized()) {
             try {
                 val appInfo = packageManager.getApplicationInfo(packageName, android.content.pm.PackageManager.GET_META_DATA)
@@ -140,10 +140,77 @@ class ProfileSetupActivity : AppCompatActivity() {
 
         // 저장 버튼
         btnSave.setOnClickListener { saveProfile() }
+
+        // 💡 [추가] 기존 유저 데이터 로드 (프로필 수정 모드)
+        loadCurrentUserData()
     }
 
+    /**
+     * 💡 [새 함수] 현재 로그인된 유저의 Firestore 데이터를 불러와 UI에 채웁니다.
+     * (프로필 수정 모드 진입 시)
+     */
+    private fun loadCurrentUserData() {
+        val uid = auth.currentUser?.uid ?: return
+
+        // 로딩 시작
+        progressDialog.setMessage("프로필 정보 불러오는 중...")
+        progressDialog.show()
+
+        firestore.collection("users").document(uid).get()
+            .addOnSuccessListener { doc ->
+                progressDialog.dismiss()
+                if (doc.exists()) {
+                    val nickname = doc.getString("nickname")
+                    val photoUrl = doc.getString("photoUrl")
+
+                    // 주소 데이터 로드
+                    val homeMap = doc.get("homeLocation") as? Map<*, *>
+                    val workMap = doc.get("workLocation") as? Map<*, *>
+
+                    val homeAddress = homeMap?.get("address") as? String
+                    val workAddress = workMap?.get("address") as? String
+
+                    // UI 채우기
+                    if (!nickname.isNullOrEmpty()) {
+                        inputNickname.setText(nickname)
+                    }
+                    if (!homeAddress.isNullOrEmpty()) {
+                        inputHome.setText(homeAddress)
+                        // 💡 주소 맵 데이터도 다시 구성하여 저장할 준비를 합니다. (위경도는 0.0으로 초기화)
+                        homeLocationData = mapOf("name" to (homeMap?.get("name") ?: "집"),
+                            "address" to homeAddress,
+                            "latLng" to (homeMap?.get("latLng") ?: GeoPoint(0.0, 0.0)))
+                    }
+                    if (!workAddress.isNullOrEmpty()) {
+                        inputWork.setText(workAddress)
+                        workLocationData = mapOf("name" to (workMap?.get("name") ?: "직장"),
+                            "address" to workAddress,
+                            "latLng" to (workMap?.get("latLng") ?: GeoPoint(0.0, 0.0)))
+                    }
+
+                    // 사진 로드
+                    if (!photoUrl.isNullOrEmpty()) {
+                        Glide.with(this).load(photoUrl).circleCrop().into(imgProfile)
+                    }
+
+                    // 버튼 텍스트 변경 (선택 사항)
+                    btnSave.text = "프로필 수정 완료"
+
+                } else {
+                    Log.w("PROFILE", "Firestore에 사용자 문서가 존재하지 않음: $uid")
+                    // 신규 유저는 초기 설정 그대로 진행
+                }
+            }
+            .addOnFailureListener { e ->
+                progressDialog.dismiss()
+                Log.e("PROFILE", "프로필 정보 로드 실패", e)
+                Snackbar.make(findViewById(android.R.id.content), "프로필 로드 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+            }
+    }
+
+
     // =========================================================================
-    // Places API 로직
+    // Places API 로직 (유지)
     // =========================================================================
 
     /**
@@ -160,7 +227,6 @@ class ProfileSetupActivity : AppCompatActivity() {
 
             // Intent 빌드
             val intent = Autocomplete.IntentBuilder(
-                // 🌟 [수정] 모드를 FULLSCREEN에서 OVERLAY로 변경 🌟
                 AutocompleteActivityMode.OVERLAY,
                 fields
             )
@@ -172,10 +238,16 @@ class ProfileSetupActivity : AppCompatActivity() {
             } else {
                 workAddressLauncher.launch(intent)
             }
-            // 예외 발생 시 Logcat에 오류를 더 자세히 남깁니다.
+            // 🚨 Google Play Services 관련 예외 처리 강화
+        } catch (e: GooglePlayServicesRepairableException) {
+            Snackbar.make(btnSave, "Google Play 서비스 오류 (수리 필요): ${e.message}", Snackbar.LENGTH_LONG).show()
+            Log.e("PLACE_API", "Repairable Exception", e)
+        } catch (e: GooglePlayServicesNotAvailableException) {
+            Snackbar.make(btnSave, "Google Play 서비스 사용 불가: ${e.message}", Snackbar.LENGTH_LONG).show()
+            Log.e("PLACE_API", "Not Available Exception", e)
         } catch (e: Exception) {
             Snackbar.make(btnSave, "주소 검색 시작 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
-            Log.e("PLACE_API", "Autocomplete intent launch failed. CHECK API KEY/MANIFEST!", e)
+            Log.e("PLACE_API", "Generic Intent Launch Failed. CHECK API KEY/MANIFEST!", e)
         }
     }
 
@@ -187,15 +259,12 @@ class ProfileSetupActivity : AppCompatActivity() {
         isHome: Boolean
     ) {
         if (result.resultCode == Activity.RESULT_OK) {
-            // 결과 성공 처리 (기존과 동일)
+            // 결과 성공 처리
             val place = Autocomplete.getPlaceFromIntent(result.data!!)
 
             val addressText = place.name ?: place.address ?: "선택된 장소"
-            if (isHome) {
-                inputHome.setText(addressText)
-            } else {
-                inputWork.setText(addressText)
-            }
+            val targetInput = if (isHome) inputHome else inputWork // 🎯 단일 변수로 텍스트 설정
+            targetInput.setText(addressText)
 
             val latLng = place.latLng
 
@@ -216,17 +285,21 @@ class ProfileSetupActivity : AppCompatActivity() {
         } else {
             // Autocomplete Activity 내부 오류 상세 진단
             val status = Autocomplete.getStatusFromIntent(result.data!!)
-            Log.e("PLACE", "Autocomplete failed with status: ${status.statusMessage}. Status Code: ${status.statusCode}")
-            Snackbar.make(btnSave, "주소 검색 오류: ${status.statusMessage}", Snackbar.LENGTH_LONG).show()
+            val errorMsg = status.statusMessage ?: "알 수 없는 오류"
+
+            Log.e("PLACE", "Autocomplete failed: $errorMsg. Status Code: ${status.statusCode}")
+            Snackbar.make(findViewById(android.R.id.content), "주소 검색 오류: ${errorMsg} (코드: ${status.statusCode})", Snackbar.LENGTH_LONG).show()
         }
     }
 
 
     // =========================================================================
-    // 프로필 저장 로직 (기존과 동일)
+    // 프로필 저장 로직 (업데이트 로직은 기존과 동일)
     // =========================================================================
 
     private fun saveProfile() {
+        // ... (유효성 검사 로직 유지)
+
         val nickname = inputNickname.text.toString().trim()
 
         if (nickname.isEmpty()) {
@@ -245,6 +318,8 @@ class ProfileSetupActivity : AppCompatActivity() {
         }
 
         progressDialog.show()
+
+        // ... (이미지 업로드 로직 유지)
 
         if (imageUri != null) {
             val ref = storage.reference.child("profile_images/${user.uid}.jpg")
@@ -274,16 +349,26 @@ class ProfileSetupActivity : AppCompatActivity() {
         workLocation: Map<String, Any>?,
         imageUrl: String?
     ) {
+        // ... (createFirestoreLocationMap 함수 유지)
         fun createFirestoreLocationMap(locationMap: Map<String, Any>?): Map<String, Any> {
             if (locationMap == null || !locationMap.containsKey("latLng")) {
                 return mapOf()
             }
 
-            val latLng = locationMap["latLng"] as? LatLng
+            // LatLng 객체가 아닌 GeoPoint 객체인 경우를 대비하여 처리
+            val latLngAny = locationMap["latLng"]
+            val latLng = if (latLngAny is LatLng) latLngAny else null
+
+            // 기존 Firestore에서 GeoPoint로 로드된 경우를 대비하여 GeoPoint 타입도 확인 (선택 사항)
+            val geoPointLoaded = if (latLngAny is GeoPoint) latLngAny else null
 
             val geoPoint = if (latLng != null) {
                 GeoPoint(latLng.latitude, latLng.longitude)
-            } else GeoPoint(0.0, 0.0)
+            } else if (geoPointLoaded != null) {
+                geoPointLoaded
+            } else {
+                GeoPoint(0.0, 0.0)
+            }
 
             return hashMapOf(
                 "name" to (locationMap["name"] as String),
@@ -303,10 +388,11 @@ class ProfileSetupActivity : AppCompatActivity() {
         )
 
         firestore.collection("users").document(uid)
+            // 💡 [중요] 기존 데이터를 유지하면서 업데이트: SetOptions.merge() 사용
             .set(userData, SetOptions.merge())
             .addOnSuccessListener {
                 progressDialog.dismiss()
-                Snackbar.make(btnSave, "프로필이 저장되었습니다 🎉", Snackbar.LENGTH_SHORT).show()
+                Snackbar.make(btnSave, "프로필이 수정되었습니다 🎉", Snackbar.LENGTH_SHORT).show()
 
                 btnSave.postDelayed({
                     startActivity(Intent(this, MainActivity::class.java))
@@ -315,8 +401,8 @@ class ProfileSetupActivity : AppCompatActivity() {
             }
             .addOnFailureListener {
                 progressDialog.dismiss()
-                Snackbar.make(btnSave, "저장 실패: ${it.message}", Snackbar.LENGTH_LONG).show()
-                Log.e("PROFILE", "Firestore 저장 실패", it)
+                Snackbar.make(btnSave, "수정 실패: ${it.message}", Snackbar.LENGTH_LONG).show()
+                Log.e("PROFILE", "Firestore 수정 실패", it)
             }
     }
 }
