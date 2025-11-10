@@ -24,8 +24,8 @@ class ProfileSetupActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore
     private lateinit var storage: FirebaseStorage
-
     private lateinit var progressDialog: ProgressDialog
+
     private var imageUri: Uri? = null
 
     private lateinit var imgProfile: ImageView
@@ -48,14 +48,18 @@ class ProfileSetupActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile_setup)
 
+        // 🔹 Firebase 초기화
         auth = FirebaseAuth.getInstance()
         firestore = FirebaseFirestore.getInstance()
         storage = FirebaseStorage.getInstance()
+
+        // 🔹 프로그레스 다이얼로그
         progressDialog = ProgressDialog(this).apply {
-            setMessage("저장 중...")
+            setMessage("프로필 저장 중...")
             setCancelable(false)
         }
 
+        // 🔹 View 연결
         imgProfile = findViewById(R.id.profile_image)
         btnChangePhoto = findViewById(R.id.btn_change_photo)
         inputNickname = findViewById(R.id.input_nickname)
@@ -63,13 +67,12 @@ class ProfileSetupActivity : AppCompatActivity() {
         inputWork = findViewById(R.id.input_work)
         btnSave = findViewById(R.id.btn_save_profile)
 
-        // 🔹 프로필 이미지 클릭 시 갤러리 열기
+        // 🔹 갤러리 열기 함수
         val openGallery = {
-            val intent = Intent(Intent.ACTION_PICK).apply {
-                type = "image/*"
-            }
+            val intent = Intent(Intent.ACTION_PICK).apply { type = "image/*" }
             galleryLauncher.launch(intent)
         }
+
         imgProfile.setOnClickListener { openGallery() }
         btnChangePhoto.setOnClickListener { openGallery() }
 
@@ -87,44 +90,66 @@ class ProfileSetupActivity : AppCompatActivity() {
             return
         }
 
-        progressDialog.show()
-        val user = auth.currentUser ?: return
+        val user = auth.currentUser
+        if (user == null) {
+            Snackbar.make(btnSave, "로그인 정보가 없습니다.", Snackbar.LENGTH_LONG).show()
+            return
+        }
 
+        progressDialog.show()
+
+        // 🔹 프로필 이미지 업로드 후 URL 받기
         if (imageUri != null) {
             val ref = storage.reference.child("profile_images/${user.uid}.jpg")
             ref.putFile(imageUri!!)
-                .continueWithTask { ref.downloadUrl }
+                .continueWithTask { task ->
+                    if (!task.isSuccessful) {
+                        throw task.exception ?: Exception("이미지 업로드 실패")
+                    }
+                    ref.downloadUrl
+                }
                 .addOnSuccessListener { downloadUrl ->
                     saveUserToFirestore(user.uid, nickname, home, work, downloadUrl.toString())
                 }
                 .addOnFailureListener {
                     progressDialog.dismiss()
-                    Snackbar.make(btnSave, "이미지 업로드 실패", Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(btnSave, "이미지 업로드 실패: ${it.message}", Snackbar.LENGTH_LONG).show()
                 }
         } else {
             saveUserToFirestore(user.uid, nickname, home, work, null)
         }
     }
 
-    private fun saveUserToFirestore(uid: String, nickname: String, home: String, work: String, imageUrl: String?) {
+    private fun saveUserToFirestore(
+        uid: String,
+        nickname: String,
+        home: String,
+        work: String,
+        imageUrl: String?
+    ) {
         val userData = hashMapOf(
             "nickname" to nickname,
             "home" to home,
             "work" to work,
-            "photoUrl" to imageUrl
+            "photoUrl" to (imageUrl ?: "")
         )
 
-        firestore.collection("users").document(uid).set(userData)
+        firestore.collection("users").document(uid)
+            .set(userData)
             .addOnSuccessListener {
                 progressDialog.dismiss()
-                Snackbar.make(btnSave, "프로필이 저장되었습니다", Snackbar.LENGTH_SHORT).show()
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
+                Snackbar.make(btnSave, "프로필이 저장되었습니다 🎉", Snackbar.LENGTH_SHORT).show()
+
+                // 🔹 Snackbar 표시 후 MainActivity로 이동
+                btnSave.postDelayed({
+                    startActivity(Intent(this, MainActivity::class.java))
+                    finish()
+                }, 600)
             }
             .addOnFailureListener {
                 progressDialog.dismiss()
                 Snackbar.make(btnSave, "저장 실패: ${it.message}", Snackbar.LENGTH_LONG).show()
-                Log.e("PROFILE", "저장 실패", it)
+                Log.e("PROFILE", "Firestore 저장 실패", it)
             }
     }
 }
