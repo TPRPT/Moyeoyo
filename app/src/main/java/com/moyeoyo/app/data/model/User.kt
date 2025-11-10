@@ -12,7 +12,6 @@ data class User(
     val defaultLocation: Map<String, Any>? = null, // GeoPoint 및 주소 포함
 )
 
-// defaultLocation Map의 내부 구조 예시 (Firebase Console에서 설정한 값과 일치해야 함)
 data class LocationData(
     val name: String = "",
     val latLng: GeoPoint? = null,

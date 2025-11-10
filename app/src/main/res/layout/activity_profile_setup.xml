@@ -104,10 +104,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:background="@drawable/bg_input_field"
-                android:hint="예: 서울시 강남구"
+                android:hint="주소를 검색하여 설정하세요"
                 android:paddingHorizontal="16dp"
                 android:textSize="14sp"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp"
+                android:focusable="false"
+                android:clickable="true"
+                android:drawableRight="@drawable/ic_search"
+                android:drawablePadding="8dp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -122,10 +126,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:background="@drawable/bg_input_field"
-                android:hint="예: 서울시 서초구"
+                android:hint="주소를 검색하여 설정하세요 (선택)"
                 android:paddingHorizontal="16dp"
                 android:textSize="14sp"
-                android:layout_marginBottom="40dp" />
+                android:layout_marginBottom="40dp"
+                android:focusable="false"
+                android:clickable="true"
+                android:drawableRight="@drawable/ic_search"
+                android:drawablePadding="8dp" />
         </LinearLayout>
 
         <!-- 🔹 완료 버튼 -->

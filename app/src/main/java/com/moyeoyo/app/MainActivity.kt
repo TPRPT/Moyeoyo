@@ -90,7 +90,11 @@ class MainActivity : AppCompatActivity() {
                 if (doc.exists()) {
                     val nickname = doc.getString("nickname") ?: "닉네임 없음"
                     val photoUrl = doc.getString("photoUrl")
-                    textNickname.text = nickname
+
+                    val homeLocationMap = doc.get("homeLocation") as? Map<*, *>
+                    val homeAddress = homeLocationMap?.get("address") as? String
+
+                    textNickname.text = "$nickname (${homeAddress ?: "주소 미설정"})"
 
                     if (!photoUrl.isNullOrEmpty()) {
                         Glide.with(this)
