@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
         // 🔹 앱이 처음 시작될 때 딥링크 확인
         handleIntent(intent)
 
-        // 🔹 사용자 정보 로딩 로직 (생략된 부분은 기존 코드를 사용하세요)
+        // 🔹 사용자 정보 로딩 로직 (기존과 동일)
         textEmail.text = user.email ?: "이메일 없음"
 
         progressDialog.show()
@@ -151,9 +151,8 @@ class MainActivity : AppCompatActivity() {
 
         if (intent.action == Intent.ACTION_VIEW) {
             val uri = intent.data
-            // ⭐ moyeoyo.app 대신 실제 호스팅 도메인(moyeoyo-57ae0.web.app)을 Manifest에 설정해야 합니다.
-            // 여기서는 임시로 moyeoyo.app을 유지하되, Manifest에 실제 도메인을 등록해야 합니다.
-            if (uri != null && uri.host == "moyeoyo.app" && uri.path?.startsWith("/join") == true) {
+            // ⭐⭐ 수정: Host를 실제 Firebase Hosting 도메인으로 변경 ⭐⭐
+            if (uri != null && uri.host == "moyeoyo-57ae0.web.app" && uri.path?.startsWith("/join") == true) {
 
                 val groupId = uri.getQueryParameter("groupId")
 
@@ -228,10 +227,10 @@ class MainActivity : AppCompatActivity() {
             groupNameText.text = group.groupName
             memberCountText.text = "${group.memberUids.size}명 참여 중"
 
-            // ⭐⭐ 수정: 그룹 클릭 시 Group ID (group.id)를 전달하도록 수정 ⭐⭐
+            // 그룹 클릭 시 상세 화면으로 이동 (그룹 ID 전달)
             groupView.setOnClickListener {
                 val intent = Intent(this, GroupDetailActivity::class.java).apply {
-                    putExtra("GROUP_ID", group.id) // ⭐ 수정: Group ID (Document ID) 전달
+                    putExtra("GROUP_ID", group.id) // Group ID (Document ID) 전달
                     putExtra("GROUP_NAME", group.groupName)
                 }
                 startActivity(intent)

@@ -8,7 +8,7 @@ import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.Timestamp
-import com.moyeoyo.app.data.model.Group // ⭐ Group 모델 클래스 필요
+import com.moyeoyo.app.data.model.Group
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -22,8 +22,6 @@ class GroupRepository(
 
     /**
      * 새로운 모임 방을 생성하고 Firestore에 저장합니다.
-     * @param groupName 모임 이름 (String)
-     * @return 성공 시 생성된 그룹 ID (String), 실패 시 null
      */
     suspend fun createGroup(groupName: String): String? {
         val hostUid = auth.currentUser?.uid ?: return null
@@ -58,6 +56,7 @@ class GroupRepository(
 
     /**
      * 특정 그룹에 현재 로그인된 사용자를 멤버로 추가합니다. (딥링크 처리 로직)
+     * ⭐ 트랜잭션 실패 시 정확한 예외 메시지를 Logcat에 출력하도록 강화됨.
      * @param groupId 참여할 그룹 ID
      * @return 성공 여부
      */
@@ -70,29 +69,39 @@ class GroupRepository(
                 val groupSnapshot = transaction.get(groupRef)
 
                 if (!groupSnapshot.exists()) {
-                    throw Exception("Group document does not exist.")
+                    Log.e("GroupRepo", "Transaction Aborted: Group document $groupId does not exist.")
+                    throw IllegalStateException("Group document does not exist.")
                 }
 
                 @Suppress("UNCHECKED_CAST")
                 val memberUids = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
-                if (!memberUids.contains(uid)) {
-                    val newMembers = memberUids + uid
-                    transaction.update(groupRef, "memberUids", newMembers)
+
+                // 이미 참여했는지 확인 (이미 참여했으면 트랜잭션 종료)
+                if (memberUids.contains(uid)) {
+                    Log.d("GroupRepo", "User $uid already joined group $groupId. Skipping write.")
+                    return@runTransaction null
                 }
 
+                // 그룹 멤버 배열 업데이트
+                val newMembers = memberUids + uid
+                transaction.update(groupRef, "memberUids", newMembers)
+
+                // inputLocations 하위 컬렉션 문서 생성
                 val locationRef = groupRef.collection("inputLocations").document(uid)
-                if (!transaction.get(locationRef).exists()) {
-                    transaction.set(locationRef, mapOf(
-                        "latLng" to GeoPoint(0.0, 0.0),
-                        "transportMode" to "UNKNOWN",
-                        "timestamp" to Timestamp.now()
-                    ))
-                }
-                null // 트랜잭션 성공
+                transaction.set(locationRef, mapOf(
+                    "latLng" to GeoPoint(0.0, 0.0),
+                    "transportMode" to "UNKNOWN",
+                    "timestamp" to Timestamp.now()
+                ))
+
+                null // 트랜잭션 성공 신호
             }.await()
+
+            Log.d("GroupRepo", "Join Group Transaction FINAL SUCCESS for $groupId.") // ⭐ 성공 로그
             true
         } catch (e: Exception) {
-            Log.e("GroupRepository", "Failed to join group $groupId: ${e.message}", e)
+            // ⭐⭐⭐ 최종 진단을 위한 강화된 에러 로깅 ⭐⭐⭐
+            Log.e("GroupRepo", "Join Group Transaction FAILED for $groupId. Reason: ${e.message}", e)
             false
         }
     }
@@ -110,7 +119,6 @@ class GroupRepository(
                 .get()
                 .await()
 
-            // Group 모델 클래스에 ID가 포함되어 있지 않다면, .id를 수동으로 매핑하는 로직이 필요합니다.
             snapshot.toObjects(Group::class.java)
         } catch (e: Exception) {
             Log.e("GroupRepository", "Error fetching user groups: ${e.message}", e)
@@ -119,7 +127,7 @@ class GroupRepository(
     }
 
     /**
-     * ⭐ 추가됨: 특정 그룹의 상세 정보를 Group 객체로 조회합니다.
+     * 특정 그룹의 상세 정보를 Group 객체로 조회합니다.
      * @param groupId 조회할 그룹 ID
      * @return Group 객체 또는 null
      */
@@ -137,19 +145,15 @@ class GroupRepository(
 
     /**
      * 그룹과 그 하위 컬렉션의 모든 데이터를 삭제합니다.
-     * @param groupId 삭제할 그룹 ID
-     * @return 성공 여부
      */
     suspend fun deleteGroup(groupId: String): Boolean {
         val groupRef = groupsCollection.document(groupId)
 
         return try {
-            // 1. 하위 컬렉션 문서 삭제 (Firestore의 제약으로 인해 수동 삭제 필요)
             deleteCollection(groupRef.collection("inputLocations"))
             deleteCollection(groupRef.collection("placeCandidates"))
             deleteCollection(groupRef.collection("timeCandidates"))
 
-            // 2. 그룹 문서 자체 삭제
             groupRef.delete().await()
 
             Log.d("GroupRepository", "Group deleted successfully: $groupId")
