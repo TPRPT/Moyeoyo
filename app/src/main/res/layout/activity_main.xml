@@ -10,7 +10,7 @@
 
     <!-- 🌟 커스텀 앱바 -->
     <LinearLayout
-        android:id="@+id/custom_appbar"
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:orientation="horizontal"

@@ -13,7 +13,6 @@ import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.ui.auth.LoginActivity
-import com.moyeoyo.app.R
 
 class MainActivity : AppCompatActivity() {
 
@@ -41,7 +40,6 @@ class MainActivity : AppCompatActivity() {
         progressDialog = ProgressDialog(this).apply {
             setMessage("정보 불러오는 중...")
             setCancelable(false)
-            show()
         }
 
         val user = auth.currentUser
@@ -54,14 +52,15 @@ class MainActivity : AppCompatActivity() {
         // 이메일 표시
         textEmail.text = user.email ?: "이메일 없음"
 
-        // Firestore에서 유저 정보 불러오기
+        // 🔹 Firestore에서 유저 정보 불러오기
+        progressDialog.show()
         firestore.collection("users").document(user.uid)
             .get()
             .addOnSuccessListener { doc ->
                 progressDialog.dismiss()
                 if (doc.exists()) {
                     val nickname = doc.getString("nickname") ?: "닉네임 없음"
-                    val photoUrl = doc.getString("photoUrl")
+                    val photoUrl = doc.getString("photoUrl") // ⚠️ 필드명 확인 필요
 
                     textNickname.text = nickname
 
@@ -75,24 +74,27 @@ class MainActivity : AppCompatActivity() {
                         profileImage.setImageResource(R.drawable.ic_user_placeholder)
                     }
                 } else {
-                    Snackbar.make(textNickname, "사용자 정보를 찾을 수 없습니다.", Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(findViewById(android.R.id.content),
+                        "사용자 정보를 찾을 수 없습니다.",
+                        Snackbar.LENGTH_LONG).show()
                 }
             }
             .addOnFailureListener { e ->
                 progressDialog.dismiss()
-                Snackbar.make(textNickname, "불러오기 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+                Snackbar.make(findViewById(android.R.id.content),
+                    "불러오기 실패: ${e.message}",
+                    Snackbar.LENGTH_LONG).show()
                 Log.e("MAIN", "Firestore error", e)
             }
 
-        // 로그아웃
+        // 🔹 로그아웃 버튼
         btnLogout.setOnClickListener {
             auth.signOut()
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
 
-
-        setSupportActionBar(findViewById(R.id.toolbar))
-
+        // 🔹 툴바 (선택사항)
+        // setSupportActionBar(findViewById(R.id.toolbar))
     }
 }
