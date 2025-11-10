@@ -197,6 +197,8 @@ class MapViewModel @Inject constructor(
     }
      */
 
+    /*
+
     fun onTestButtonClick() {
         Log.d("MapViewModel", "====== 테스트 버튼 클릭! MapLogic 테스트 시작 ======")// 1단계: 저장할 '가짜 데이터'를 먼저 만들어줍니다.
 
@@ -215,6 +217,8 @@ class MapViewModel @Inject constructor(
         // 3단계: 이제 드디어 저장 함수를 '호출'합니다!
         saveSelectedToGroup()
     }
+
+     */
 
 }
 
