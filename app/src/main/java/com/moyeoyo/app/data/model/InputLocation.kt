@@ -7,6 +7,6 @@ package com.moyeoyo.app.data.model
 data class InputLocation(
     val uid: String,
     val latLng: LatLngData,
-    val transportMode: TransportMode = TransportMode.SUBWAY,
+    val transportMode: TransportMode = TransportMode.TRANSIT,
     val label: String? = null // "집", "회사", "검색결과" 등 표시용
 )

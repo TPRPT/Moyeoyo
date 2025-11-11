@@ -15,4 +15,11 @@
     <string name="center_marker_title">중간 지점</string>
     <string name="load_nearby_button_label">주변 장소 불러오기</string>
     <string name="place_rating_format">평점 %.1f</string>
+    <string name="mode_walk">도보</string>
+    <string name="mode_transit">대중교통</string>
+    <string name="mode_drive">자동차</string>
+    <string name="input_member_uid_hint">멤버 UID 입력 (예: user_A)</string>
+    <string name="save_mode_button_label">이동 수단 저장</string>
+    <string name="save_mode_success">이동 수단이 저장되었습니다.</string>
+    <string name="save_mode_error">이동 수단 저장에 실패했습니다: %1$s</string>
 </resources>

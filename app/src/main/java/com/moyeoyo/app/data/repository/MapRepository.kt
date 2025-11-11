@@ -240,28 +240,41 @@ class MapRepository @Inject constructor(
 
     // 가중치 규칙
     // - 이동수단에 따라 중간지점 계산 시 기여도를 다르게 부여
-    // - 순서: DRIVE(운전) > SUBWAY(지하철) > BUS(버스) > WALK(도보)
-    private fun weight(mode: TransportMode) = when (mode) {
-        TransportMode.DRIVE -> 1.3
-        TransportMode.SUBWAY -> 1.0
-        TransportMode.BUS -> 0.9
-        TransportMode.WALK -> 0.8
+    // - 순서: DRIVE(운전) > 대중교통(TRANSIT) > WALK(도보)
+            private fun weight(mode: TransportMode) = when (mode) {
+                TransportMode.WALK -> 1.3
+                TransportMode.TRANSIT -> 1.0
+                TransportMode.DRIVE -> 0.8
     }
 
     // 가중중심 계산
     // - 단순 평균이 아닌 이동수단 가중치를 반영해 위경도 평균을 계산
     // - 멤버가 없으면 null
     fun computeWeightedCenter(members: List<InputLocation>): LatLngData? {
-        if (members.isEmpty()) return null
-        var wSum = 0.0
-        var latAcc = 0.0
-        var lngAcc = 0.0
+        // 1. 방어 코드: 멤버가 없으면 계산할 수 없으므로 null 반환if (members.isEmpty()) return null
+
+        // 2. 계산을 위한 변수 초기화
+        var wSum = 0.0    // "가중치(Weight)의 총합(Sum)"을 담을 변수
+        var latAcc = 0.0  // "가중치가 적용된 위도(Latitude)의 누적값(Accumulator)"
+        var lngAcc = 0.0  // "가중치가 적용된 경도(Longitude)의 누적값"
+
+        // 3. 핵심 계산 루프: 각 멤버를 순회하며 값을 누적
         for (m in members) {
+            // 3-1. 현재 멤버의 이동수단에 따른 '가중치'를 가져옴
+            // 예: WALK -> 1.3, TRANSIT -> 1.0, DRIVE -> 0.8
             val w = weight(m.transportMode)
+
+            // 3-2. 가중치를 적용한 위도/경도 값을 누적
+            // "이 멤버는 이만큼의 영향력을 가졌으니, 그만큼 좌표 값을 더 세게 더해준다"
             latAcc += w * m.latLng.lat
             lngAcc += w * m.latLng.lng
+
+            // 3-3. 현재 멤버의 가중치를 '가중치 총합'에 더함
             wSum += w
         }
+
+        // 4. 최종 계산 및 반환
+        // "가중치가 적용되어 부풀려진 좌표 총합을, 가중치의 총합으로 나누어 '정규화(Normalize)'한다"
         return LatLngData(latAcc / wSum, lngAcc / wSum)
     }
 
@@ -488,10 +501,15 @@ class MapRepository @Inject constructor(
             else -> null
         } ?: return null
 
-        val modeName = data["transportMode"] as? String ?: TransportMode.SUBWAY.name
+                val modeName = data["transportMode"] as? String ?: TransportMode.TRANSIT.name
         val label = data["label"] as? String
-        val mode = runCatching { TransportMode.valueOf(modeName) }
-            .getOrDefault(TransportMode.SUBWAY)
+                val mode = when (modeName.uppercase(Locale.ROOT)) {
+                    "WALK" -> TransportMode.WALK
+                    "TRANSIT" -> TransportMode.TRANSIT
+                    "DRIVE" -> TransportMode.DRIVE
+                    "SUBWAY", "BUS" -> TransportMode.TRANSIT
+                    else -> TransportMode.TRANSIT
+                }
 
         return InputLocation(
             uid = id,

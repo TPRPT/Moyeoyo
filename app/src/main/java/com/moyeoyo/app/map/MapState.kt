@@ -8,6 +8,7 @@ import com.moyeoyo.app.data.model.DistanceResult
 import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.data.model.NearbyPlace
 
 data class MapState(
@@ -19,6 +20,8 @@ data class MapState(
     val searchQuery: String = "",                 // 검색어
     val suggestions: List<PlaceSuggestion> = emptyList(), // 자동완성 제안
     val selected: InputLocation? = null,          // 최종 선택된 위치
+    val selectedTransport: TransportMode = TransportMode.TRANSIT,
+    val memberUidInput: String = "",
 
     // 중간 지점 화면
     val members: List<InputLocation> = emptyList(),        // 그룹 멤버 입력 위치

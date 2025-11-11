@@ -66,3 +66,42 @@ captures/
 .firebaserc
 node_modules/local.properties
 local.properties
+
+
+    gitignore
+    # =================
+    # Gradle / Build
+    # =================
+    .gradle/
+    build/
+
+    # =================
+    # Firebase / Google Services
+    # =================
+    # Firebase Emulator의 백업 데이터
+    /backup-data/
+
+    # Firebase 로컬 설정 파일
+    .firebase/
+    firebase.json
+    firestore.rules
+    storage.rules
+    firestore.indexes.json
+    database.rules.json
+    firebase.debug.log
+    *.log
+
+    # Google Services 설정 파일 (로컬에서만 사용)
+    google-services.json
+
+    # =================
+    # Local properties
+    # =================
+    # API 키와 같은 비밀 정보 저장
+    local.properties
+
+    # =================
+    # IDE
+    # =================
+    .idea/
+    *.iml

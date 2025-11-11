@@ -5,11 +5,13 @@ package com.moyeoyo.app.map
 // - 코루틴을 이용해 비동기 작업 처리
 
 import android.util.Log
+import android.os.Looper
 import androidx.lifecycle.*
 import com.moyeoyo.app.data.repository.MapRepository
 import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.data.model.TransportMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,11 +28,24 @@ class MapViewModel @Inject constructor(
     // 상태 업데이트 헬퍼
     // - 기존 상태를 받아 변경된 상태를 생성해 LiveData에 반영
     private fun update(block: (MapState) -> MapState) {
-        _state.postValue(block(_state.value ?: MapState())) // 백그라운드 스레드에서도 안전하게 LiveData를 업데이트하기 위해 postValue 사용
+        val current = _state.value ?: MapState()
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            _state.value = block(current)
+        } else {
+            _state.postValue(block(current))
+        }
     }
 
     fun setGroupId(groupId: String) {
         update { it.copy(groupId = groupId) }
+    }
+
+    fun setMemberUidInput(uid: String) {
+        update { it.copy(memberUidInput = uid) }
+    }
+
+    fun selectTransportMode(mode: TransportMode) {
+        update { it.copy(selectedTransport = mode) }
     }
 
     // 현재 위치 획득
@@ -165,6 +180,45 @@ class MapViewModel @Inject constructor(
             try {
                 repo.saveMyInputLocation(groupId, sel)
             } catch (e: Exception) {
+                update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun saveSelectedTransportForMember() {
+        val currentState = _state.value ?: return
+        val groupId = currentState.groupId
+        if (groupId.isNullOrBlank()) {
+            update { it.copy(error = "그룹 ID가 설정되지 않았습니다.") }
+            return
+        }
+        val memberUid = currentState.memberUidInput.trim()
+        update { it.copy(memberUidInput = memberUid) }
+        if (memberUid.isEmpty()) {
+            update { it.copy(error = "멤버 UID를 입력해주세요.") }
+            return
+        }
+        val membersSnapshot = currentState.members
+        val targetMember = membersSnapshot.find { it.uid == memberUid }
+        if (targetMember == null) {
+            update { it.copy(error = "해당 UID의 멤버를 찾지 못했습니다.") }
+            return
+        }
+
+        val desiredMode = currentState.selectedTransport
+        val updatedMember = targetMember.copy(transportMode = desiredMode)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                repo.saveMyInputLocation(groupId, updatedMember)
+            }.onSuccess {
+                Log.d(
+                    "MapViewModel",
+                    "이동수단 저장 성공: uid=$memberUid, mode=$desiredMode"
+                )
+                loadGroupMembers(groupId)
+            }.onFailure { e ->
+                Log.e("MapViewModel", "이동수단 저장 실패: ${e.message}", e)
                 update { it.copy(error = e.message) }
             }
         }
