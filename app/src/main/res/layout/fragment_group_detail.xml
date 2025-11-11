@@ -167,7 +167,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ✅ 투표중 카드 -->
+            <!-- 투표중 카드 -->
             <LinearLayout
                 android:id="@+id/votingStatusCard"
                 android:layout_width="match_parent"

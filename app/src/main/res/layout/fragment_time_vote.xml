@@ -88,16 +88,18 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:paddingHorizontal="16dp">
 
         <GridLayout
             android:id="@+id/gridTimeSlots"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="6"
-            android:padding="8dp"
-            android:orientation="horizontal"
-            android:rowCount="4" />
+            android:columnCount="4"
+            android:paddingVertical="12dp"
+            android:alignmentMode="alignMargins"
+            android:useDefaultMargins="true"
+            android:rowOrderPreserved="false" />
     </ScrollView>
 
     <!-- 하단 버튼 -->

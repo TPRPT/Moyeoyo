@@ -2,24 +2,24 @@ package com.moyeoyo.app.ui.group
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.moyeoyo.app.R
 import com.moyeoyo.app.databinding.ItemTimeSlotBinding
 
-// 🔹 각 시간대 데이터 모델
 data class TimeSlot(
     val time: String,
-    val joinedCount: Int,
-    val totalCount: Int,
-    val members: List<String>
+    var joinedCount: Int,
+    var totalCount: Int,
+    var members: List<String>
 )
 
-// 🔹 어댑터
 class TimeSlotAdapter(
-    private val items: List<TimeSlot>,
-    private val onSelectionChanged: (Int) -> Unit
+    private var items: List<TimeSlot>,
+    private val onSelectionChanged: (Int) -> Unit,
+    private val onTimeClicked: (String, Boolean) -> Unit // ✅ 클릭 시 Firestore 연동 콜백
 ) : RecyclerView.Adapter<TimeSlotAdapter.ViewHolder>() {
 
-    // 현재 선택된 항목 위치를 저장
     private val selectedPositions = mutableSetOf<Int>()
 
     inner class ViewHolder(val binding: ItemTimeSlotBinding) :
@@ -34,22 +34,27 @@ class TimeSlotAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
         val binding = holder.binding
+        val context = binding.root.context
 
-        // 텍스트 및 진행률 설정
         binding.txtTime.text = item.time
-        binding.txtMembers.text = item.members.joinToString(", ")
         binding.txtCount.text = "${item.joinedCount}/${item.totalCount}명"
+        binding.txtMembers.text = item.members.joinToString(", ").ifEmpty { "아직 참여자 없음" }
         binding.progressBar.progress = (item.joinedCount * 100) / item.totalCount
 
-        // 선택 상태 반영 (파란 테두리)
         val isSelected = selectedPositions.contains(position)
-        binding.root.isSelected = isSelected
+        binding.root.background = ContextCompat.getDrawable(
+            context,
+            if (isSelected) R.drawable.bg_selected_outline_box else R.drawable.bg_time_slot_card
+        )
 
-        // 카드 클릭 시 선택/해제
         binding.root.setOnClickListener {
-            if (isSelected) selectedPositions.remove(position)
-            else selectedPositions.add(position)
-
+            if (isSelected) {
+                selectedPositions.remove(position)
+                onTimeClicked(item.time, false)
+            } else {
+                selectedPositions.add(position)
+                onTimeClicked(item.time, true)
+            }
             notifyItemChanged(position)
             onSelectionChanged(selectedPositions.size)
         }
@@ -57,18 +62,25 @@ class TimeSlotAdapter(
 
     override fun getItemCount() = items.size
 
-    // ✅ 외부에서 선택된 시간대 설정 (SharedPreferences / Firestore 불러오기용)
-    fun setSelectedTimes(times: List<String>) {
+    // Firestore에서 받은 데이터로 UI 업데이트
+    fun updateVoteData(newData: Map<String, List<String>>, currentUserUid: String) {
+        items = items.map { slot ->
+            val voters = newData[slot.time] ?: emptyList()
+            slot.copy(
+                joinedCount = voters.size,
+                members = voters,
+                totalCount = 5 // 전체 인원 수는 임시로 5명
+            )
+        }
         selectedPositions.clear()
-        times.forEach { time ->
+        newData.forEach { (time, list) ->
             val index = items.indexOfFirst { it.time == time }
-            if (index != -1) selectedPositions.add(index)
+            if (index != -1 && list.contains(currentUserUid)) selectedPositions.add(index)
         }
         notifyDataSetChanged()
         onSelectionChanged(selectedPositions.size)
     }
 
-    // ✅ 현재 선택된 시간대 반환 (저장용)
     fun getSelectedTimes(): List<String> {
         return selectedPositions.map { items[it].time }
     }
