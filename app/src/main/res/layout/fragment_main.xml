@@ -5,11 +5,95 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_surface"
+    android:background="@color/white"
     android:padding="@dimen/screen_padding"
     tools:context=".ui.main.MainFragment">
 
-    <!-- 상단: 타이틀 / 서브타이틀 / 알림 & 새 그룹 버튼 -->
+    <!-- 앱바 -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        app:title="Moyeoyo"
+        app:titleTextColor="@color/black"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:elevation="2dp"/>
+
+    <View
+        android:id="@+id/toolbarDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E9E9EF"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 프로필 카드 -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardProfile"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/imgProfile"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_person_24"
+                android:contentDescription="프로필 이미지"
+                android:backgroundTint="@color/light_gray" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/tvName"
+                    android:text="김모여 (서울특별시 공릉역사거리)"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/tvEmail"
+                    android:text="moyeoyo52@gmail.com"
+                    android:textSize="12sp"
+                    android:textColor="@color/gray_600" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnLogout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="로그아웃"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/blue"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- 내 그룹 섹션 -->
     <TextView
         android:id="@+id/titleText"
         android:layout_width="0dp"
@@ -18,24 +102,18 @@
         android:textSize="22sp"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/actions"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/cardProfile"
+        app:layout_constraintEnd_toStartOf="@id/actions"
+        android:layout_marginTop="20dp"/>
 
     <LinearLayout
         android:id="@+id/actions"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toTopOf="@id/titleText"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageButton
-            android:id="@+id/btnBell"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="@android:color/transparent"
-            android:contentDescription="@string/app_name"
-            android:src="@drawable/ic_bell_24" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnNewGroup"
@@ -54,7 +132,6 @@
             app:iconGravity="textStart"
             app:iconPadding="6dp"
             app:iconTint="#161718"/>
-
     </LinearLayout>
 
     <TextView
@@ -66,10 +143,9 @@
         android:textColor="#666666"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/titleText"
-        app:layout_constraintBottom_toTopOf="@id/groupRecyclerView"
         android:layout_marginTop="6dp"/>
 
-    <!-- 리스트 -->
+    <!-- 그룹 리스트 -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/groupRecyclerView"
         android:layout_width="0dp"
@@ -83,5 +159,4 @@
         app:layout_constraintEnd_toEndOf="parent"
         tools:listitem="@layout/item_group_card"
         tools:itemCount="3"/>
-
 </androidx.constraintlayout.widget.ConstraintLayout>
