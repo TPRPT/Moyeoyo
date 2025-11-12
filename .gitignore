@@ -1,16 +1,30 @@
+# ----------------------------------------------------
+# 1. Android Studio / IntelliJ IDEA Files
+# ----------------------------------------------------
+/.idea/
+.idea/libraries/
+.idea/runConfigurations.xml
+.idea/workspace.xml
+
+# Gradle 및 빌드 캐시 (루트 경로에 있는 모든 .gradle 폴더 무시)
+/.gradle/
+/local.properties # 💡 [중요] API 키 포함 파일
+/captures/
+/temp/
+.DS_Store
+
+# ----------------------------------------------------
+# 2. Build Artifacts / Compiled Files
+# ----------------------------------------------------
+/build
+/app/build
+# 💡 [추가] app/build/generated를 명시적으로 무시
+/app/build/generated
 # Compiled class file
 *.class
-
 # Log file
 *.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
+# Package Files
 *.jar
 *.war
 *.nar
@@ -18,27 +32,45 @@
 *.zip
 *.tar.gz
 *.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# VM crash logs
 hs_err_pid*
 replay_pid*
 
-# Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
+# ----------------------------------------------------
+# 3. Android-Specific (Non-Gradle)
+# ----------------------------------------------------
+/captures
+/external-storage-host
+/gradlew
+/gradlew.bat
+
+# User-specific settings
+/android-settings.xml
+
+# Keystore and Signing
+# 앱 서명에 사용되는 키 파일 (필수 제외)
+*.jks
+*.keystore
+*debug.keystore
+
+# ----------------------------------------------------
+# 4. Kotlin and Native Tooling
+# ----------------------------------------------------
+# Kotlin Gradle plugin data
 .kotlin/
+# JNI/NDK native build files
+/cmake-build-debug
 
-
-##########################
-
-
-# Google API Keys 및 Firebase Secrets (필수)
+# ----------------------------------------------------
+# 5. Firebase & Security Secrets (필수)
+# ----------------------------------------------------
+# Firebase 설정 파일 (API Keys 포함, 필수 제외)
 /app/google-services.json
+# 💡 [추가] 임시 이진 파일 및 히스토리 파일이 포함된 폴더 무시
+# 특정 Gradle 버전 폴더 (e.g., 8.13/) 자체를 무시하는 대신, 경로 전체 무시
+/.gradle/*/*/*/executionHistory/
 
-# Android Studio와 Gradle 자동 생성 파일
-.gradle/
-/local.properties
-/build
-
-# Firebase CLI 및 Functions 관련
+# Firebase CLI, Hosting, and Functions
 .firebase/
 .firebaserc
 node_modules/
