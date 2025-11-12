@@ -20,6 +20,7 @@ class GroupRepository(
 ) {
     private val groupsCollection = db.collection("groups")
     private val usersCollection = db.collection("users")
+    private val TAG = "GroupRepository"
 
     /**
      * [이 함수는 createGroupWithMembers로 대체되거나 병행 사용됩니다. 새로운 그룹 생성 로직에서는 createGroupWithMembers를 사용하세요.]
@@ -202,6 +203,34 @@ class GroupRepository(
     }
 
     /**
+     * ⭐ NEW: 확정된 일정 정보(장소/시간)를 Firestore에 저장하고 그룹 상태를 변경합니다.
+     */
+    suspend fun confirmGroupSchedule(
+        groupId: String,
+        confirmedPlace: Map<String, Any>,
+        confirmedTime: Timestamp,
+        newTitle: String
+    ): Boolean {
+        val groupRef = groupsCollection.document(groupId)
+
+        return try {
+            val updates = hashMapOf<String, Any>(
+                "confirmedPlace" to confirmedPlace,
+                "confirmedTime" to confirmedTime,
+                "status" to "CONFIRMED",
+                "groupName" to newTitle // 사용자가 입력한 제목으로 그룹 이름 업데이트
+            )
+
+            groupRef.update(updates).await()
+            Log.d(TAG, "Group schedule confirmed for ID: $groupId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to confirm group schedule for ID $groupId: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
      * ⭐ NEW: 특정 멤버를 그룹에서 강퇴시킵니다. (removeMember)
      * @param groupId 그룹 ID
      * @param memberUidToRemove 강퇴할 멤버의 UID
@@ -210,7 +239,6 @@ class GroupRepository(
     suspend fun removeMember(groupId: String, memberUidToRemove: String): Boolean {
         val groupRef = groupsCollection.document(groupId)
         val userRef = usersCollection.document(memberUidToRemove)
-        val TAG = "GroupRepository" // 내부 로깅용 TAG
 
         return try {
             db.runTransaction { transaction ->
@@ -291,7 +319,7 @@ class GroupRepository(
             Log.d("GroupRepository", "Group deleted successfully: $groupId")
             true
         } catch (e: Exception) {
-            Log.e("GroupRepository", "Failed to delete group $groupId: ${e.message}", e)
+            Log.e(TAG, "Failed to delete group $groupId: ${e.message}", e)
             false
         }
     }

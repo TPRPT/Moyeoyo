@@ -1,5 +1,3 @@
-// com.moyeoyo.app.ui.groups/GroupDetailActivity.kt
-
 package com.moyeoyo.app.ui.groups
 
 import android.content.Intent
@@ -14,13 +12,19 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.Timestamp // ⭐ NEW: Timestamp import
+import com.moyeoyo.app.data.model.Group // ⭐ NEW: Group data model import
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
+import com.moyeoyo.app.ui.vote.ConfirmActivity
 import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
 import com.moyeoyo.app.MainActivity
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat // ⭐ NEW: 시간 포맷팅을 위한 import
+import java.util.Locale
+import java.util.TimeZone
 
 class GroupDetailActivity : AppCompatActivity() {
 
@@ -36,14 +40,12 @@ class GroupDetailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ⭐ View Binding 초기화
         binding = ActivityGroupDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Intent에서 그룹 ID와 이름 가져오기 및 필수 체크
         groupId = intent.getStringExtra("GROUP_ID") ?: return finish()
         groupName = intent.getStringExtra("GROUP_NAME") ?: "Unknown Group"
-        currentUid = auth.currentUser?.uid ?: return finish() // 현재 사용자 UID 초기화
+        currentUid = auth.currentUser?.uid ?: return finish()
 
         binding.groupNameText.text = groupName
 
@@ -61,6 +63,16 @@ class GroupDetailActivity : AppCompatActivity() {
         binding.btnLeaveGroup.setOnClickListener {
             showLeaveConfirmationDialog()
         }
+
+        // 일정 확정 버튼 리스너
+        binding.btnConfirmScheduleNow.setOnClickListener {
+            // ConfirmActivity로 이동하여 확정 처리를 위임
+            val intent = Intent(this, ConfirmActivity::class.java).apply {
+                putExtra("GROUP_ID", groupId)
+                putExtra("GROUP_NAME", groupName)
+            }
+            startActivity(intent)
+        }
     }
 
     // Activity가 재개될 때마다 목록을 새로고침 (데이터 동기화)
@@ -74,9 +86,12 @@ class GroupDetailActivity : AppCompatActivity() {
      */
     private fun loadGroupData() {
         binding.memberCountText.text = "로딩 중..."
-        binding.memberListContainer.removeAllViews() // 멤버 목록 컨테이너 초기화
+        binding.memberListContainer.removeAllViews()
+        // ⭐ 추가: 데이터 로딩 전에 확정 일정 섹션을 숨김 (깜빡임 방지)
+        binding.confirmedScheduleSection.visibility = View.GONE
 
         lifecycleScope.launch {
+            // GroupRepository에서 Group 객체를 가져옵니다.
             val group = groupRepository.getGroupDetail(groupId)
 
             if (group != null) {
@@ -84,11 +99,17 @@ class GroupDetailActivity : AppCompatActivity() {
                 binding.memberCountText.text = "$memberCount 명"
                 val isHost = group.hostUid == currentUid
 
-                // 1. 버튼 가시성 설정 (권한 분기)
+                // 1. 확정 일정 표시 ⭐ NEW
+                displayConfirmedSchedule(group)
+
+                // 2. 일정 확정 버튼 가시성 제어 (현재는 테스트용이므로 항상 표시)
+                binding.btnConfirmScheduleNow.visibility = View.VISIBLE
+
+                // 3. 버튼 가시성 설정 (권한 분기)
                 binding.btnDeleteGroup.visibility = if (isHost) View.VISIBLE else View.GONE
                 binding.btnLeaveGroup.visibility = if (!isHost) View.VISIBLE else View.GONE
 
-                // 2. 팀원 목록 표시
+                // 4. 팀원 목록 표시
                 displayMemberList(group.memberUids, group.hostUid, isHost)
 
             } else {
@@ -100,10 +121,45 @@ class GroupDetailActivity : AppCompatActivity() {
     }
 
     /**
+     * ⭐ NEW: 확정된 장소와 일정을 UI에 표시합니다.
+     * Group 데이터 모델에 confirmedTime: Timestamp?와 confirmedPlace: Map<String, Any>? 필드가 있다고 가정합니다.
+     */
+    private fun displayConfirmedSchedule(group: Group) {
+        val confirmedTime = group.confirmedTime
+        val confirmedPlace = group.confirmedPlace
+
+        if (confirmedTime != null && confirmedPlace != null) {
+            // 데이터가 있는 경우: 섹션을 표시하고 텍스트를 업데이트
+            val placeName = confirmedPlace["name"] as? String ?: confirmedPlace["address"] as? String ?: "장소 정보 없음"
+            val formattedTime = formatTimestamp(confirmedTime)
+
+            binding.confirmedScheduleSection.visibility = View.VISIBLE
+            binding.textConfirmedPlace.text = "장소: $placeName"
+            binding.textConfirmedTime.text = "일시: $formattedTime"
+        } else {
+            // 데이터가 없는 경우: 섹션을 숨김
+            binding.confirmedScheduleSection.visibility = View.GONE
+        }
+    }
+
+    /**
+     * ⭐ NEW: Firebase Timestamp를 읽기 쉬운 문자열로 포맷합니다.
+     */
+    private fun formatTimestamp(timestamp: Timestamp): String {
+        val date = timestamp.toDate()
+        // 예: 2025년 11월 13일 (목) 오전 10:30
+        val sdf = SimpleDateFormat("yyyy년 M월 d일 (E) a h:mm", Locale.getDefault()).apply {
+            timeZone = TimeZone.getDefault()
+        }
+        return sdf.format(date)
+    }
+
+    /**
      * 팀원 목록을 표시하고 방장에게 강퇴 버튼을 제공합니다.
      */
     private fun displayMemberList(memberUids: List<String>, hostUid: String, isHost: Boolean) {
         val container = binding.memberListContainer
+        container.removeAllViews() // 데이터 로딩 시 목록을 항상 초기화
         val inflater = LayoutInflater.from(this)
 
         lifecycleScope.launch {
@@ -118,10 +174,10 @@ class GroupDetailActivity : AppCompatActivity() {
             memberDetails.forEach { (uid, nickname) ->
                 val isCurrentMemberHost = uid == hostUid
 
-                // item_member_list 레이아웃이 있다고 가정하고 인플레이트
-                // (이 레이아웃은 member_name, member_status, btn_kick_member를 포함해야 합니다.)
+                // item_member_list 레이아웃을 인플레이트
                 val memberView = inflater.inflate(com.moyeoyo.app.R.layout.item_member_list, container, false)
 
+                // View ID는 item_member_list.xml에 정의되어 있어야 함
                 val nameText = memberView.findViewById<TextView>(com.moyeoyo.app.R.id.member_name)
                 val statusText = memberView.findViewById<TextView>(com.moyeoyo.app.R.id.member_status)
                 val kickButton = memberView.findViewById<Button>(com.moyeoyo.app.R.id.btn_kick_member)
@@ -148,7 +204,9 @@ class GroupDetailActivity : AppCompatActivity() {
      * GroupInviteActivity로 이동하여 초대 링크를 다시 생성/공유합니다.
      */
     private fun navigateToInviteScreen() {
-        val intent = Intent(this, GroupInviteActivity::class.java).apply {
+        // GroupInviteActivity는 제공되지 않았으므로 임의로 GroupDetailActivity에 대한 인텐트를 사용합니다.
+        // 실제로는 GroupInviteActivity로 이동해야 합니다.
+        val intent = Intent(this, com.moyeoyo.app.ui.groups.GroupInviteActivity::class.java).apply {
             putExtra("GROUP_ID", groupId)
             putExtra("GROUP_NAME", groupName)
         }

@@ -32,6 +32,8 @@
         <activity android:name=".ui.groups.GroupInviteActivity" />
         <activity android:name=".ui.groups.GroupDetailActivity" />
 
+        <activity android:name=".ui.vote.ConfirmActivity" />
+
         <activity android:name=".MainActivity"
             android:exported="true">
 

@@ -6,7 +6,6 @@
     android:layout_height="match_parent"
     android:background="?android:colorBackground">
 
-    <!-- 1. 그룹 이름 (툴바 역할) -->
     <TextView
         android:id="@+id/group_name_text"
         android:layout_width="0dp"
@@ -21,7 +20,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 2. 본문 스크롤 영역 -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -34,7 +32,6 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- 그룹 멤버 수 표시 -->
             <TextView
                 android:id="@+id/member_count_label"
                 android:layout_width="wrap_content"
@@ -54,7 +51,15 @@
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="32dp"/>
 
-            <!-- ⭐ NEW: 팀원 목록 헤더 -->
+            <Button
+                android:id="@+id/btn_confirm_schedule_now"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="확정 및 캘린더 추가 (테스트용)"
+                android:backgroundTint="#10B981"
+                android:textSize="16sp"
+                android:layout_marginBottom="32dp"/>
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -63,16 +68,56 @@
                 android:textSize="18sp"
                 android:layout_marginBottom="8dp"/>
 
-            <!-- ⭐ NEW: 팀원 목록 컨테이너 -->
             <LinearLayout
                 android:id="@+id/member_list_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_input_field"
-                android:padding="8dp"/>
+                android:padding="8dp"
+                android:layout_marginBottom="32dp"/>
 
-            <!-- 기능 목록 (임시) -->
+            <LinearLayout
+                android:id="@+id/confirmed_schedule_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_info_box_blue"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="확정된 약속 정보"
+                    android:textStyle="bold"
+                    android:textColor="#003366"
+                    android:textSize="18sp"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/text_confirmed_place"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="장소: 미정"
+                    android:textColor="#003366"
+                    android:drawableStart="@drawable/ic_google_calendar"
+                    android:drawablePadding="8dp"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="4dp"/>
+
+                <TextView
+                    android:id="@+id/text_confirmed_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="일시: 미정"
+                    android:textColor="#003366"
+                    android:drawableStart="@drawable/ic_calendar_other"
+                    android:drawablePadding="8dp"
+                    android:textSize="16sp"/>
+            </LinearLayout>
+
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -83,7 +128,6 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- 3. 하단 고정 버튼 영역 -->
     <LinearLayout
         android:id="@+id/bottom_fixed_controls"
         android:layout_width="match_parent"
@@ -107,7 +151,6 @@
             android:backgroundTint="#3B82F6"
             android:layout_marginEnd="10dp"/>
 
-        <!-- ⭐ MODIFIED: 방장일 때 보이는 삭제 버튼 -->
         <Button
             android:id="@+id/btn_delete_group"
             android:layout_width="0dp"
@@ -119,7 +162,6 @@
             android:backgroundTint="#EF4444"
             android:visibility="gone" />
 
-        <!-- ⭐ NEW: 일반 멤버일 때 보이는 나가기 버튼 -->
         <Button
             android:id="@+id/btn_leave_group"
             android:layout_width="0dp"
