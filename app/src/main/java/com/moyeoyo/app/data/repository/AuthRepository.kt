@@ -55,21 +55,21 @@ class AuthRepository(private val context: Context) {
                 if (!userSnapshot.exists()) {
                     // 1. 신규 유저: Firestore에 초기 데이터 생성
 
-                    // ⭐ [수정] ProfileSetupActivity에서 사용하는 필드와 동일하게 초기화
-                    // ProfileSetupActivity는 homeLocation/workLocation을 사용하며,
-                    // 이 필드는 내부적으로 latitude/longitude (Number)를 가집니다.
+                    // ⭐ [수정] email 필드 추가
                     val initialUserData = hashMapOf<String, Any>(
                         "uid" to firebaseUser.uid,
+                        "email" to (firebaseUser.email ?: ""), // ⭐ 이메일 필드 추가
                         "nickname" to (firebaseUser.displayName ?: "User-${firebaseUser.uid.take(4)}"),
                         "profileImageUrl" to (firebaseUser.photoUrl?.toString() ?: ""),
-                        "homeLocation" to emptyMap<String, Any>(), // 빈 Map으로 초기화 (ProfileSetupActivity에서 채워야 함)
-                        "groups" to emptyList<String>() // ⭐ NEW: groups 배열 초기화
+                        "homeLocation" to emptyMap<String, Any>(),
+                        "groups" to emptyList<String>(),
+                        "friends" to emptyList<String>()
                     )
 
                     userRef.set(initialUserData).await()
                     Log.d("AUTH", "신규 유저 Firestore 등록 완료: ${initialUserData["nickname"]}")
 
-                    return true // 신규 유저이므로 프로필 설정 페이지로 이동해야 함
+                    return true
                 }
                 Log.d("AUTH", "기존 유저 로그인 성공")
             }

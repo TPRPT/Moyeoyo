@@ -23,8 +23,11 @@
 
         <activity android:name=".ui.auth.LoginActivity" />
         <activity android:name=".ui.auth.ProfileSetupActivity" />
-        <activity android:name=".ui.groups.CreateGroupActivity" />
         <activity android:name=".ui.auth.ConfirmLocationActivity" />
+
+        <activity android:name=".ui.friends.AddFriendActivity" />
+
+        <activity android:name=".ui.groups.CreateGroupActivity" />
         <activity android:name=".ui.groups.GroupInviteActivity" />
         <activity android:name=".ui.groups.GroupDetailActivity" />
 

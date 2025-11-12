@@ -100,6 +100,7 @@ class ConfirmLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
 
         googleMap.setOnCameraIdleListener(this)
 
+        // ⭐ 기존 코드 스타일 유지: with(map) 대신 직접 호출
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(receivedLatLng, 17f))
     }
 
@@ -107,6 +108,7 @@ class ConfirmLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
     override fun onCameraIdle() {
         val centerLatLng = googleMap.cameraPosition.target
         fetchLocationDetails(centerLatLng)
+        // ⭐ 마커 위치 업데이트 로직 제거
     }
 
     /**
@@ -155,7 +157,7 @@ class ConfirmLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
 
         // Places API Nearby Search (100m 반경 내 가장 prominent한 POI 검색)
         // ⭐ type 필터를 제거하고 Prominence(중요도) 정렬을 사용하여 최적의 이름을 가져옵니다.
-        val urlString = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latLng.latitude},${latLng.longitude}&radius=100&language=ko&key=$apiKey"
+        val urlString = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latLng.latitude},${latLng.longitude}&radius=1000&language=ko&key=$apiKey"
 
         try {
             val url = URL(urlString)

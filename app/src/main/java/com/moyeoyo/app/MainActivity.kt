@@ -6,12 +6,13 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AlertDialog // ⭐ AlertDialog 사용을 위해 import
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
@@ -20,12 +21,14 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
+import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.ui.auth.LoginActivity
 import com.moyeoyo.app.ui.auth.ProfileSetupActivity
+import com.moyeoyo.app.ui.friends.AddFriendActivity
 import com.moyeoyo.app.ui.groups.CreateGroupActivity
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import kotlinx.coroutines.launch
-import android.app.ProgressDialog // ProgressDialog import 유지
+import android.app.ProgressDialog
 
 
 class MainActivity : AppCompatActivity() {
@@ -35,8 +38,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressDialog: ProgressDialog
 
     private val groupRepository = GroupRepository()
+    private val friendRepository = FriendRepository()
 
-    // ⭐ NEW: GroupInviteActivity에서 정의된 도메인과 일치해야 합니다.
     private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 
     // View 변수 선언
@@ -45,6 +48,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textEmail: TextView
     private lateinit var btnLogout: Button
     private lateinit var btnCreateGroup: Button
+    private lateinit var btnAddFriend: Button
+    private lateinit var btnNotifications: ImageButton
+    private lateinit var notificationBadge: TextView // ⭐ 배지 View 필드
 
     private lateinit var profileCardArea: LinearLayout
 
@@ -65,6 +71,9 @@ class MainActivity : AppCompatActivity() {
         textEmail = findViewById(R.id.text_email)
         btnLogout = findViewById(R.id.btn_logout)
         btnCreateGroup = findViewById(R.id.btn_create_group)
+        btnAddFriend = findViewById(R.id.btn_add_friend)
+        btnNotifications = findViewById(R.id.btn_notifications)
+        notificationBadge = findViewById(R.id.notification_badge) // ⭐ 배지 View 초기화
 
         profileCardArea = findViewById(R.id.profile_card)
 
@@ -84,10 +93,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 🔹 앱이 처음 시작될 때 딥링크 확인
         handleIntent(intent)
-
-        // 💡 사용자 정보 로딩을 별도 함수로 호출
         loadUserProfile()
 
         // 💡 프로필 카드 클릭 리스너 설정
@@ -107,10 +113,43 @@ class MainActivity : AppCompatActivity() {
         btnCreateGroup.setOnClickListener {
             startActivity(Intent(this, CreateGroupActivity::class.java))
         }
+
+        btnAddFriend.setOnClickListener {
+            startActivity(Intent(this, AddFriendActivity::class.java))
+        }
+
+        // ⭐ 알림 버튼 클릭 리스너 설정
+        btnNotifications.setOnClickListener {
+            showFriendRequestsDialog()
+        }
     }
 
     /**
-     * ⭐ NEW: 사용자 프로필 정보를 Firestore에서 로드하고 UI를 업데이트합니다.
+     * ⭐ NEW: 대기 중인 친구 요청이 있는지 확인하고 알림 배지를 업데이트합니다.
+     */
+    private fun updateNotificationBadge() {
+        lifecycleScope.launch {
+            try {
+                // FriendRepository를 통해 대기 중인 요청이 있는지 확인
+                val pendingRequests = friendRepository.getPendingRequests()
+
+                if (pendingRequests.isNotEmpty()) {
+                    // 요청이 있으면 VISIBLE
+                    notificationBadge.visibility = View.VISIBLE
+                } else {
+                    // 요청이 없으면 GONE
+                    notificationBadge.visibility = View.GONE
+                }
+            } catch (e: Exception) {
+                Log.e("MAIN", "Error checking pending requests for badge: ${e.message}", e)
+                notificationBadge.visibility = View.GONE
+            }
+        }
+    }
+
+
+    /**
+     * 사용자 프로필 정보를 Firestore에서 로드하고 UI를 업데이트합니다.
      */
     private fun loadUserProfile() {
         val user = auth.currentUser ?: return
@@ -125,9 +164,7 @@ class MainActivity : AppCompatActivity() {
                     val nickname = doc.getString("nickname") ?: "닉네임 없음"
                     val photoUrl = doc.getString("photoUrl")
 
-                    // 홈 위치 정보 로드 (Map 필드 접근)
                     val homeLocationMap = doc.get("homeLocation") as? Map<*, *>
-
                     var homeAddressDisplay: String? = null
 
                     if (homeLocationMap != null) {
@@ -135,14 +172,8 @@ class MainActivity : AppCompatActivity() {
                         if (homeAddressDisplay.isNullOrEmpty()) {
                             homeAddressDisplay = homeLocationMap["name"] as? String
                         }
-
-                        val geoPoint = homeLocationMap["latLng"] as? GeoPoint
-                        if (geoPoint != null) {
-                            Log.d("MAIN", "Loaded GeoPoint: Lat=${geoPoint.latitude}, Lng=${geoPoint.longitude}")
-                        }
                     }
 
-                    // ⭐ UI 업데이트 시 주소 표시
                     textNickname.text = "$nickname (${homeAddressDisplay ?: "주소 미설정"})"
 
                     if (!photoUrl.isNullOrEmpty()) {
@@ -170,12 +201,89 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    // ⭐ Activity가 재개될 때마다 목록과 프로필을 새로고침
+    // ⭐ onResume 함수 수정: 화면이 재개될 때마다 배지 상태를 포함한 모든 정보를 새로고침합니다.
     override fun onResume() {
         super.onResume()
         if (auth.currentUser != null) {
             loadUserProfile()
             loadGroups()
+            updateNotificationBadge() // ⭐ NEW: 배지 업데이트 호출
+        }
+    }
+
+
+    // =========================================================================
+    // ⭐ 친구 요청 처리 메서드 영역 ⭐
+    // =========================================================================
+
+    /**
+     * 친구 요청 목록을 가져와 다이얼로그로 보여주는 함수 (알림 기능)
+     */
+    private fun showFriendRequestsDialog() {
+        lifecycleScope.launch {
+            val senderUids = friendRepository.getPendingRequests()
+
+            if (senderUids.isEmpty()) {
+                Toast.makeText(this@MainActivity, "새로운 친구 요청이 없습니다.", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            val requestItems = mutableListOf<String>()
+            val uidToNicknameMap = mutableMapOf<String, String>()
+
+            for (uid in senderUids) {
+                val nickname = friendRepository.getUserNickname(uid) ?: uid.take(8)
+                uidToNicknameMap[uid] = nickname
+                requestItems.add("${nickname} 님이 친구 요청을 보냈습니다.")
+            }
+
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle("새로운 친구 요청 (${requestItems.size})")
+                .setItems(requestItems.toTypedArray()) { _, which ->
+                    val selectedUid = senderUids[which]
+                    val selectedNickname = uidToNicknameMap[selectedUid] ?: "친구"
+
+                    showAcceptConfirmationDialog(selectedUid, selectedNickname)
+                }
+                .setNegativeButton("닫기", { _, _ ->
+                    // 다이얼로그 닫을 때 배지 상태를 다시 확인하여 갱신
+                    updateNotificationBadge()
+                })
+                .show()
+        }
+    }
+
+    /**
+     * 친구 요청 승인 확인 다이얼로그
+     */
+    private fun showAcceptConfirmationDialog(senderUid: String, nickname: String) {
+        AlertDialog.Builder(this)
+            .setTitle("친구 요청 수락")
+            .setMessage("${nickname} 님을 친구로 추가하시겠습니까?")
+            .setPositiveButton("수락") { _, _ ->
+                acceptFriendRequest(senderUid, nickname)
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    /**
+     * 친구 요청 승인 처리 (FriendRepository의 acceptFriendRequest 사용)
+     */
+    private fun acceptFriendRequest(senderUid: String, nickname: String) {
+        progressDialog.setMessage("친구 요청 수락 중...")
+        progressDialog.show()
+
+        lifecycleScope.launch {
+            val success = friendRepository.acceptFriendRequest(senderUid)
+            progressDialog.dismiss()
+
+            if (success) {
+                Toast.makeText(this@MainActivity, "${nickname} 님과 친구가 되었습니다! 🎉", Toast.LENGTH_LONG).show()
+                updateNotificationBadge() // ⭐ NEW: 수락 후 배지 갱신
+            } else {
+                Toast.makeText(this@MainActivity, "친구 요청 수락 실패.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -193,7 +301,6 @@ class MainActivity : AppCompatActivity() {
     private fun handleIntent(intent: Intent) {
         val currentUser = auth.currentUser
 
-        // 로그인이 안 되어 있다면 처리 중단 및 로그인 화면으로 이동
         if (currentUser == null) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
@@ -203,14 +310,13 @@ class MainActivity : AppCompatActivity() {
         if (intent.action == Intent.ACTION_VIEW) {
             val uri = intent.data
 
-            // ⭐ 딥링크 호스트와 경로 검증
             if (uri != null && uri.host == HOSTING_DOMAIN && uri.path?.startsWith("/join") == true) {
 
                 val groupId = uri.getQueryParameter("groupId")
 
                 if (groupId != null) {
                     Toast.makeText(this, "그룹 초대 링크를 확인했습니다. (정보 로딩 중)", Toast.LENGTH_SHORT).show()
-                    showJoinConfirmation(groupId) // ⭐ 변경: 바로 참여 대신 확인 모달 호출
+                    showJoinConfirmation(groupId)
                 } else {
                     Log.e("MAIN", "Deep link is missing groupId parameter.")
                     Snackbar.make(groupListContainer, "초대 링크가 유효하지 않습니다. (ID 누락)", Snackbar.LENGTH_LONG).show()
@@ -220,24 +326,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * ⭐ NEW: 그룹 정보를 로드하여 사용자에게 참여 여부를 묻는 AlertDialog를 표시합니다.
+     * 그룹 정보를 로드하여 사용자에게 참여 여부를 묻는 AlertDialog를 표시합니다.
      */
     private fun showJoinConfirmation(groupId: String) {
         progressDialog.setMessage("그룹 정보 확인 중...")
         progressDialog.show()
 
         lifecycleScope.launch {
-            // GroupRepository의 getGroupById 함수를 사용
             val group: Group? = groupRepository.getGroupById(groupId)
             progressDialog.dismiss()
 
             if (group != null) {
-                // 💡 AlertDialog를 띄워 그룹명과 함께 사용자에게 참여 의사를 묻습니다.
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle("${group.groupName}에 참가할까요?")
                     .setMessage("그룹 '${group.groupName}'에 참여하여 모임 활동을 시작할 수 있습니다. (현재 멤버 ${group.memberUids.size}명)")
                     .setPositiveButton("참가하기") { _, _ ->
-                        // '참가하기' 클릭 시 그룹 참여 로직 실행
                         joinGroup(groupId)
                     }
                     .setNegativeButton("취소하기", null)
@@ -249,7 +352,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * ⭐ MODIFIED: 그룹에 참여하고 GroupDetailActivity로 이동합니다.
+     * 그룹에 참여하고 GroupDetailActivity로 이동합니다.
      */
     private fun joinGroup(groupId: String) {
         progressDialog.setMessage("그룹에 참여 중...")
@@ -263,14 +366,12 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "그룹 참여 성공! 그룹 상세 화면으로 이동합니다.", Toast.LENGTH_LONG).show()
                 val intent = Intent(this@MainActivity, GroupDetailActivity::class.java).apply {
                     putExtra("GROUP_ID", groupId)
-                    // GroupDetailActivity에서 필요하다면 groupName도 전달 가능
-                    // flags는 여기서는 제거해도 무방하나, 스택 정리가 목적이라면 유지
                 }
                 startActivity(intent)
             } else {
                 Toast.makeText(this@MainActivity, "그룹 참여에 실패했습니다. (이미 참여했거나 오류)", Toast.LENGTH_LONG).show()
             }
-            loadGroups() // 그룹 목록을 갱신합니다.
+            loadGroups()
         }
     }
 

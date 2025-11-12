@@ -8,7 +8,7 @@
 
 # Gradle 및 빌드 캐시 (루트 경로에 있는 모든 .gradle 폴더 무시)
 /.gradle/
-/local.properties # 💡 [중요] API 키 포함 파일
+/local.properties
 /captures/
 /temp/
 .DS_Store
@@ -18,7 +18,6 @@
 # ----------------------------------------------------
 /build
 /app/build
-# 💡 [추가] app/build/generated를 명시적으로 무시
 /app/build/generated
 # Compiled class file
 *.class
@@ -66,9 +65,8 @@ replay_pid*
 # ----------------------------------------------------
 # Firebase 설정 파일 (API Keys 포함, 필수 제외)
 /app/google-services.json
-# 💡 [추가] 임시 이진 파일 및 히스토리 파일이 포함된 폴더 무시
-# 특정 Gradle 버전 폴더 (e.g., 8.13/) 자체를 무시하는 대신, 경로 전체 무시
 /.gradle/*/*/*/executionHistory/
+**/*.bin
 
 # Firebase CLI, Hosting, and Functions
 .firebase/
