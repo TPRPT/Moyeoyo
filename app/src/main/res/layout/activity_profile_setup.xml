@@ -81,54 +81,83 @@
             android:paddingHorizontal="16dp"
             android:textSize="14sp"
             android:layout_marginBottom="20dp"
-            android:textColor="#333333"         android:textColorHint="#999999" />    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+            android:textColor="#333333"
+            android:textColorHint="#999999" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="집 주소"
-            android:textColor="#111"
-            android:textSize="15sp"
-            android:layout_marginBottom="6dp" />
+            android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/input_home"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_input_field"
-            android:hint="주소를 검색하여 설정하세요"
-            android:paddingHorizontal="16dp"
-            android:textSize="14sp"
-            android:layout_marginBottom="16dp"
-            android:focusable="false"
-            android:clickable="true"
-            android:drawableRight="@drawable/ic_search"
-            android:drawablePadding="8dp"
-            android:textColor="#333333"         android:textColorHint="#999999" />    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="회사 주소"
-        android:textColor="#111"
-        android:textSize="15sp"
-        android:layout_marginBottom="6dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="집 주소"
+                android:textColor="#111"
+                android:textSize="15sp"
+                android:layout_marginBottom="6dp" />
 
-        <EditText
-            android:id="@+id/input_work"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_input_field"
-            android:hint="주소를 검색하여 설정하세요 (선택)"
-            android:paddingHorizontal="16dp"
-            android:textSize="14sp"
-            android:layout_marginBottom="40dp"
-            android:focusable="false"
-            android:clickable="true"
-            android:drawableRight="@drawable/ic_search"
-            android:drawablePadding="8dp"
-            android:textColor="#333333"         android:textColorHint="#999999" />    </LinearLayout>
+            <EditText
+                android:id="@+id/input_home"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_input_field"
+                android:hint="주소를 검색하여 설정하세요"
+                android:paddingHorizontal="16dp"
+                android:textSize="14sp"
+                android:layout_marginBottom="6dp"
+                android:focusable="false"
+                android:clickable="true"
+                android:drawableRight="@drawable/ic_search"
+                android:drawablePadding="8dp"
+                android:textColor="#333333"
+                android:textColorHint="#999999" />
+
+            <Button
+                android:id="@+id/btn_set_current_home"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="현재 위치로 집 주소 설정"
+                android:backgroundTint="#8B8B8B"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="회사 주소"
+                android:textColor="#111"
+                android:textSize="15sp"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/input_work"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_input_field"
+                android:hint="주소를 검색하여 설정하세요 (선택)"
+                android:paddingHorizontal="16dp"
+                android:textSize="14sp"
+                android:layout_marginBottom="6dp"
+                android:focusable="false"
+                android:clickable="true"
+                android:drawableRight="@drawable/ic_search"
+                android:drawablePadding="8dp"
+                android:textColor="#333333"
+                android:textColorHint="#999999" />
+
+            <Button
+                android:id="@+id/btn_set_current_work"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="현재 위치로 회사 주소 설정 (선택)"
+                android:backgroundTint="#8B8B8B"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:layout_marginBottom="40dp" />
+
+        </LinearLayout>
 
         <Button
             android:id="@+id/btn_save_profile"

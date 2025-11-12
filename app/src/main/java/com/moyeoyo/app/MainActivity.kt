@@ -19,10 +19,10 @@ import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.GeoPoint // ⭐ GeoPoint 임포트
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.auth.LoginActivity
-// 💡 [추가] ProfileSetupActivity import
 import com.moyeoyo.app.ui.auth.ProfileSetupActivity
 import com.moyeoyo.app.ui.groups.CreateGroupActivity
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 
 
 class MainActivity : AppCompatActivity() {
+    // ... (클래스 멤버 변수는 변경 없음)
 
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore
@@ -58,6 +59,8 @@ class MainActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
         firestore = FirebaseFirestore.getInstance()
 
+        // ... (onCreate 내용 유지)
+
         // View 초기화 (findViewById)
         profileImage = findViewById(R.id.profile_image)
         textNickname = findViewById(R.id.text_nickname)
@@ -66,7 +69,6 @@ class MainActivity : AppCompatActivity() {
         btnCreateGroup = findViewById(R.id.btn_create_group)
 
         // 💡 [추가] 프로필 카드 영역 연결 (activity_main.xml의 ID를 사용해야 함)
-        // XML에 profile_card_area ID를 추가했다고 가정합니다.
         profileCardArea = findViewById(R.id.profile_card)
 
 
@@ -89,7 +91,34 @@ class MainActivity : AppCompatActivity() {
         // 🔹 앱이 처음 시작될 때 딥링크 확인
         handleIntent(intent)
 
-        // 🔹 사용자 정보 로딩 로직 (기존과 동일)
+        // 💡 [수정] 사용자 정보 로딩을 별도 함수로 호출
+        loadUserProfile()
+
+
+        // 💡 [추가] 프로필 카드 클릭 리스너 설정
+        profileCardArea.setOnClickListener {
+            val intent = Intent(this, ProfileSetupActivity::class.java)
+            startActivity(intent)
+        }
+
+
+        // 🔹 버튼 리스너 설정
+        btnLogout.setOnClickListener {
+            auth.signOut()
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+        }
+
+        btnCreateGroup.setOnClickListener {
+            startActivity(Intent(this, CreateGroupActivity::class.java))
+        }
+    }
+
+    /**
+     * ⭐ NEW: 사용자 프로필 정보를 Firestore에서 로드하고 UI를 업데이트합니다.
+     */
+    private fun loadUserProfile() {
+        val user = auth.currentUser ?: return
         textEmail.text = user.email ?: "이메일 없음"
 
         progressDialog.show()
@@ -101,10 +130,29 @@ class MainActivity : AppCompatActivity() {
                     val nickname = doc.getString("nickname") ?: "닉네임 없음"
                     val photoUrl = doc.getString("photoUrl")
 
+                    // ⭐ [Fix] 중첩된 Map 데이터를 안전하게 가져옵니다.
                     val homeLocationMap = doc.get("homeLocation") as? Map<*, *>
-                    val homeAddress = homeLocationMap?.get("address") as? String
 
-                    textNickname.text = "$nickname (${homeAddress ?: "주소 미설정"})"
+                    var homeAddressDisplay: String? = null
+
+                    if (homeLocationMap != null) {
+                        // 1. "addressName" 필드를 읽습니다. (스크린샷 확인)
+                        homeAddressDisplay = homeLocationMap["addressName"] as? String
+
+                        // 2. addressName이 없거나 비어있으면 "name" 필드 시도
+                        if (homeAddressDisplay.isNullOrEmpty()) {
+                            homeAddressDisplay = homeLocationMap["name"] as? String
+                        }
+
+                        // GeoPoint 필드 읽기 (GeoPoint 사용 확인)
+                        val geoPoint = homeLocationMap["latLng"] as? GeoPoint
+                        if (geoPoint != null) {
+                            Log.d("MAIN", "Loaded GeoPoint: Lat=${geoPoint.latitude}, Lng=${geoPoint.longitude}")
+                        }
+                    }
+
+                    // ⭐ UI 업데이트 시 주소 표시
+                    textNickname.text = "$nickname (${homeAddressDisplay ?: "주소 미설정"})"
 
                     if (!photoUrl.isNullOrEmpty()) {
                         Glide.with(this)
@@ -128,37 +176,22 @@ class MainActivity : AppCompatActivity() {
                     Snackbar.LENGTH_LONG).show()
                 Log.e("MAIN", "Firestore error", e)
             }
-
-        // 💡 [추가] 프로필 카드 클릭 리스너 설정
-        profileCardArea.setOnClickListener {
-            val intent = Intent(this, ProfileSetupActivity::class.java)
-            startActivity(intent)
-        }
-
-
-        // 🔹 버튼 리스너 설정
-        btnLogout.setOnClickListener {
-            auth.signOut()
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-        }
-
-        btnCreateGroup.setOnClickListener {
-            startActivity(Intent(this, CreateGroupActivity::class.java))
-        }
     }
 
-    // ⭐ Activity가 재개될 때마다 목록을 새로고침
+
+    // ⭐ Activity가 재개될 때마다 목록과 프로필을 새로고침
     override fun onResume() {
         super.onResume()
         if (auth.currentUser != null) {
-            loadGroups()
+            loadUserProfile() // 💡 [추가] 프로필 정보 새로고침
+            loadGroups() // 그룹 목록 새로고침
         }
     }
 
 
     // =========================================================================
     // ⭐ 딥링크 처리 메서드 영역 ⭐
+    // ... (변경 없음)
     // =========================================================================
 
     override fun onNewIntent(intent: Intent) {

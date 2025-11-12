@@ -15,7 +15,7 @@ import com.moyeoyo.app.databinding.ActivityGroupInviteBinding
 class GroupInviteActivity : AppCompatActivity() {
 
     // ⭐ Firebase Hosting 무료 도메인을 사용하여 딥링크 URL 생성
-    private val HOSTING_DOMAIN = "moyeoyo-57ae0.web.app"
+    private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 
     private lateinit var binding: ActivityGroupInviteBinding
     private lateinit var groupId: String
