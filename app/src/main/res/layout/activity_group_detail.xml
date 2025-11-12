@@ -26,7 +26,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@id/group_name_text"
-        app:layout_constraintBottom_toTopOf="@id/bottom_fixed_invite">
+        app:layout_constraintBottom_toTopOf="@id/bottom_fixed_controls">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -54,12 +54,30 @@
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="32dp"/>
 
+            <!-- ⭐ NEW: 팀원 목록 헤더 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="팀원 목록"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- ⭐ NEW: 팀원 목록 컨테이너 -->
+            <LinearLayout
+                android:id="@+id/member_list_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_input_field"
+                android:padding="8dp"/>
+
             <!-- 기능 목록 (임시) -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="여기에 투표, 장소, 시간 선택 기능이 들어갑니다."
-                android:textColor="@color/gray_500"
+                android:textColor="#999999"
                 android:layout_marginTop="40dp" />
 
         </LinearLayout>
@@ -67,7 +85,7 @@
 
     <!-- 3. 하단 고정 버튼 영역 -->
     <LinearLayout
-        android:id="@+id/bottom_fixed_invite"
+        android:id="@+id/bottom_fixed_controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/white"
@@ -87,7 +105,10 @@
             android:drawableStart="@drawable/ic_link"
             android:drawablePadding="8dp"
             android:backgroundTint="#3B82F6"
-            android:layout_marginEnd="10dp"/> <Button
+            android:layout_marginEnd="10dp"/>
+
+        <!-- ⭐ MODIFIED: 방장일 때 보이는 삭제 버튼 -->
+        <Button
             android:id="@+id/btn_delete_group"
             android:layout_width="0dp"
             android:layout_height="56dp"
@@ -96,5 +117,19 @@
             android:textSize="18sp"
             android:textStyle="bold"
             android:backgroundTint="#EF4444"
-            android:layout_marginEnd="0dp" /> </LinearLayout>
+            android:visibility="gone" />
+
+        <!-- ⭐ NEW: 일반 멤버일 때 보이는 나가기 버튼 -->
+        <Button
+            android:id="@+id/btn_leave_group"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="0.35"
+            android:text="나가기"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="#FF5722"
+            android:visibility="gone" />
+
+    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -28,6 +28,7 @@
         <activity android:name=".ui.friends.AddFriendActivity" />
 
         <activity android:name=".ui.groups.CreateGroupActivity" />
+        <activity android:name=".ui.groups.SelectFriendsActivity" />
         <activity android:name=".ui.groups.GroupInviteActivity" />
         <activity android:name=".ui.groups.GroupDetailActivity" />
 

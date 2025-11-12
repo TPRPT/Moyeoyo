@@ -22,15 +22,32 @@ class GroupRepository(
     private val usersCollection = db.collection("users")
 
     /**
-     * 새로운 모임 방을 생성하고 Firestore에 저장합니다.
+     * [이 함수는 createGroupWithMembers로 대체되거나 병행 사용됩니다. 새로운 그룹 생성 로직에서는 createGroupWithMembers를 사용하세요.]
+     * 새로운 모임 방을 생성하고 Firestore에 저장합니다. (호스트만 포함)
      */
     suspend fun createGroup(groupName: String): String? {
         val hostUid = auth.currentUser?.uid ?: return null
 
+        // createGroupWithMembers를 사용하여 단일 멤버로 그룹 생성
+        return createGroupWithMembers(groupName, emptyList())
+    }
+
+    /**
+     * ⭐ NEW: 새로운 모임 방을 생성하고 멤버 목록을 포함하여 Firestore에 저장합니다.
+     * @param groupName 그룹 이름
+     * @param friendUids 선택된 친구들의 UID 목록 (호스트 제외)
+     * @return 생성된 그룹 ID, 실패 시 null
+     */
+    suspend fun createGroupWithMembers(groupName: String, friendUids: List<String>): String? {
+        val hostUid = auth.currentUser?.uid ?: return null
+
+        // 멤버 목록: 호스트 + 선택된 친구들 (Set을 사용하여 중복 방지)
+        val allMemberUids = (friendUids + hostUid).distinct()
+
         val newGroup = Group(
             groupName = groupName,
             hostUid = hostUid,
-            memberUids = listOf(hostUid),
+            memberUids = allMemberUids, // ⭐ 멤버 목록 포함
             status = "VOTING"
         )
 
@@ -38,28 +55,32 @@ class GroupRepository(
             val groupRef = groupsCollection.add(newGroup).await()
             val groupId = groupRef.id
 
-            // 1. Host의 inputLocation 문서 생성
+            // 1. Host의 inputLocation 문서 생성 (호스트만 필수)
             groupsCollection.document(groupId)
                 .collection("inputLocations")
                 .document(hostUid)
                 .set(mapOf(
-                    "latLng" to GeoPoint(0.0, 0.0), // GeoPoint 사용
+                    "latLng" to GeoPoint(0.0, 0.0),
                     "transportMode" to "UNKNOWN",
                     "timestamp" to Timestamp.now()
                 )).await()
 
-            // 2. Host의 users 문서에 groupId를 groups 배열에 추가
-            usersCollection.document(hostUid)
-                .update("groups", FieldValue.arrayUnion(groupId))
-                .await()
+            // 2. 모든 멤버의 users 문서에 groupId를 groups 배열에 추가 (일괄 쓰기 사용)
+            val batch = db.batch()
+            allMemberUids.forEach { uid ->
+                val userRef = usersCollection.document(uid)
+                batch.update(userRef, "groups", FieldValue.arrayUnion(groupId))
+            }
+            batch.commit().await()
 
-            Log.d("GroupRepository", "Group created successfully with ID: $groupId")
+            Log.d("GroupRepository", "Group created successfully with ID: $groupId, Members: ${allMemberUids.size}")
             groupId
         } catch (e: Exception) {
-            Log.e("GroupRepository", "Group creation failed: ${e.message}", e)
+            Log.e("GroupRepository", "Group creation with members failed: ${e.message}", e)
             null
         }
     }
+
 
     /**
      * ⭐ NEW: 그룹 ID로 Firestore에서 그룹 데이터를 조회합니다. (딥링크 모달용)
@@ -175,10 +196,68 @@ class GroupRepository(
 
     /**
      * 특정 그룹의 상세 정보를 Group 객체로 조회합니다.
-     * (getGroupById 함수가 추가되어 이 함수의 사용 여부를 재검토할 수 있으나, 일단 유지합니다.)
      */
     suspend fun getGroupDetail(groupId: String): Group? {
         return getGroupById(groupId) // 새로 추가된 함수 재사용
+    }
+
+    /**
+     * ⭐ NEW: 특정 멤버를 그룹에서 강퇴시킵니다. (removeMember)
+     * @param groupId 그룹 ID
+     * @param memberUidToRemove 강퇴할 멤버의 UID
+     * @return 성공 여부
+     */
+    suspend fun removeMember(groupId: String, memberUidToRemove: String): Boolean {
+        val groupRef = groupsCollection.document(groupId)
+        val userRef = usersCollection.document(memberUidToRemove)
+        val TAG = "GroupRepository" // 내부 로깅용 TAG
+
+        return try {
+            db.runTransaction { transaction ->
+                val groupSnapshot = transaction.get(groupRef)
+
+                if (!groupSnapshot.exists()) {
+                    throw IllegalStateException("Group document does not exist.")
+                }
+
+                @Suppress("UNCHECKED_CAST")
+                val currentMembers = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
+
+                if (!currentMembers.contains(memberUidToRemove)) {
+                    Log.w(TAG, "Member to remove is not in the group.")
+                    return@runTransaction null
+                }
+
+                // 1. 그룹 멤버 배열 업데이트 (groups/{groupId})
+                val newMembers = currentMembers.filter { it != memberUidToRemove }
+                transaction.update(groupRef, "memberUids", newMembers)
+
+                // 2. 강퇴된 사용자의 users 문서에서 groupId 제거
+                transaction.update(userRef, "groups", FieldValue.arrayRemove(groupId))
+
+                // 3. 강퇴된 멤버의 inputLocation 문서 삭제
+                val locationRef = groupRef.collection("inputLocations").document(memberUidToRemove)
+                transaction.delete(locationRef)
+
+                null // 트랜잭션 성공
+            }.await()
+
+            Log.d(TAG, "Member $memberUidToRemove removed from group $groupId.")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to remove member $memberUidToRemove from group $groupId: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * ⭐ NEW: 일반 멤버가 그룹을 나갑니다. (leaveGroup)
+     */
+    suspend fun leaveGroup(groupId: String): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+
+        // removeMember 함수를 재사용하여 나가기 처리
+        return removeMember(groupId, uid)
     }
 
     /**
