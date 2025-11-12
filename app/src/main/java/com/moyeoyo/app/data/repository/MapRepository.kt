@@ -301,6 +301,9 @@ class MapRepository @Inject constructor(
                 TransportMode.DRIVE -> "driving"
             }
             val useSnapToRoad = mode == TransportMode.DRIVE
+            val key = context.getString(R.string.maps_web_key)
+            val departureParam =
+                if (mode == TransportMode.TRANSIT) "&departure_time=${System.currentTimeMillis() / 1000}" else ""
             val adjustedDestination = if (useSnapToRoad) {
                 snapToRoad(destination) ?: destination
             } else {
@@ -315,76 +318,117 @@ class MapRepository @Inject constructor(
                 member.uid to snappedLatLng
             }
 
-            val key = context.getString(R.string.maps_web_key)
-            val originsParam = adjustedOrigins.joinToString("|") { "${it.second.lat},${it.second.lng}" }
-            val destParam = "${adjustedDestination.lat},${adjustedDestination.lng}"
-            val departureParam =
-                if (mode == TransportMode.TRANSIT) "&departure_time=${System.currentTimeMillis() / 1000}" else ""
-            val url =
-                "https://maps.googleapis.com/maps/api/distancematrix/json?origins=$originsParam&destinations=$destParam&mode=$modeString$departureParam&key=$key"
-
-            Log.d(
-                "MapRepository",
-                "Distance Matrix 요청: mode=$modeString, origins=${members.size}, dest=$destParam, snap=$useSnapToRoad"
+            val (snapResults, hadZeroResults) = performDistanceMatrixRequest(
+                adjustedOrigins,
+                adjustedDestination,
+                modeString,
+                departureParam,
+                key,
+                useSnapToRoad
             )
 
-            val groupResults = suspendCancellableCoroutine<List<DistanceResult>> { cont ->
-                val req = Request.Builder().url(url).build()
-                http.newCall(req).enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        if (cont.isActive) cont.resumeWithException(e)
-                    }
-
-                    override fun onResponse(call: Call, response: Response) {
-                        if (!cont.isActive) return
-                        response.use {
-                            if (!it.isSuccessful) {
-                                cont.resumeWithException(
-                                    IllegalStateException("DistanceMatrix HTTP ${it.code}")
-                                )
-                                return
-                            }
-                            val body = it.body?.string().orEmpty()
-                            val json = JSONObject(body)
-                            val matrixStatus = json.optString("status")
-                            if (matrixStatus != "OK") {
-                                Log.w(
-                                    "MapRepository",
-                                    "Distance Matrix 응답 status=$matrixStatus, mode=$modeString, body=$body"
-                                )
-                            }
-                            val rows = json.optJSONArray("rows")
-                            if (rows == null || rows.length() == 0) {
-                                cont.resume(emptyList())
-                                return
-                            }
-                            val parsed = mutableListOf<DistanceResult>()
-                            for (i in 0 until rows.length()) {
-                                val elements = rows.getJSONObject(i).optJSONArray("elements") ?: continue
-                                val el0 = elements.optJSONObject(0) ?: continue
-                                val status = el0.optString("status")
-                                if (status == "OK") {
-                                    val durationSec = el0.getJSONObject("duration").optInt("value")
-                                    val distanceMeter = el0.getJSONObject("distance").optInt("value")
-                                    val uid = adjustedOrigins.getOrNull(i)?.first ?: continue
-                                    parsed += DistanceResult(uid, durationSec, distanceMeter)
-                                } else {
-                                    Log.w(
-                                        "MapRepository",
-                                        "Distance Matrix element status=$status, originIndex=$i, mode=$modeString"
-                                    )
-                                }
-                            }
-                            cont.resume(parsed)
-                        }
-                    }
-                })
+            var groupResults = snapResults
+            if (useSnapToRoad && (groupResults.isEmpty() || hadZeroResults)) {
+                Log.w(
+                    "MapRepository",
+                    "SnapToRoad 좌표로 경로를 찾지 못해 원본 좌표로 재시도합니다. mode=$modeString"
+                )
+                val rawOrigins = members.map { it.uid to it.latLng }
+                val (fallbackResults, _) = performDistanceMatrixRequest(
+                    rawOrigins,
+                    destination,
+                    modeString,
+                    departureParam,
+                    key,
+                    false
+                )
+                if (fallbackResults.isNotEmpty()) {
+                    groupResults = fallbackResults
+                }
             }
 
             aggregatedResults += groupResults
         }
 
         aggregatedResults
+    }
+
+    private suspend fun performDistanceMatrixRequest(
+        origins: List<Pair<String, LatLngData>>,
+        destination: LatLngData,
+        mode: String,
+        departureParam: String,
+        key: String,
+        snapApplied: Boolean
+    ): Pair<List<DistanceResult>, Boolean> = suspendCancellableCoroutine { cont ->
+        if (origins.isEmpty()) {
+            cont.resume(emptyList<DistanceResult>() to false); return@suspendCancellableCoroutine
+        }
+
+        val originsParam = origins.joinToString("|") { "${it.second.lat},${it.second.lng}" }
+        val destParam = "${destination.lat},${destination.lng}"
+        val url =
+            "https://maps.googleapis.com/maps/api/distancematrix/json?origins=$originsParam&destinations=$destParam&mode=$mode$departureParam&key=$key"
+
+        Log.d(
+            "MapRepository",
+            "Distance Matrix 요청: mode=$mode, origins=${origins.size}, dest=$destParam, snap=$snapApplied"
+        )
+
+        val req = Request.Builder().url(url).build()
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (!cont.isActive) return
+                response.use {
+                    if (!it.isSuccessful) {
+                        cont.resumeWithException(
+                            IllegalStateException("DistanceMatrix HTTP ${it.code}")
+                        )
+                        return
+                    }
+                    val body = it.body?.string().orEmpty()
+                    val json = JSONObject(body)
+                    val matrixStatus = json.optString("status")
+                    if (matrixStatus != "OK") {
+                        Log.w(
+                            "MapRepository",
+                            "Distance Matrix 응답 status=$matrixStatus, mode=$mode, snap=$snapApplied, body=$body"
+                        )
+                    }
+                    val rows = json.optJSONArray("rows")
+                    if (rows == null || rows.length() == 0) {
+                        cont.resume(emptyList<DistanceResult>() to (matrixStatus == "ZERO_RESULTS"));
+                        return
+                    }
+                    val parsed = mutableListOf<DistanceResult>()
+                    var zeroResultsEncountered = matrixStatus == "ZERO_RESULTS"
+                    for (i in 0 until rows.length()) {
+                        val elements = rows.getJSONObject(i).optJSONArray("elements") ?: continue
+                        val el0 = elements.optJSONObject(0) ?: continue
+                        val status = el0.optString("status")
+                        if (status == "OK") {
+                            val durationSec = el0.getJSONObject("duration").optInt("value")
+                            val distanceMeter = el0.getJSONObject("distance").optInt("value")
+                            val uid = origins.getOrNull(i)?.first ?: continue
+                            parsed += DistanceResult(uid, durationSec, distanceMeter)
+                        } else {
+                            if (status == "ZERO_RESULTS") {
+                                zeroResultsEncountered = true
+                            }
+                            Log.w(
+                                "MapRepository",
+                                "Distance Matrix element status=$status, originIndex=$i, mode=$mode, snap=$snapApplied"
+                            )
+                        }
+                    }
+                    cont.resume(parsed to zeroResultsEncountered)
+                }
+            }
+        })
     }
 
     private fun snapToRoad(latLng: LatLngData): LatLngData? {

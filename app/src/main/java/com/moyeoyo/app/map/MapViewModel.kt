@@ -15,6 +15,7 @@ import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.TransportMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -147,60 +148,88 @@ class MapViewModel @Inject constructor(
 
     // Firestore: 그룹 멤버 입력 위치 로드 → 상태 반영 후 중간지점 계산
     fun loadGroupMembers(groupId: String) {
-        setGroupId(groupId)
+        val isGroupChanged = state.value?.groupId != groupId
+        if (isGroupChanged) {
+            setGroupId(groupId)
+            update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    members = emptyList(),
+                    weightedCenter = null,
+                    nearbyPlaces = emptyList(),
+                    selectedPlace = null,
+                    distanceByMember = emptyList(),
+                    isDistanceLoading = false
+                )
+            }
+        } else {
+            update { it.copy(isLoading = true, error = null) }
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                update {
-                    it.copy(
-                        isLoading = true,
-                        error = null,
-                        nearbyPlaces = emptyList(),
-                        distanceByMember = emptyList(),
-                        isDistanceLoading = false
-                    )
-                }
                 val members = repo.getInputLocations(groupId)
                 Log.d("MapViewModel", "Firestore에서 가져온 멤버 수: ${members.size}명")
                 members.forEach { member ->
                     Log.d(
                         "MapViewModel",
-                        "멤버 정보: uid=${member.uid}, lat=${member.latLng.lat}, lng=${member.latLng.lng}, label=${member.label}"
+                        "멤버 정보: uid=${member.uid}, lat=${member.latLng.lat}, lng=${member.latLng.lng}, mode=${member.transportMode}"
                     )
                 }
-                val center = repo.computeWeightedCenter(members)
-                if (center != null) {
-                    Log.d(
-                        "MapViewModel",
-                        "✅ 중간 지점 계산 성공: lat=${center.lat}, lng=${center.lng}"
-                    )
-                } else {
-                    Log.e("MapViewModel", "❌ 중간 지점 계산 실패 - 결과가 null입니다.")
-                }
-                update {
-                    it.copy(
-                        members = members,
-                        weightedCenter = center,
-                        isLoading = false,
-                        selectedPlace = null,
-                        distanceByMember = emptyList(),
-                        isDistanceLoading = false
-                    )
-                }
-                if (center != null) {
-                    runCatching {
-                        repo.saveComputedCenter(groupId, center)
+
+                withContext(Dispatchers.Main) {
+                    update { it.copy(members = members) }
+
+                    val center = repo.computeWeightedCenter(members)
+                    if (center != null) {
                         Log.d(
                             "MapViewModel",
-                            "중간 지점 Firestore 저장 완료: group=$groupId, lat=${center.lat}, lng=${center.lng}"
+                            "✅ 중간 지점 계산 성공: lat=${center.lat}, lng=${center.lng}"
                         )
-                    }.onFailure { saveError ->
-                        Log.e("MapViewModel", "중간 지점 저장 실패: ${saveError.message}", saveError)
-                        update { it.copy(error = saveError.message) }
+                        update {
+                            it.copy(
+                                weightedCenter = center,
+                                isLoading = false,
+                                nearbyPlaces = emptyList(),
+                                selectedPlace = null,
+                                distanceByMember = emptyList(),
+                                isDistanceLoading = false
+                            )
+                        }
+                        viewModelScope.launch(Dispatchers.IO) {
+                            runCatching { repo.saveComputedCenter(groupId, center) }
+                                .onSuccess {
+                                    Log.d(
+                                        "MapViewModel",
+                                        "중간 지점 Firestore 저장 완료: group=$groupId, lat=${center.lat}, lng=${center.lng}"
+                                    )
+                                }
+                                .onFailure { saveError ->
+                                    Log.e("MapViewModel", "중간 지점 저장 실패: ${saveError.message}", saveError)
+                                    update { it.copy(error = saveError.message) }
+                                }
+                        }
+                    } else {
+                        Log.e("MapViewModel", "❌ 중간 지점 계산 실패")
+                        update {
+                            it.copy(
+                                weightedCenter = null,
+                                isLoading = false,
+                                error = "중간 지점 계산에 실패했습니다.",
+                                nearbyPlaces = emptyList(),
+                                selectedPlace = null,
+                                distanceByMember = emptyList(),
+                                isDistanceLoading = false
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("MapViewModel", "Firestore 로드 중 예외 발생: ${e.message}", e)
-                update { it.copy(error = e.message, isLoading = false) }
+                withContext(Dispatchers.Main) {
+                    update { it.copy(error = e.message, isLoading = false) }
+                }
             }
         }
     }
