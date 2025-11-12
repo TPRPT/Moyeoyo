@@ -4,7 +4,8 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
-data class Group(
+data class GroupUi(
+    val id: String = "",
     val name: String,
     val memberCount: Int,
     val date: String?,

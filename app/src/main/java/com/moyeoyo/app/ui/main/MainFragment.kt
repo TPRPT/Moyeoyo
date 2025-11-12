@@ -1,13 +1,9 @@
 package com.moyeoyo.app.ui.main
 
-import android.graphics.Color
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -18,53 +14,32 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.R
+import com.moyeoyo.app.model.GroupUi
 
 /**
  * 메인 화면 (내 그룹 리스트 + 프로필 정보 + AppBar)
  */
 class MainFragment : Fragment(R.layout.fragment_main) {
 
-    // ✅ 임시 더미 데이터 (나중에 Firebase Firestore 연결 예정)
-    private val dummyGroups = listOf(
-        GroupUi(
-            id = "g1",
-            name = "대학 동기들",
-            memberCount = 5,
-            statusLabel = "D-5",
-            dateText = "2025년 10월 20일 (일)",
-            locationText = "강남역 근처"
-        ),
-        GroupUi(
-            id = "g2",
-            name = "회사 동료",
-            memberCount = 8,
-            statusLabel = "투표중",
-            dateText = "투표 진행중",
-            locationText = "장소 선택중"
-        ),
-        GroupUi(
-            id = "g3",
-            name = "고등학교 친구들",
-            memberCount = 6,
-            statusLabel = "투표중",
-            dateText = "투표 진행중",
-            locationText = "장소 선택중"
-        )
-    )
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         /** -------------------------------
-         * ✅ 1. AppBar (툴바) 설정
+         * ✅ 1. AppBar (툴바)
          * ------------------------------- */
         val toolbar = view.findViewById<Toolbar>(R.id.toolbar)
         toolbar.inflateMenu(R.menu.menu_main)
         toolbar.setOnMenuItemClickListener { item: MenuItem ->
             when (item.itemId) {
                 R.id.action_notifications -> {
-                    Toast.makeText(requireContext(), "알림 클릭됨", Toast.LENGTH_SHORT).show()
+                    findNavController().navigate(R.id.action_mainFragment_to_notificationFragment)
                     true
                 }
                 R.id.action_settings -> {
@@ -76,125 +51,111 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         }
 
         /** -------------------------------
-         * ✅ 2. 프로필 카드 관련
+         * ✅ 2. 프로필 카드
          * ------------------------------- */
         val cardProfile = view.findViewById<CardView>(R.id.cardProfile)
         val btnLogout = view.findViewById<Button>(R.id.btnLogout)
         val tvName = view.findViewById<TextView>(R.id.tvName)
         val tvEmail = view.findViewById<TextView>(R.id.tvEmail)
+        val imgProfile = view.findViewById<ImageView>(R.id.imgProfile)
 
-        // 임시 표시 (나중에 Firebase Auth 데이터로 대체)
-        tvName.text = "김모여 (서울특별시 공릉역사거리)"
-        tvEmail.text = "moyeoyo52@gmail.com"
-
-        // 프로필 카드 클릭 → 프로필 설정 페이지 이동 예정
-        cardProfile.setOnClickListener {
-            Toast.makeText(requireContext(), "프로필 설정 페이지로 이동 예정", Toast.LENGTH_SHORT).show()
-            // findNavController().navigate(R.id.action_mainFragment_to_profileFragment)
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            Toast.makeText(requireContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()
+            findNavController().navigate(R.id.action_mainFragment_to_loginFragment)
+            return
         }
 
-        // 로그아웃 버튼
+        // Firestore 사용자 정보 로드
+        firestore.collection("users").document(currentUser.uid)
+            .get()
+            .addOnSuccessListener { doc ->
+                val nickname = doc.getString("nickname") ?: "닉네임 없음"
+                val homeLocation =
+                    (doc.get("homeLocation") as? Map<*, *>)?.get("address") ?: "주소 미설정"
+                val photoUrl = doc.getString("photoUrl")
+
+                tvName.text = "$nickname ($homeLocation)"
+                tvEmail.text = currentUser.email ?: "이메일 없음"
+
+                if (!photoUrl.isNullOrEmpty()) {
+                    Glide.with(requireContext())
+                        .load(photoUrl)
+                        .placeholder(R.drawable.ic_user_placeholder)
+                        .circleCrop()
+                        .into(imgProfile)
+                } else {
+                    imgProfile.setImageResource(R.drawable.ic_user_placeholder)
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "프로필 정보를 불러오지 못했습니다.", Toast.LENGTH_SHORT)
+                    .show()
+            }
+
+        // 프로필 카드 클릭 → 프로필 설정 페이지 이동
+        cardProfile.setOnClickListener {
+            findNavController().navigate(R.id.action_mainFragment_to_profileSetupFragment)
+        }
+
+        // 로그아웃
         btnLogout.setOnClickListener {
-            Toast.makeText(requireContext(), "로그아웃 클릭됨", Toast.LENGTH_SHORT).show()
-            // FirebaseAuth.getInstance().signOut() 예정
+            auth.signOut()
+            Toast.makeText(requireContext(), "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show()
+            findNavController().navigate(R.id.action_mainFragment_to_loginFragment)
         }
 
         /** -------------------------------
-         * ✅ 3. 상단 버튼 (새 그룹 만들기)
+         * ✅ 3. 새 그룹 만들기 버튼
          * ------------------------------- */
         val btnNewGroup = view.findViewById<Button>(R.id.btnNewGroup)
-
         btnNewGroup.setOnClickListener {
-            Toast.makeText(requireContext(), "새 그룹 만들기 클릭됨", Toast.LENGTH_SHORT).show()
-            // findNavController().navigate(R.id.action_mainFragment_to_createGroupFragment)
+            findNavController().navigate(R.id.action_mainFragment_to_createGroupFragment)
         }
 
         /** -------------------------------
-         * ✅ 4. RecyclerView 초기화
+         * ✅ 4. 그룹 목록 로딩 (Firestore)
          * ------------------------------- */
         val recyclerView = view.findViewById<RecyclerView>(R.id.groupRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = GroupAdapter(dummyGroups) { clickedGroup ->
-            val args = bundleOf(
-                "groupId" to clickedGroup.id,
-                "groupName" to clickedGroup.name,
-                "memberCount" to clickedGroup.memberCount,
-                "statusLabel" to clickedGroup.statusLabel,
-                "dateText" to clickedGroup.dateText,
-                "locationText" to clickedGroup.locationText
-            )
-            findNavController().navigate(
-                R.id.action_mainFragment_to_groupDetailFragment,
-                args
-            )
-        }
 
-        /** -------------------------------
-         * ✅ 5. 참여중인 그룹 수 표시
-         * ------------------------------- */
-        val subTitle = view.findViewById<TextView>(R.id.subTitle)
-        subTitle.text = "참여중인 그룹 ${dummyGroups.size}개"
-    }
-}
+        firestore.collection("groups")
+            .whereArrayContains("memberUids", currentUser.uid)
+            .get()
+            .addOnSuccessListener { result ->
+                val groupUis = result.documents.map { doc ->
+                    GroupUi(
+                        id = doc.id,
+                        name = doc.getString("groupName") ?: "이름 없음",
+                        memberCount = (doc.get("memberUids") as? List<*>)?.size ?: 0,
+                        date = doc.getString("meetingDate"),
+                        location = doc.getString("locationName"),
+                        isVoting = (doc.getString("status") ?: "진행중").contains("투표"),
+                        dDay = if ((doc.getString("status") ?: "").startsWith("D-"))
+                            doc.getString("status") else null
+                    )
+                }
 
-/**
- * UI 표시용 그룹 데이터 클래스
- */
-data class GroupUi(
-    val id: String,
-    val name: String,
-    val memberCount: Int,
-    val statusLabel: String,
-    val dateText: String,
-    val locationText: String
-)
+                val adapter = GroupListAdapter(groupUis) { clickedGroup ->
+                    val args = bundleOf(
+                        "groupId" to clickedGroup.id,
+                        "groupName" to clickedGroup.name,
+                        "memberCount" to clickedGroup.memberCount
+                    )
+                    findNavController().navigate(
+                        R.id.action_mainFragment_to_groupDetailFragment,
+                        args
+                    )
+                }
+                recyclerView.adapter = adapter
 
-/**
- * RecyclerView 어댑터
- */
-class GroupAdapter(
-    private val groups: List<GroupUi>,
-    private val onClick: (GroupUi) -> Unit
-) : RecyclerView.Adapter<GroupAdapter.GroupViewHolder>() {
-
-    inner class GroupViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val name: TextView = view.findViewById(R.id.groupNameText)
-        val member: TextView = view.findViewById(R.id.memberCountText)
-        val badge: TextView = view.findViewById(R.id.badgeStatus)
-        val date: TextView = view.findViewById(R.id.dateText)
-        val location: TextView = view.findViewById(R.id.locationText)
-        val chevron: ImageView = view.findViewById(R.id.chevron)
-
-        fun bind(group: GroupUi) {
-            name.text = group.name
-            member.text = "${group.memberCount}명"
-            date.text = group.dateText
-            location.text = group.locationText
-
-            // 상태 배지 스타일
-            badge.text = group.statusLabel
-            if (group.statusLabel == "투표중") {
-                badge.setBackgroundResource(R.drawable.bg_badge_orange)
-                badge.setTextColor(Color.parseColor("#E07A27"))
-            } else {
-                badge.setBackgroundResource(R.drawable.bg_badge_blue)
-                badge.setTextColor(Color.parseColor("#2F6FED"))
+                // 그룹 개수 텍스트
+                val subTitle = view.findViewById<TextView>(R.id.subTitle)
+                subTitle.text = "참여중인 그룹 ${groupUis.size}개"
             }
-
-            itemView.setOnClickListener { onClick(group) }
-            chevron.setOnClickListener { onClick(group) }
-        }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "그룹 목록을 불러오지 못했습니다.", Toast.LENGTH_SHORT)
+                    .show()
+            }
     }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GroupViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_group_card, parent, false)
-        return GroupViewHolder(view)
-    }
-
-    override fun onBindViewHolder(holder: GroupViewHolder, position: Int) {
-        holder.bind(groups[position])
-    }
-
-    override fun getItemCount(): Int = groups.size
 }

@@ -59,6 +59,19 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
+            <!-- 오른쪽: 그룹 삭제 버튼 -->
+            <Button
+                android:id="@+id/btnDeleteGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:layout_gravity="end|center_vertical"
+                android:backgroundTint="@color/light_gray_bg"
+                android:elevation="2dp"
+                android:text="그룹 삭제"
+                android:textColor="@color/black"
+                android:textSize="14sp" />
+
             <!-- ✅ 다음 모임 카드 -->
             <LinearLayout
                 android:id="@+id/nextMeetingCard"
@@ -68,7 +81,8 @@
                 android:orientation="vertical"
                 android:padding="16dp"
                 android:background="@drawable/bg_header_blue"
-                android:clipToOutline="true">
+                android:clipToOutline="true"
+                android:visibility="gone">
 
                 <TextView
                     android:id="@+id/labelNext"
@@ -355,6 +369,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp" />
+
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

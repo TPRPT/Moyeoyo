@@ -1,163 +1,247 @@
 package com.moyeoyo.app.ui.group
 
+import GroupTabAdapter
+import android.content.Intent
 import android.os.Bundle
+import android.provider.CalendarContract
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.RadioGroup
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
-import androidx.navigation.findNavController
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.radiobutton.MaterialRadioButton
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.R
+import com.moyeoyo.app.data.repository.GroupRepository
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
+/**
+ * 그룹 상세 화면 (그룹명, 멤버 수, 투표 상태 표시)
+ * - Firestore 연동
+ * - 그룹 삭제 기능
+ * - 다음 모임 캘린더 추가 기능
+ */
 class GroupDetailFragment : Fragment() {
+
+    private val auth = FirebaseAuth.getInstance()
+    private val groupRepository = GroupRepository()
+    private lateinit var firestore: FirebaseFirestore
+
+    private var groupId: String? = null
+    private var groupName: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_group_detail, container, false)
+        return inflater.inflate(R.layout.fragment_group_detail, container, false)
+    }
 
-        // -----------------------------
-        // ✅ 전달받은 데이터 (MainFragment → Detail)
-        // -----------------------------
-        val groupName = arguments?.getString("groupName") ?: "모임 이름 없음"
-        val memberCount = arguments?.getInt("memberCount") ?: 0
-        val statusLabel = arguments?.getString("statusLabel") ?: "투표중"
-        val dateText = arguments?.getString("dateText") ?: "미정"
-        val locationText = arguments?.getString("locationText") ?: "미정"
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        firestore = FirebaseFirestore.getInstance()
 
-        // -----------------------------
-        // ✅ 툴바 (뒤로가기)
-        // -----------------------------
-        val toolbar = view.findViewById<MaterialToolbar>(R.id.toolbar)
-        toolbar.setNavigationOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
-        }
+        // 전달받은 데이터 (MainFragment → GroupDetailFragment)
+        groupId = arguments?.getString("groupId")
+        groupName = arguments?.getString("groupName")
 
-        // -----------------------------
-        // ✅ 텍스트 세팅
-        // -----------------------------
-        view.findViewById<TextView>(R.id.tvGroupName).text = groupName
-        view.findViewById<TextView>(R.id.tvMemberCount).text = "멤버 ${memberCount}명"
-        view.findViewById<TextView>(R.id.tvMeetingDateAndTime).text = dateText
-        view.findViewById<TextView>(R.id.tvMeetingLocation).text = locationText
-
-        // -----------------------------
-        // ✅ 카드 전환 로직
-        // -----------------------------
-        val nextMeetingCard = view.findViewById<View>(R.id.nextMeetingCard)
-        val votingStatusCard = view.findViewById<View>(R.id.votingStatusCard)
-
-        if (statusLabel.contains("투표중")) {
-            nextMeetingCard.visibility = View.GONE
-            votingStatusCard.visibility = View.VISIBLE
-        } else {
-            nextMeetingCard.visibility = View.VISIBLE
-            votingStatusCard.visibility = View.GONE
-        }
-
-        // -----------------------------
-        // ✅ 탭 & ViewPager 연결
-        // -----------------------------
+        val tvGroupName = view.findViewById<TextView>(R.id.tvGroupName)
+        val tvMemberCount = view.findViewById<TextView>(R.id.tvMemberCount)
+        val btnDelete = view.findViewById<Button>(R.id.btnDeleteGroup)
+        val toolbar = view.findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        val tabGroup = view.findViewById<RadioGroup>(R.id.tabGroup)
         val viewPager = view.findViewById<ViewPager2>(R.id.viewPager)
-        val tabGroup = view.findViewById<ViewGroup>(R.id.tabGroup)
-        val tabPlace = view.findViewById<MaterialRadioButton>(R.id.tabPlace)
-        val tabMember = view.findViewById<MaterialRadioButton>(R.id.tabMember)
+        val tvMeetingDateAndTime = view.findViewById<TextView>(R.id.tvMeetingDateAndTime)
+        val tvMeetingLocation = view.findViewById<TextView>(R.id.tvMeetingLocation)
+        val btnAddToCalendarWrapper = view.findViewById<View>(R.id.btnAddToCalendarWrapper)
+        val btnAddToCalendar = view.findViewById<View>(R.id.btnAddToCalendar)
 
-        viewPager.adapter = GroupTabAdapter(this)
+        tvGroupName.text = groupName ?: "그룹 이름 없음"
 
-        // 탭 클릭 시 ViewPager 전환
-        tabPlace.setOnClickListener { viewPager.currentItem = 0 }
-        tabMember.setOnClickListener { viewPager.currentItem = 1 }
+        // ✅ 뒤로가기
+        toolbar.setNavigationOnClickListener {
+            findNavController().popBackStack()
+        }
 
-        // ViewPager 스와이프 시 탭 상태 반영
+        // ✅ ViewPager2 어댑터 연결
+        val adapter = GroupTabAdapter(this, groupId ?: "", groupName ?: "")
+        viewPager.adapter = adapter
+
+        // ✅ 탭 버튼과 ViewPager 연결
+        tabGroup.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.tabPlace -> viewPager.currentItem = 0
+                R.id.tabMember -> viewPager.currentItem = 1
+            }
+        }
+
+        // ✅ 스와이프 시 탭 변경 반영
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 super.onPageSelected(position)
                 when (position) {
-                    0 -> tabPlace.isChecked = true
-                    1 -> tabMember.isChecked = true
+                    0 -> tabGroup.check(R.id.tabPlace)
+                    1 -> tabGroup.check(R.id.tabMember)
                 }
             }
         })
 
-        // -----------------------------
-        // ✅ 투표 현황 더미 데이터
-        // -----------------------------
-        val tvTimeVoteCount = view.findViewById<TextView>(R.id.tvTimeVoteCount)
-        val tvPlaceVoteCount = view.findViewById<TextView>(R.id.tvPlaceVoteCount)
-        val timeProgress = view.findViewById<android.widget.ProgressBar>(R.id.timeVoteProgress)
-        val placeProgress = view.findViewById<android.widget.ProgressBar>(R.id.placeVoteProgress)
+        // ✅ 캘린더 추가 버튼 (wrapper + text 둘 다 클릭 가능)
+        val calendarClick: (View) -> Unit = calendarClick@{
+            val (startMillis, title, location) = buildCalendarEventData(
+                groupName = groupName ?: "모임",
+                dateTimeText = tvMeetingDateAndTime.text?.toString(),
+                placeText = tvMeetingLocation.text?.toString(),
+                finalMeetingAt = null // Firestore에 확정시간(long) 저장되어 있다면 여기로 전달
+            )
 
-        val totalMembers = memberCount
-        val timeVoted = 3
-        val placeVoted = 4
+            if (startMillis == null) {
+                Toast.makeText(requireContext(), "모임 시간 정보를 확인할 수 없어요", Toast.LENGTH_SHORT).show()
+                return@calendarClick
+            }
 
-        tvTimeVoteCount.text = "${timeVoted}/${totalMembers}명 참여"
-        tvPlaceVoteCount.text = "${placeVoted}/${totalMembers}명 참여"
-
-        timeProgress.progress = (timeVoted * 100 / totalMembers)
-        placeProgress.progress = (placeVoted * 100 / totalMembers)
-
-
-        // -----------------------------
-        // ✅ "추천 장소" 위쪽의 시간 버튼 클릭 시 이동
-        // -----------------------------
-        val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
-        val navController = requireActivity()
-            .supportFragmentManager
-            .findFragmentById(R.id.nav_host)
-            ?.findNavController()
-
-        btnFilterTime?.setOnClickListener {
-            navController?.navigate(R.id.action_groupDetailFragment_to_timeVoteFragment)
+            val intent = Intent(Intent.ACTION_INSERT).apply {
+                data = CalendarContract.Events.CONTENT_URI
+                putExtra(CalendarContract.Events.TITLE, title)
+                putExtra(CalendarContract.Events.EVENT_LOCATION, location)
+                putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
+                putExtra(CalendarContract.EXTRA_EVENT_END_TIME, startMillis + 60 * 60 * 1000)
+                putExtra(CalendarContract.Events.EVENT_TIMEZONE, "Asia/Seoul")
+            }
+            startActivity(intent)
         }
+        btnAddToCalendarWrapper.setOnClickListener(calendarClick)
+        btnAddToCalendar.setOnClickListener(calendarClick)
 
+        // ✅ Firestore 실시간 그룹 데이터 감시
+        loadGroupData(tvMemberCount, btnDelete)
+        btnDelete.setOnClickListener { showDeleteDialog() }
+    }
 
-        // -----------------------------
-// ✅ Firestore에서 시간 투표 현황 불러오기 (실시간 반영)
-// -----------------------------
-        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-        val groupId = "test-group" // Firestore Emulator에 만든 문서 ID
+    /**
+     * Firestore에서 그룹 상세 데이터 로드 (실시간)
+     */
+    private fun loadGroupData(memberText: TextView, deleteBtn: Button) {
+        val votingCard = view?.findViewById<View>(R.id.votingStatusCard)
+        val nextMeetingCard = view?.findViewById<View>(R.id.nextMeetingCard)
+        val tvMeetingDateAndTime = view?.findViewById<TextView>(R.id.tvMeetingDateAndTime)
+        val tvMeetingLocation = view?.findViewById<TextView>(R.id.tvMeetingLocation)
 
-        db.collection("groups")
-            .document(groupId)
-            .collection("timeVotes")
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    android.util.Log.e("Firestore", "투표 현황 리스너 오류", e)
+        firestore.collection("groups")
+            .document(groupId ?: return)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot == null) {
+                    memberText.text = "그룹 정보 불러오기 실패"
                     return@addSnapshotListener
                 }
 
-                // 현재 투표된 사용자 수
-                val votedCount = snapshot?.size() ?: 0
+                val memberUids = snapshot.get("memberUids") as? List<String> ?: emptyList()
+                val votedMembers = snapshot.get("votedMembers") as? List<String> ?: emptyList()
 
-                // 총 멤버 수 (이미 위에서 memberCount로 받아왔음)
-                val totalMembers = memberCount
+                // 멤버 수 표시
+                memberText.text = "${memberUids.size}명 참여 중"
 
-                // UI 업데이트
-                val tvTimeVoteCount = view.findViewById<TextView>(R.id.tvTimeVoteCount)
-                val timeProgress = view.findViewById<android.widget.ProgressBar>(R.id.timeVoteProgress)
+                // 삭제 버튼 권한
+                val isHost = snapshot.getString("hostUid") == auth.currentUser?.uid
+                deleteBtn.isEnabled = isHost
+                deleteBtn.alpha = if (isHost) 1f else 0.5f
 
-                tvTimeVoteCount.text = "${votedCount}/${totalMembers}명 참여"
-                if (totalMembers > 0) {
-                    timeProgress.progress = (votedCount * 100 / totalMembers)
+                // 🔹 투표 완료 여부 판단
+                if (memberUids.isNotEmpty() && votedMembers.size >= memberUids.size) {
+                    // ✅ 모든 멤버 투표 완료 → 다음 모임 카드 표시
+                    votingCard?.visibility = View.GONE
+                    nextMeetingCard?.visibility = View.VISIBLE
+
+                    // 확정된 모임 시간/장소가 있으면 표시
+                    val finalAt = snapshot.getLong("finalMeetingAt")
+                    val finalPlace = snapshot.getString("finalMeetingPlace")
+
+                    finalAt?.let {
+                        val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"), Locale.KOREA)
+                        cal.timeInMillis = it
+                        val fmt = SimpleDateFormat("yyyy년 M월 d일 (E) HH:mm", Locale.KOREA)
+                        fmt.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+                        tvMeetingDateAndTime?.text = fmt.format(cal.time)
+                    }
+                    finalPlace?.let {
+                        tvMeetingLocation?.text = it
+                    }
+
                 } else {
-                    timeProgress.progress = 0
+                    // 🟧 투표 진행 중
+                    nextMeetingCard?.visibility = View.GONE
+                    votingCard?.visibility = View.VISIBLE
                 }
-
-                // 디버깅용 로그
-                android.util.Log.d("Firestore", "현재 투표자 수: $votedCount")
             }
+    }
 
+    /**
+     * 그룹 삭제 다이얼로그
+     */
+    private fun showDeleteDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("그룹 삭제")
+            .setMessage("정말로 '$groupName' 그룹을 삭제하시겠습니까?")
+            .setPositiveButton("삭제") { _, _ -> deleteGroup() }
+            .setNegativeButton("취소", null)
+            .show()
+    }
 
+    /**
+     * Firestore에서 그룹 삭제
+     */
+    private fun deleteGroup() {
+        lifecycleScope.launch {
+            val success = groupRepository.deleteGroup(groupId ?: return@launch)
+            if (success) {
+                Toast.makeText(requireContext(), "그룹이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                findNavController().popBackStack()
+            } else {
+                Toast.makeText(requireContext(), "삭제 실패", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
+    /**
+     * 캘린더 인텐트 데이터 구성 헬퍼
+     */
+    private fun buildCalendarEventData(
+        groupName: String,
+        dateTimeText: String?,
+        placeText: String?,
+        finalMeetingAt: Long?
+    ): Triple<Long?, String, String> {
+        val title = "다음 모임 - $groupName"
+        val location = placeText?.takeIf { it.isNotBlank() } ?: "장소 미정"
 
-        return view
+        // 1️⃣ Firestore timestamp 우선
+        finalMeetingAt?.let { return Triple(it, title, location) }
+
+        // 2️⃣ TextView 파싱: "2025년 10월 20일 (일) 18:00"
+        val txt = dateTimeText?.trim().orEmpty()
+        if (txt.isEmpty()) return Triple(null, title, location)
+
+        val fmt = SimpleDateFormat("yyyy년 M월 d일 (E) HH:mm", Locale.KOREA)
+        return try {
+            val date = fmt.parse(txt)
+            Triple(date?.time, title, location)
+        } catch (e: Exception) {
+            try {
+                val alt = SimpleDateFormat("yyyy년 M월 d일 HH:mm", Locale.KOREA).parse(txt)
+                Triple(alt?.time, title, location)
+            } catch (_: Exception) {
+                Triple(null, title, location)
+            }
+        }
     }
 }

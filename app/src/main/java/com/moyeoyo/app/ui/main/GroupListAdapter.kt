@@ -1,18 +1,18 @@
 package com.moyeoyo.app.ui.main
 
-import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.moyeoyo.app.R
-import com.moyeoyo.app.model.Group
+import com.moyeoyo.app.model.GroupUi
 
 class GroupListAdapter(
-    private val groups: List<Group>,
-    private val onItemClick: (Group) -> Unit
+    private val groupUis: List<GroupUi>,
+    private val onItemClick: (GroupUi) -> Unit
 ) : RecyclerView.Adapter<GroupListAdapter.GroupViewHolder>() {
 
     inner class GroupViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -23,24 +23,33 @@ class GroupListAdapter(
         private val tvStatus: TextView = itemView.findViewById(R.id.badgeStatus)
         private val statusIcon: ImageView = itemView.findViewById(R.id.chevron)
 
-        fun bind(group: Group) {
-            tvGroupName.text = group.name
-            tvMemberCount.text = "멤버 ${group.memberCount}명"
-            tvDate.text = group.date ?: "날짜 미정"
-            tvLocation.text = group.location ?: "장소 미정"
+        fun bind(groupUi: GroupUi) {
+            tvGroupName.text = groupUi.name
+            tvMemberCount.text = "멤버 ${groupUi.memberCount}명"
+            tvDate.text = groupUi.date ?: "날짜 미정"
+            tvLocation.text = groupUi.location ?: "장소 미정"
 
-            if (group.isVoting) {
-                tvStatus.text = "투표중"
-                tvStatus.setBackgroundResource(R.drawable.bg_badge_orange)
-                tvStatus.setTextColor(Color.parseColor("#E07A27"))
-            } else {
-                tvStatus.text = group.dDay ?: ""
-                tvStatus.setBackgroundResource(R.drawable.bg_badge_blue)
-                tvStatus.setTextColor(Color.parseColor("#2F6FED"))
+            // ✅ 상태 뱃지 표시 로직
+            when {
+                groupUi.isVoting -> {
+                    tvStatus.visibility = View.VISIBLE
+                    tvStatus.text = "투표중"
+                    tvStatus.setBackgroundResource(R.drawable.bg_badge_orange)
+                    tvStatus.setTextColor(ContextCompat.getColor(itemView.context, R.color.badge_orange_text))
+                }
+                !groupUi.dDay.isNullOrEmpty() -> {
+                    tvStatus.visibility = View.VISIBLE
+                    tvStatus.text = groupUi.dDay
+                    tvStatus.setBackgroundResource(R.drawable.bg_badge_blue)
+                    tvStatus.setTextColor(ContextCompat.getColor(itemView.context, R.color.badge_blue_text))
+                }
+                else -> {
+                    tvStatus.visibility = View.GONE
+                }
             }
 
-            itemView.setOnClickListener { onItemClick(group) }
-            statusIcon.setOnClickListener { onItemClick(group) }
+            itemView.setOnClickListener { onItemClick(groupUi) }
+            statusIcon.setOnClickListener { onItemClick(groupUi) }
         }
     }
 
@@ -51,8 +60,8 @@ class GroupListAdapter(
     }
 
     override fun onBindViewHolder(holder: GroupViewHolder, position: Int) {
-        holder.bind(groups[position])
+        holder.bind(groupUis[position])
     }
 
-    override fun getItemCount(): Int = groups.size
+    override fun getItemCount(): Int = groupUis.size
 }

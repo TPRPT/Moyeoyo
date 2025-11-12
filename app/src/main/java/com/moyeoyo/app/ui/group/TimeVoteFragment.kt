@@ -263,6 +263,26 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
                 }
                 android.util.Log.d("FIRESTORE", "모든 voteTime 완료")
                 Toast.makeText(requireContext(), "투표가 저장되었습니다 ✅", Toast.LENGTH_SHORT).show()
+
+                val userUid = FirebaseAuth.getInstance().currentUser?.uid
+                if (userUid != null) {
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("groups")
+                        .document(groupId)
+                        .update("votedMembers", com.google.firebase.firestore.FieldValue.arrayUnion(userUid))
+                        .addOnSuccessListener {
+                            android.util.Log.d("FIRESTORE", "votedMembers 업데이트 완료: $userUid")
+
+                            // 업데이트 후 1초 후 자동 복귀
+                            binding.btnCompleteVote.postDelayed({
+                                findNavController().popBackStack() // 그룹 디테일로 복귀
+                            }, 1000)
+                        }
+                        .addOnFailureListener { e ->
+                            android.util.Log.e("FIRESTORE", "votedMembers 업데이트 실패", e)
+                            Toast.makeText(requireContext(), "투표 저장 중 오류 발생", Toast.LENGTH_SHORT).show()
+                        }
+                }
             }
         }
     }

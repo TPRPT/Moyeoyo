@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    tools:context=".ui.auth.ProfileSetupFragment">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="28dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="프로필 설정"
+            android:textColor="#111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginTop="32dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="기본 정보를 입력해주세요"
+            android:textColor="#666"
+            android:textSize="14sp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- 프로필 이미지 -->
+        <FrameLayout
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginBottom="12dp">
+
+            <ImageView
+                android:id="@+id/profile_image"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_user_placeholder"
+                android:scaleType="centerCrop"
+                android:background="@drawable/circle_background"
+                android:contentDescription="프로필 이미지" />
+
+            <ImageView
+                android:id="@+id/btn_change_photo"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_camera"
+                android:background="@drawable/bg_camera_button"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="6dp"
+                android:padding="8dp" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="프로필 이미지 추가"
+            android:textColor="#666"
+            android:textSize="13sp"
+            android:layout_marginBottom="28dp" />
+
+        <!-- 닉네임 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="닉네임 *"
+            android:textColor="#111"
+            android:textSize="15sp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/input_nickname"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_input_field"
+            android:hint="닉네임을 입력하세요"
+            android:paddingHorizontal="16dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="20dp"
+            android:textColor="#333"
+            android:textColorHint="#999" />
+
+        <!-- 주소 입력 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="집 주소"
+            android:textColor="#111"
+            android:textSize="15sp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/input_home"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_input_field"
+            android:hint="주소를 검색하여 설정하세요"
+            android:paddingHorizontal="16dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"
+            android:focusable="false"
+            android:clickable="true"
+            android:drawableRight="@drawable/ic_search"
+            android:drawablePadding="8dp"
+            android:textColor="#333"
+            android:textColorHint="#999" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="회사 주소"
+            android:textColor="#111"
+            android:textSize="15sp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/input_work"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_input_field"
+            android:hint="주소를 검색하여 설정하세요 (선택)"
+            android:paddingHorizontal="16dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="40dp"
+            android:focusable="false"
+            android:clickable="true"
+            android:drawableRight="@drawable/ic_search"
+            android:drawablePadding="8dp"
+            android:textColor="#333"
+            android:textColorHint="#999" />
+
+        <!-- 저장 버튼 -->
+        <Button
+            android:id="@+id/btn_save_profile"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="완료"
+            android:backgroundTint="#3B82F6"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:layout_marginBottom="32dp" />
+    </LinearLayout>
+</ScrollView>

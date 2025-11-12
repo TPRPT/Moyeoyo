@@ -123,15 +123,15 @@
             android:text="새 그룹"
             android:textAllCaps="false"
             android:textSize="13sp"
-            android:textColor="#161718"
-            android:backgroundTint="@android:color/transparent"
+            android:textColor="@color/white"
+            android:backgroundTint="@android:color/black"
             app:strokeColor="#E9E9EF"
             app:strokeWidth="1dp"
-            app:cornerRadius="999dp"
+            app:cornerRadius="300dp"
             app:icon="@drawable/ic_add_24"
             app:iconGravity="textStart"
-            app:iconPadding="6dp"
-            app:iconTint="#161718"/>
+            app:iconPadding="3dp"
+            app:iconTint="@color/white"/>
     </LinearLayout>
 
     <TextView

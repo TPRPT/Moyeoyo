@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardNotification"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    android:elevation="2dp"
+    app:cardCornerRadius="14dp"
+    app:cardUseCompatPadding="true"
+    android:foreground="?android:attr/selectableItemBackground">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- 제목 + 상태점 -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical">
+
+            <!-- 제목 -->
+            <TextView
+                android:id="@+id/tvTitle"
+                android:text="약속 확정"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <!-- 상태점 -->
+            <View
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_dot" />
+        </LinearLayout>
+
+        <!-- 메시지 -->
+        <TextView
+            android:id="@+id/tvMessage"
+            android:text="대학 동기들 모임이 10월 20일 18:00로 확정되었습니다."
+            android:layout_marginTop="6dp"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:lineSpacingExtra="2dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- 시간 -->
+        <TextView
+            android:id="@+id/tvTime"
+            android:text="방금 전"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/gray_700"
+            android:textSize="12sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

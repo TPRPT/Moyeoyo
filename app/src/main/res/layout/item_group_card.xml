@@ -12,14 +12,13 @@
     app:strokeColor="#E9E9EF"
     app:cardBackgroundColor="@color/white">
 
-    <!-- 전체 수직 레이아웃 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- 상단: 모임명 + 배지 -->
+        <!-- 상단: 그룹명 + 상태 뱃지 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -31,11 +30,12 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="대학 동기들"
+                android:text="그룹 이름"
                 android:textColor="@color/black"
                 android:textStyle="bold"
                 android:textSize="16sp" />
 
+            <!-- ✅ 상태 뱃지 -->
             <TextView
                 android:id="@+id/badgeStatus"
                 android:layout_width="wrap_content"
@@ -45,6 +45,7 @@
                 android:text="D-5"
                 android:textSize="12sp"
                 android:textStyle="bold"
+                android:visibility="gone"
                 android:background="@drawable/bg_badge_blue"
                 android:textColor="@color/badge_blue_text" />
         </LinearLayout>
@@ -68,7 +69,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:text="5명"
+                android:text="멤버 1명"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary" />
         </LinearLayout>
@@ -99,7 +100,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:text="2025년 10월 20일 (일)"
+                android:text="날짜 미정"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary" />
         </LinearLayout>
@@ -123,12 +124,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:text="강남역 근처"
+                android:text="장소 미정"
                 android:textSize="13sp"
                 android:textColor="@color/text_secondary" />
         </LinearLayout>
 
-        <!-- 오른쪽 하단 화살표 (장소 선택중 아래 배치) -->
+        <!-- 오른쪽 하단 화살표 -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

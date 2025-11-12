@@ -4,68 +4,127 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.R
+import kotlinx.coroutines.launch
 
 class MemberListFragment : Fragment() {
 
     private lateinit var progressVote: ProgressBar
     private lateinit var tvVoteCount: TextView
     private lateinit var recyclerView: RecyclerView
+    private lateinit var btnInviteMember: LinearLayout
 
-    // ✅ 더미 데이터 (나중에 Firestore로 교체 가능)
-    private val memberList = listOf(
-        Member("김철수", "강남구", true),
-        Member("이영희", "서초구", true),
-        Member("박민수", "송파구", true),
-        Member("최지원", "마포구", false),
-        Member("정수진", "종로구", false)
-    )
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
+
+    private var groupId: String? = null
+    private var groupName: String? = null
+
+    private val memberList = mutableListOf<Member>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val view = inflater.inflate(R.layout.fragment_member_list, container, false)
+        return inflater.inflate(R.layout.fragment_member_list, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         progressVote = view.findViewById(R.id.progressVote)
         tvVoteCount = view.findViewById(R.id.tvVoteCount)
         recyclerView = view.findViewById(R.id.recyclerMemberList)
+        btnInviteMember = view.findViewById(R.id.btnInviteMember)
 
-        setupVoteStatus()
-        setupRecyclerView()
+        groupId = arguments?.getString("groupId")
+        groupName = arguments?.getString("groupName")
 
-        return view
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = MemberAdapter(memberList)
+
+        // 🔹 초대 버튼 클릭 시 InviteGroupFragment로 이동
+        btnInviteMember.setOnClickListener {
+            if (groupId != null && groupName != null) {
+                val action = GroupDetailFragmentDirections
+                    .actionGroupDetailFragmentToInviteGroupFragment(groupId!!, groupName!!)
+                findNavController().navigate(action)
+            } else {
+                Toast.makeText(requireContext(), "그룹 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 🔹 Firestore 데이터 로드
+        loadMembersFromFirestore()
     }
 
-    // ✅ 투표 현황 자동 계산 및 표시
-    private fun setupVoteStatus() {
-        val totalMembers = memberList.size
-        val votedMembers = memberList.count { it.voted }
-        val notVotedMembers = totalMembers - votedMembers
+    /**
+     * Firestore에서 그룹 멤버 목록 + 투표 현황 불러오기
+     */
+    private fun loadMembersFromFirestore() {
+        val gid = groupId ?: return
 
-        // 진행률 계산
-        val progressPercent = ((votedMembers.toFloat() / totalMembers) * 100).toInt()
+        lifecycleScope.launch {
+            firestore.collection("groups")
+                .document(gid)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null || snapshot == null) {
+                        tvVoteCount.text = "데이터 로드 실패"
+                        return@addSnapshotListener
+                    }
+
+                    memberList.clear()
+
+                    // 🔹 모든 멤버 UID
+                    val memberUids = snapshot.get("memberUids") as? List<String> ?: emptyList()
+
+                    // 🔹 투표 완료 멤버 UID
+                    val votedUids = snapshot.get("votedMembers") as? List<String> ?: emptyList()
+
+                    // 🔹 멤버 리스트 구성
+                    memberUids.forEach { uid ->
+                        val isMe = uid == auth.currentUser?.uid
+                        val name = if (isMe) "나" else "멤버"
+                        val voted = votedUids.contains(uid)
+                        memberList.add(Member(name, "주소 미정", voted))
+                    }
+
+                    recyclerView.adapter?.notifyDataSetChanged()
+
+                    // 🔹 투표 현황 업데이트
+                    updateVoteProgress(memberUids.size, votedUids.size)
+                }
+        }
+    }
+
+    /**
+     * 투표 현황 계산 및 표시
+     */
+    private fun updateVoteProgress(totalMembers: Int, votedMembers: Int) {
+        val notVotedMembers = totalMembers - votedMembers
+        val progressPercent =
+            if (totalMembers > 0) ((votedMembers.toFloat() / totalMembers) * 100).toInt() else 0
 
         progressVote.max = 100
         progressVote.progress = progressPercent
-
-        // ✅ 텍스트 표시 (예: "3명 완료 / 2명 미완료")
         tvVoteCount.text = "${votedMembers}명 완료 / ${notVotedMembers}명 미완료"
     }
 
-    // ✅ 멤버 목록 RecyclerView
-    private fun setupRecyclerView() {
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = MemberAdapter(memberList)
-        recyclerView.isNestedScrollingEnabled = false
-    }
-
+    // ===============================
+    // RecyclerView 어댑터
+    // ===============================
     data class Member(
         val name: String,
         val region: String,

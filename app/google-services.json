@@ -1,0 +1,63 @@
+{
+  "project_info": {
+    "project_number": "263204297093",
+    "project_id": "moyeoyo-57ac0",
+    "storage_bucket": "moyeoyo-57ac0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:263204297093:android:9ffaf570f9a8eaadb20cec",
+        "android_client_info": {
+          "package_name": "com.moyeoyo.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "263204297093-2dl9rq0926j3n73k549jouv84gmpq8h7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moyeoyo.app",
+            "certificate_hash": "fae3620c70490fd84bec53bd3e368a0af0ab20a7"
+          }
+        },
+        {
+          "client_id": "263204297093-iisj4j9jmhsq9agbmieviop5d0c4eioh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moyeoyo.app",
+            "certificate_hash": "5b4d7d84e8141b99d06197c4a19b22ed6966a1a0"
+          }
+        },
+        {
+          "client_id": "263204297093-odvmboki5u7823v6k7r39502uoq3trij.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moyeoyo.app",
+            "certificate_hash": "2169145b2140c156de268b459a6e15b8f3352a71"
+          }
+        },
+        {
+          "client_id": "263204297093-qbmi371bejt8pq951l3uem73m10dd0g2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBabeWmPVf9Q4CrowAM4RyjFRfyAPV6yI8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "263204297093-qbmi371bejt8pq951l3uem73m10dd0g2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

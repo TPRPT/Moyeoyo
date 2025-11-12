@@ -56,6 +56,11 @@
     <color name="light_gray_bg">#F5F5F5</color>
 
     <color name="blue">#66A9FF</color>
+    <color name="green_light">#E5F7E9</color>
+    <color name="blue_light">#E8F1FF</color>
+    <color name="orange_light">#FFF1E5</color>
+    <color name="gray_light">#F4F4F4</color>
+    <color name="badge_orange_text">#E07A27</color>
 
 
 
