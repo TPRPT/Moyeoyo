@@ -7,14 +7,31 @@ import androidx.recyclerview.widget.RecyclerView
 import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.databinding.ItemNearbyPlaceBinding
 
-class NearbyPlacesAdapter : RecyclerView.Adapter<NearbyPlacesAdapter.ViewHolder>() {
+class NearbyPlacesAdapter(
+    private val onPlaceSelected: (NearbyPlace) -> Unit
+) : RecyclerView.Adapter<NearbyPlacesAdapter.ViewHolder>() {
 
     private val items = mutableListOf<NearbyPlace>()
+    private var selectedPlaceId: String? = null
 
     fun submitList(newItems: List<NearbyPlace>) {
         items.clear()
         items.addAll(newItems)
         notifyDataSetChanged()
+    }
+
+    fun updateSelected(placeId: String?) {
+        if (selectedPlaceId == placeId) return
+        val previousId = selectedPlaceId
+        selectedPlaceId = placeId
+        previousId?.let { prev ->
+            val prevIndex = items.indexOfFirst { it.placeId == prev }
+            if (prevIndex >= 0) notifyItemChanged(prevIndex)
+        }
+        placeId?.let { current ->
+            val newIndex = items.indexOfFirst { it.placeId == current }
+            if (newIndex >= 0) notifyItemChanged(newIndex)
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -23,20 +40,26 @@ class NearbyPlacesAdapter : RecyclerView.Adapter<NearbyPlacesAdapter.ViewHolder>
             parent,
             false
         )
-        return ViewHolder(binding)
+        return ViewHolder(binding, ::handleSelection)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(items[position], selectedPlaceId)
     }
 
     override fun getItemCount(): Int = items.size
 
+    private fun handleSelection(place: NearbyPlace) {
+        updateSelected(place.placeId)
+        onPlaceSelected(place)
+    }
+
     class ViewHolder(
-        private val binding: ItemNearbyPlaceBinding
+        private val binding: ItemNearbyPlaceBinding,
+        private val onSelect: (NearbyPlace) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(place: NearbyPlace) = with(binding) {
+        fun bind(place: NearbyPlace, selectedPlaceId: String?) = with(binding) {
             textPlaceName.text = place.name
             textPlaceAddress.text = place.address ?: ""
             textPlaceAddress.isVisible = !place.address.isNullOrBlank()
@@ -55,6 +78,14 @@ class NearbyPlacesAdapter : RecyclerView.Adapter<NearbyPlacesAdapter.ViewHolder>
                 ""
             }
             textPlaceRating.isVisible = rating != null
+
+            val isSelected = place.placeId == selectedPlaceId
+            root.strokeWidth = if (isSelected) {
+                (root.resources.displayMetrics.density * 2.5f).toInt()
+            } else {
+                0
+            }
+            root.setOnClickListener { onSelect(place) }
         }
     }
 }

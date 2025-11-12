@@ -28,6 +28,8 @@ data class MapState(
     val weightedCenter: LatLngData? = null,                // 가중중심 결과
     val nearestStationText: String? = null,                // 가까운 지하철 텍스트
     val distanceByMember: List<DistanceResult> = emptyList(), // 멤버별 소요시간
+    val isDistanceLoading: Boolean = false,
+    val selectedPlace: NearbyPlace? = null,                // 선택된 약속 장소
 
     // 주변 추천 장소
     val nearbyPlaces: List<NearbyPlace> = emptyList(),

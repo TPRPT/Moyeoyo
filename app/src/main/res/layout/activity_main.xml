@@ -25,13 +25,23 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
         android:layout_marginTop="12dp"
         android:text="@string/test_button_label"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintEnd_toStartOf="@+id/buttonSelectFirstPlace"
+        app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/mapContainer" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonSelectFirstPlace"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="16dp"
+        android:text="@string/select_first_place_button_label"
+        app:layout_constraintBaseline_toBaselineOf="@id/testButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/testButton" />
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -111,15 +121,18 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonSaveTransportMode"
-        android:layout_width="0dp"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
+        android:layout_marginStart="4dp"
         android:text="@string/save_mode_button_label"
-        app:layout_constraintStart_toStartOf="parent"
+        android:textSize="12sp"
+        android:minHeight="40dp"
+        android:minWidth="0dp"
+        app:layout_constraintBottom_toBottomOf="@id/groupTransportMode"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/groupTransportMode" />
+        app:layout_constraintStart_toEndOf="@id/groupTransportMode"
+        app:layout_constraintTop_toTopOf="@id/groupTransportMode" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonLoadNearby"
@@ -143,18 +156,45 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/buttonLoadNearby" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerNearbyPlaces"
+    <TextView
+        android:id="@+id/textSelectedPlace"
         android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+        android:text="@string/selected_place_placeholder"
+        android:textAppearance="?attr/textAppearanceTitleSmall"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/progressNearby" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonShowTravelTimes"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
-        app:layout_constraintBottom_toTopOf="@id/textMembers"
+        android:enabled="false"
+        android:text="@string/travel_times_button_label"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/progressNearby"
-        tools:listitem="@layout/item_nearby_place" />
+        app:layout_constraintTop_toBottomOf="@id/textSelectedPlace" />
+
+    <TextView
+        android:id="@+id/textTravelTimes"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="16dp"
+        android:text="@string/travel_times_placeholder"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonShowTravelTimes" />
 
     <TextView
         android:id="@+id/textMembers"
@@ -166,9 +206,10 @@
         android:layout_marginBottom="16dp"
         android:text="@string/members_placeholder"
         android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintTop_toBottomOf="@id/textTravelTimes"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/recyclerNearbyPlaces" />
+        tools:ignore="MissingConstraints" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

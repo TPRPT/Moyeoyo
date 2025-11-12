@@ -22,4 +22,16 @@
     <string name="save_mode_button_label">이동 수단 저장</string>
     <string name="save_mode_success">이동 수단이 저장되었습니다.</string>
     <string name="save_mode_error">이동 수단 저장에 실패했습니다: %1$s</string>
+    <string name="selected_place_placeholder">선택된 장소가 없습니다.</string>
+    <string name="travel_times_placeholder">사용자별 예상 소요 시간을 확인하려면 버튼을 눌러주세요.</string>
+    <string name="travel_times_loading">사용자별 예상 소요 시간을 계산 중입니다…</string>
+    <string name="travel_times_empty">예상 소요 시간을 불러오지 못했습니다.</string>
+    <string name="travel_time_line_format">• %1$s: %2$d분 (%3$s km, %4$s)</string>
+    <string name="travel_time_error_no_members">멤버 위치 정보가 필요합니다.</string>
+    <string name="travel_time_error_no_place">장소를 먼저 선택해주세요.</string>
+    <string name="travel_times_button_label">사용자별 예상 소요 시간</string>
+    <string name="travel_time_dialog_title">사용자별 예상 소요 시간</string>
+    <string name="select_first_place_button_label">첫 장소 선택 (테스트)</string>
+    <string name="select_first_place_toast">%1$s 가 임시 선택되었습니다.</string>
+    <string name="select_first_place_empty">먼저 주변 장소를 불러와주세요.</string>
 </resources>

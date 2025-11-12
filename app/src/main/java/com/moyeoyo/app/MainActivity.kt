@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -18,21 +17,25 @@ import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.databinding.ActivityMainBinding
 import com.moyeoyo.app.map.MapState
 import com.moyeoyo.app.map.MapViewModel
-import com.moyeoyo.app.ui.NearbyPlacesAdapter
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.core.widget.doOnTextChanged
 import android.widget.Toast
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.storage.FirebaseStorage
+import com.moyeoyo.app.data.model.DistanceResult
+import java.util.Locale
+import kotlin.math.roundToInt
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private val mapViewModel: MapViewModel by viewModels()
     private lateinit var binding: ActivityMainBinding
-    private val nearbyAdapter = NearbyPlacesAdapter()
     private var googleMap: GoogleMap? = null
+    private var pendingTravelTimesDialog = false
+    private var pendingNearbyDialog = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,16 +71,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setupViews() = with(binding) {
-        recyclerNearbyPlaces.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = nearbyAdapter
-        }
-
         testButton.setOnClickListener {
             mapViewModel.loadGroupMembers("test-group-123")
         }
 
+        buttonSelectFirstPlace.setOnClickListener {
+            val nearbyPlaces = mapViewModel.state.value?.nearbyPlaces.orEmpty()
+            if (nearbyPlaces.isEmpty()) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.select_first_place_empty),
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                val firstPlace = nearbyPlaces.first()
+                mapViewModel.selectNearbyPlace(firstPlace)
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.select_first_place_toast, firstPlace.name),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         buttonLoadNearby.setOnClickListener {
+            pendingNearbyDialog = true
             mapViewModel.loadNearbyPlaces()
         }
 
@@ -99,6 +117,37 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         buttonSaveTransportMode.setOnClickListener {
             mapViewModel.saveSelectedTransportForMember()
+        }
+
+        buttonShowTravelTimes.setOnClickListener {
+            val currentState = mapViewModel.state.value
+            if (currentState?.selectedPlace == null) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.travel_time_error_no_place),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            if (currentState.isDistanceLoading) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.travel_times_loading),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            if (currentState.distanceByMember.isNotEmpty()) {
+                showTravelTimesDialog(currentState)
+            } else {
+                pendingTravelTimesDialog = true
+                mapViewModel.computeTravelTimesForSelectedPlace()
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.travel_times_loading),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
@@ -135,7 +184,34 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         buttonLoadNearby.isEnabled = state.weightedCenter != null && !state.isNearbyLoading
         progressNearby.isVisible = state.isNearbyLoading
 
-        nearbyAdapter.submitList(state.nearbyPlaces)
+        val selectedPlace = state.selectedPlace
+        textSelectedPlace.text = selectedPlace?.name
+            ?: getString(R.string.selected_place_placeholder)
+        textTravelTimes.text = when {
+            state.isDistanceLoading -> getString(R.string.travel_times_loading)
+            else -> getString(R.string.travel_times_placeholder)
+        }
+        buttonShowTravelTimes.isEnabled =
+            selectedPlace != null && !state.isNearbyLoading && state.members.isNotEmpty() && !state.isDistanceLoading
+        buttonShowTravelTimes.text = if (state.isDistanceLoading) {
+            getString(R.string.travel_times_loading)
+        } else {
+            getString(R.string.travel_times_button_label)
+        }
+
+        if (pendingNearbyDialog && !state.isNearbyLoading) {
+            if (state.nearbyPlaces.isNotEmpty()) {
+                pendingNearbyDialog = false
+                showNearbyPlacesDialog(state)
+            } else if (state.error != null) {
+                pendingNearbyDialog = false
+            }
+        }
+
+        if (pendingTravelTimesDialog && !state.isDistanceLoading) {
+            pendingTravelTimesDialog = false
+            showTravelTimesDialog(state)
+        }
 
         val membersText = if (state.members.isEmpty()) {
             getString(R.string.members_placeholder)
@@ -149,9 +225,59 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         state.error?.let { message ->
             Log.e("MainActivity", "상태 에러: $message")
             Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            pendingTravelTimesDialog = false
         }
 
         updateMapMarkers(state.members, state.weightedCenter)
+    }
+
+    private fun showNearbyPlacesDialog(state: MapState) {
+        val places = state.nearbyPlaces
+        if (places.isEmpty()) return
+        var selectedIndex = places.indexOfFirst { it.placeId == state.selectedPlace?.placeId }
+        if (selectedIndex < 0) selectedIndex = -1
+        val placeLabels = places.map { place ->
+            buildString {
+                append(place.name)
+                place.address?.let { addr ->
+                    append("\n")
+                    append(addr)
+                }
+            }
+        }.toTypedArray()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.load_nearby_button_label))
+            .setSingleChoiceItems(placeLabels, selectedIndex) { _, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                if (selectedIndex >= 0) {
+                    mapViewModel.selectNearbyPlace(places[selectedIndex])
+                } else {
+                    Toast.makeText(
+                        this,
+                        getString(R.string.travel_time_error_no_place),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showTravelTimesDialog(state: MapState) {
+        val placeName = state.selectedPlace?.name ?: return
+        val message = if (state.distanceByMember.isNotEmpty()) {
+            formatTravelTimes(state.distanceByMember, state.members)
+        } else {
+            getString(R.string.travel_times_empty)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.travel_time_dialog_title) + " - " + placeName)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun formatMemberLine(member: InputLocation): String =
@@ -195,6 +321,36 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 )
             }
         }
+    }
+
+    private fun formatTravelTimes(
+        results: List<DistanceResult>,
+        members: List<InputLocation>
+    ): String {
+        val memberLabels = members.associateBy({ it.uid }) { it.label ?: it.uid }
+        val memberModes = members.associateBy({ it.uid }) { it.transportMode }
+        val sortedResults = results.sortedBy { memberLabels[it.uid] ?: it.uid }
+        return sortedResults.joinToString(separator = "\n") { result ->
+            val label = memberLabels[result.uid] ?: result.uid
+            val minutes = (result.durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
+            val distanceKm = result.distanceMeters / 1000.0
+            val distanceString = String.format(Locale.getDefault(), "%.1f", distanceKm)
+            val modeLabel = formatTransportModeLabel(memberModes[result.uid])
+            getString(
+                R.string.travel_time_line_format,
+                label,
+                minutes,
+                distanceString,
+                modeLabel
+            )
+        }
+    }
+
+    private fun formatTransportModeLabel(mode: TransportMode?): String = when (mode) {
+        TransportMode.WALK -> getString(R.string.mode_walk)
+        TransportMode.TRANSIT -> getString(R.string.mode_transit)
+        TransportMode.DRIVE -> getString(R.string.mode_drive)
+        null -> "-"
     }
 
     override fun onMapReady(map: GoogleMap) {

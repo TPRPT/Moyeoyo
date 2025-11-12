@@ -11,6 +11,7 @@ import com.moyeoyo.app.data.repository.MapRepository
 import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.PlaceSuggestion
+import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.TransportMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -114,16 +115,32 @@ class MapViewModel @Inject constructor(
         update { it.copy(members = members, weightedCenter = center) }
     }
 
-    // Distance Matrix
-    // - 중간지점(center)까지 각 멤버의 소요시간/거리를 비동기로 계산
-    fun computeDistances(members: List<InputLocation>, center: LatLngData) {
+    private fun computeDistancesByMode(
+        members: List<InputLocation>,
+        destination: LatLngData
+    ) {
+        if (members.isEmpty()) {
+            update { it.copy(error = "멤버 위치 정보가 없습니다.", isDistanceLoading = false) }
+            return
+        }
+        Log.d(
+            "MapViewModel",
+            "Distance Matrix 계산 시작: members=${members.size}, destination=${destination.lat},${destination.lng}"
+        )
+        update { it.copy(isDistanceLoading = true, distanceByMember = emptyList()) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val origins = members.map { it.uid to it.latLng }
-                val results = repo.fetchDistanceMatrix(origins, center, mode = "transit")
-                update { it.copy(distanceByMember = results) }
+                val results = repo.fetchDistanceMatrix(members, destination)
+                val resultMap = results.associateBy { it.uid }
+                val ordered = members.mapNotNull { resultMap[it.uid] }
+                Log.d(
+                    "MapViewModel",
+                    "Distance Matrix 계산 완료: 결과 ${ordered.size}건"
+                )
+                update { it.copy(distanceByMember = ordered, isDistanceLoading = false) }
             } catch (e: Exception) {
-                update { it.copy(error = e.message) }
+                Log.e("MapViewModel", "Distance Matrix 계산 실패: ${e.message}", e)
+                update { it.copy(error = e.message, isDistanceLoading = false) }
             }
         }
     }
@@ -133,7 +150,15 @@ class MapViewModel @Inject constructor(
         setGroupId(groupId)
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                update { it.copy(isLoading = true, error = null, nearbyPlaces = emptyList()) }
+                update {
+                    it.copy(
+                        isLoading = true,
+                        error = null,
+                        nearbyPlaces = emptyList(),
+                        distanceByMember = emptyList(),
+                        isDistanceLoading = false
+                    )
+                }
                 val members = repo.getInputLocations(groupId)
                 Log.d("MapViewModel", "Firestore에서 가져온 멤버 수: ${members.size}명")
                 members.forEach { member ->
@@ -151,9 +176,17 @@ class MapViewModel @Inject constructor(
                 } else {
                     Log.e("MapViewModel", "❌ 중간 지점 계산 실패 - 결과가 null입니다.")
                 }
-                update { it.copy(members = members, weightedCenter = center, isLoading = false) }
+                update {
+                    it.copy(
+                        members = members,
+                        weightedCenter = center,
+                        isLoading = false,
+                        selectedPlace = null,
+                        distanceByMember = emptyList(),
+                        isDistanceLoading = false
+                    )
+                }
                 if (center != null) {
-                    computeDistances(members, center)
                     runCatching {
                         repo.saveComputedCenter(groupId, center)
                         Log.d(
@@ -229,17 +262,72 @@ class MapViewModel @Inject constructor(
             update { it.copy(error = "중간 지점이 계산된 후에 주변 장소를 불러올 수 있습니다.") }
             return
         }
+        loadNearbyPlacesInternal(center, radiusMeters)
+    }
+
+    private fun loadNearbyPlacesInternal(center: LatLngData, radiusMeters: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            update { it.copy(isNearbyLoading = true, error = null) }
+            update {
+                it.copy(
+                    isNearbyLoading = true,
+                    error = null,
+                    // 기존에 선택한 장소를 유지하여 연속 계산 시 UX를 자연스럽게 보장
+                    distanceByMember = emptyList(),
+                    isDistanceLoading = false
+                )
+            }
             runCatching { repo.fetchNearbyPlaces(center, radiusMeters) }
                 .onSuccess { places ->
-                    update { it.copy(nearbyPlaces = places, isNearbyLoading = false) }
+                    if (places.isNotEmpty()) {
+                        Log.d("MapViewModel", "주변 장소 ${places.size}건 로드 성공")
+                        update {
+                            it.copy(
+                                nearbyPlaces = places,
+                                isNearbyLoading = false,
+                                selectedPlace = it.selectedPlace?.takeIf { selected ->
+                                    places.any { place -> place.placeId == selected.placeId }
+                                },
+                                isDistanceLoading = false
+                            )
+                        }
+                    } else {
+                        Log.w("MapViewModel", "주변 장소 응답이 0건입니다.")
+                        update { it.copy(error = "주변 장소 응답이 없습니다.", isNearbyLoading = false, isDistanceLoading = false) }
+                    }
                 }
                 .onFailure { e ->
                     Log.e("MapViewModel", "주변 장소 로드 실패: ${e.message}", e)
-                    update { it.copy(error = e.message, isNearbyLoading = false) }
+                    update { it.copy(error = e.message ?: "주변 장소 로드 실패", isNearbyLoading = false, isDistanceLoading = false) }
                 }
         }
+    }
+
+    fun selectNearbyPlace(place: NearbyPlace) {
+        val currentState = _state.value ?: return
+        val members = currentState.members
+        if (members.isEmpty()) {
+            update { it.copy(error = "멤버 위치 정보가 필요합니다.") }
+            return
+        }
+        update { it.copy(selectedPlace = place, error = null) }
+        computeDistancesByMode(members, place.latLng)
+    }
+
+    fun computeTravelTimesForSelectedPlace() {
+        val currentState = _state.value ?: run {
+            update { it.copy(error = "상태 정보를 불러오지 못했습니다.") }
+            return
+        }
+        val members = currentState.members
+        if (members.isEmpty()) {
+            update { it.copy(error = "멤버 위치 정보가 필요합니다.") }
+            return
+        }
+        val place = currentState.selectedPlace ?: run {
+            update { it.copy(error = "먼저 장소를 선택해주세요.") }
+            return
+        }
+        computeDistancesByMode(members, place.latLng)
     }
 
     /*
