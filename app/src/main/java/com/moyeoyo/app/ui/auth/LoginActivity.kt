@@ -40,12 +40,13 @@ class LoginActivity : AppCompatActivity() {
                 // Google Sign In 실패
                 progressDialog.dismiss()
                 Log.e("LOGIN", "Google Sign In failed", e)
-                Snackbar.make(rootView, "Google 로그인 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+                Snackbar.make(rootView, "🚨 Google 로그인 실패: ${e.message}", Snackbar.LENGTH_LONG).show() // ✅ 스낵바 메시지 강화
             }
         } else {
             // 사용자가 Google Sign-In 취소
             progressDialog.dismiss()
             Log.d("LOGIN", "Google Sign In canceled")
+            Snackbar.make(rootView, "Google 로그인이 취소되었습니다.", Snackbar.LENGTH_SHORT).show() // ✅ 취소 시 스낵바 추가
         }
     }
 
@@ -72,7 +73,6 @@ class LoginActivity : AppCompatActivity() {
         }
 
         // 🔹 View 리스너 설정
-        // ⭐ 오류 수정: btn_google_sign_in -> btn_google_login
         val btnGoogleLogin = findViewById<LinearLayout>(R.id.btn_google_login)
 
         btnGoogleLogin.setOnClickListener {
@@ -110,7 +110,8 @@ class LoginActivity : AppCompatActivity() {
                 finish()
             } catch (e: Exception) {
                 progressDialog.dismiss()
-                Snackbar.make(rootView, "Firebase 인증/등록 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+                // ✅ Firebase 인증 실패 시 에러 메시지를 스낵바에 표시
+                Snackbar.make(rootView, "🚨 Firebase 인증/등록 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
                 Log.e("LOGIN", "Firebase 인증/등록 실패", e)
             }
         }

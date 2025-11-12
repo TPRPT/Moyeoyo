@@ -1,8 +1,5 @@
-// com.moyeoyo.app/MainActivity.kt
-
 package com.moyeoyo.app
 
-import android.app.ProgressDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -14,12 +11,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog // ⭐ AlertDialog 사용을 위해 import
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.GeoPoint // ⭐ GeoPoint 임포트
+import com.google.firebase.firestore.GeoPoint
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.auth.LoginActivity
@@ -27,16 +25,19 @@ import com.moyeoyo.app.ui.auth.ProfileSetupActivity
 import com.moyeoyo.app.ui.groups.CreateGroupActivity
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import kotlinx.coroutines.launch
+import android.app.ProgressDialog // ProgressDialog import 유지
 
 
 class MainActivity : AppCompatActivity() {
-    // ... (클래스 멤버 변수는 변경 없음)
 
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore
     private lateinit var progressDialog: ProgressDialog
 
     private val groupRepository = GroupRepository()
+
+    // ⭐ NEW: GroupInviteActivity에서 정의된 도메인과 일치해야 합니다.
+    private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 
     // View 변수 선언
     private lateinit var profileImage: ImageView
@@ -45,7 +46,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLogout: Button
     private lateinit var btnCreateGroup: Button
 
-    // 💡 [추가] 프로필 카드 영역 View 변수 선언
     private lateinit var profileCardArea: LinearLayout
 
     // 그룹 목록 관련 View
@@ -59,8 +59,6 @@ class MainActivity : AppCompatActivity() {
         auth = FirebaseAuth.getInstance()
         firestore = FirebaseFirestore.getInstance()
 
-        // ... (onCreate 내용 유지)
-
         // View 초기화 (findViewById)
         profileImage = findViewById(R.id.profile_image)
         textNickname = findViewById(R.id.text_nickname)
@@ -68,9 +66,7 @@ class MainActivity : AppCompatActivity() {
         btnLogout = findViewById(R.id.btn_logout)
         btnCreateGroup = findViewById(R.id.btn_create_group)
 
-        // 💡 [추가] 프로필 카드 영역 연결 (activity_main.xml의 ID를 사용해야 함)
         profileCardArea = findViewById(R.id.profile_card)
-
 
         // 그룹 목록 View 초기화
         groupListContainer = findViewById(R.id.group_list_container)
@@ -91,11 +87,10 @@ class MainActivity : AppCompatActivity() {
         // 🔹 앱이 처음 시작될 때 딥링크 확인
         handleIntent(intent)
 
-        // 💡 [수정] 사용자 정보 로딩을 별도 함수로 호출
+        // 💡 사용자 정보 로딩을 별도 함수로 호출
         loadUserProfile()
 
-
-        // 💡 [추가] 프로필 카드 클릭 리스너 설정
+        // 💡 프로필 카드 클릭 리스너 설정
         profileCardArea.setOnClickListener {
             val intent = Intent(this, ProfileSetupActivity::class.java)
             startActivity(intent)
@@ -130,21 +125,17 @@ class MainActivity : AppCompatActivity() {
                     val nickname = doc.getString("nickname") ?: "닉네임 없음"
                     val photoUrl = doc.getString("photoUrl")
 
-                    // ⭐ [Fix] 중첩된 Map 데이터를 안전하게 가져옵니다.
+                    // 홈 위치 정보 로드 (Map 필드 접근)
                     val homeLocationMap = doc.get("homeLocation") as? Map<*, *>
 
                     var homeAddressDisplay: String? = null
 
                     if (homeLocationMap != null) {
-                        // 1. "addressName" 필드를 읽습니다. (스크린샷 확인)
                         homeAddressDisplay = homeLocationMap["addressName"] as? String
-
-                        // 2. addressName이 없거나 비어있으면 "name" 필드 시도
                         if (homeAddressDisplay.isNullOrEmpty()) {
                             homeAddressDisplay = homeLocationMap["name"] as? String
                         }
 
-                        // GeoPoint 필드 읽기 (GeoPoint 사용 확인)
                         val geoPoint = homeLocationMap["latLng"] as? GeoPoint
                         if (geoPoint != null) {
                             Log.d("MAIN", "Loaded GeoPoint: Lat=${geoPoint.latitude}, Lng=${geoPoint.longitude}")
@@ -183,15 +174,14 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (auth.currentUser != null) {
-            loadUserProfile() // 💡 [추가] 프로필 정보 새로고침
-            loadGroups() // 그룹 목록 새로고침
+            loadUserProfile()
+            loadGroups()
         }
     }
 
 
     // =========================================================================
     // ⭐ 딥링크 처리 메서드 영역 ⭐
-    // ... (변경 없음)
     // =========================================================================
 
     override fun onNewIntent(intent: Intent) {
@@ -201,26 +191,67 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        if (auth.currentUser == null) return
+        val currentUser = auth.currentUser
+
+        // 로그인이 안 되어 있다면 처리 중단 및 로그인 화면으로 이동
+        if (currentUser == null) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
 
         if (intent.action == Intent.ACTION_VIEW) {
             val uri = intent.data
-            // ⭐⭐ 수정: Host를 실제 Firebase Hosting 도메인으로 변경 ⭐⭐
-            if (uri != null && uri.host == "moyeoyo-57ae0.web.app" && uri.path?.startsWith("/join") == true) {
+
+            // ⭐ 딥링크 호스트와 경로 검증
+            if (uri != null && uri.host == HOSTING_DOMAIN && uri.path?.startsWith("/join") == true) {
 
                 val groupId = uri.getQueryParameter("groupId")
 
                 if (groupId != null) {
-                    Toast.makeText(this, "그룹 초대 링크를 확인했습니다.", Toast.LENGTH_SHORT).show()
-                    joinGroupAndNavigate(groupId)
+                    Toast.makeText(this, "그룹 초대 링크를 확인했습니다. (정보 로딩 중)", Toast.LENGTH_SHORT).show()
+                    showJoinConfirmation(groupId) // ⭐ 변경: 바로 참여 대신 확인 모달 호출
                 } else {
                     Log.e("MAIN", "Deep link is missing groupId parameter.")
+                    Snackbar.make(groupListContainer, "초대 링크가 유효하지 않습니다. (ID 누락)", Snackbar.LENGTH_LONG).show()
                 }
             }
         }
     }
 
-    private fun joinGroupAndNavigate(groupId: String) {
+    /**
+     * ⭐ NEW: 그룹 정보를 로드하여 사용자에게 참여 여부를 묻는 AlertDialog를 표시합니다.
+     */
+    private fun showJoinConfirmation(groupId: String) {
+        progressDialog.setMessage("그룹 정보 확인 중...")
+        progressDialog.show()
+
+        lifecycleScope.launch {
+            // GroupRepository의 getGroupById 함수를 사용
+            val group: Group? = groupRepository.getGroupById(groupId)
+            progressDialog.dismiss()
+
+            if (group != null) {
+                // 💡 AlertDialog를 띄워 그룹명과 함께 사용자에게 참여 의사를 묻습니다.
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("${group.groupName}에 참가할까요?")
+                    .setMessage("그룹 '${group.groupName}'에 참여하여 모임 활동을 시작할 수 있습니다. (현재 멤버 ${group.memberUids.size}명)")
+                    .setPositiveButton("참가하기") { _, _ ->
+                        // '참가하기' 클릭 시 그룹 참여 로직 실행
+                        joinGroup(groupId)
+                    }
+                    .setNegativeButton("취소하기", null)
+                    .show()
+            } else {
+                Toast.makeText(this@MainActivity, "초대된 그룹 정보를 찾을 수 없거나 이미 삭제된 그룹입니다.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /**
+     * ⭐ MODIFIED: 그룹에 참여하고 GroupDetailActivity로 이동합니다.
+     */
+    private fun joinGroup(groupId: String) {
         progressDialog.setMessage("그룹에 참여 중...")
         progressDialog.show()
 
@@ -232,13 +263,14 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "그룹 참여 성공! 그룹 상세 화면으로 이동합니다.", Toast.LENGTH_LONG).show()
                 val intent = Intent(this@MainActivity, GroupDetailActivity::class.java).apply {
                     putExtra("GROUP_ID", groupId)
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                    // GroupDetailActivity에서 필요하다면 groupName도 전달 가능
+                    // flags는 여기서는 제거해도 무방하나, 스택 정리가 목적이라면 유지
                 }
                 startActivity(intent)
-                finish()
             } else {
                 Toast.makeText(this@MainActivity, "그룹 참여에 실패했습니다. (이미 참여했거나 오류)", Toast.LENGTH_LONG).show()
             }
+            loadGroups() // 그룹 목록을 갱신합니다.
         }
     }
 

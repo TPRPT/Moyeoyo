@@ -22,13 +22,29 @@
           }
         },
         {
+          "client_id": "263204297093-iisj4j9jmhsq9agbmieviop5d0c4eioh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moyeoyo.app",
+            "certificate_hash": "5b4d7d84e8141b99d06197c4a19b22ed6966a1a0"
+          }
+        },
+        {
+          "client_id": "263204297093-odvmboki5u7823v6k7r39502uoq3trij.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moyeoyo.app",
+            "certificate_hash": "2169145b2140c156de268b459a6e15b8f3352a71"
+          }
+        },
+        {
           "client_id": "263204297093-qbmi371bejt8pq951l3uem73m10dd0g2.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyCV3KAWKFPWGgEIdHRVXQpEpfwuBMusiS8"
+          "current_key": "AIzaSyCzkFQPXs06iN0vNFca6Ic5jy9ik3Swr60"
         }
       ],
       "services": {
