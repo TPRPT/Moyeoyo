@@ -1,7 +1,7 @@
 package com.moyeoyo.app.ui.group
 
 import android.animation.ObjectAnimator
-import android.util.Log
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,19 +12,19 @@ import androidx.recyclerview.widget.RecyclerView
 import com.moyeoyo.app.R
 import com.moyeoyo.app.model.Place
 
-class PlaceAdapter : RecyclerView.Adapter<PlaceAdapter.PlaceViewHolder>() {
+class RecommendedPlaceAdapter :
+    RecyclerView.Adapter<RecommendedPlaceAdapter.PlaceViewHolder>() {
 
     private var placeList = mutableListOf<Place>()
 
     fun submitList(list: List<Place>) {
         placeList = list.toMutableList()
-        updateRecommendation()
         notifyDataSetChanged()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaceViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_place_card, parent, false)
+            .inflate(R.layout.item_place, parent, false)
         return PlaceViewHolder(view)
     }
 
@@ -34,61 +34,51 @@ class PlaceAdapter : RecyclerView.Adapter<PlaceAdapter.PlaceViewHolder>() {
 
     override fun getItemCount(): Int = placeList.size
 
-    private fun updateRecommendation() {
-        if (placeList.isEmpty()) return
-        val maxLikes = placeList.maxOf { it.likeCount }
-        placeList.forEach { place ->
-            place.isRecommended = place.likeCount == maxLikes && maxLikes > 0
-        }
-    }
-
     inner class PlaceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
-        private val tvPlaceName: TextView = itemView.findViewById(R.id.tvPlaceName)
-        private val tvPlaceCategory: TextView = itemView.findViewById(R.id.tvPlaceCategory)
-        private val tvStar: TextView = itemView.findViewById(R.id.tvStar)
-        private val tvPlaceDistance: TextView = itemView.findViewById(R.id.tvPlaceDistance)
-
-        private val tvBadge: TextView = itemView.findViewById(R.id.tvBadge)
+        private val tvName: TextView = itemView.findViewById(R.id.tvPlaceName)
+        private val tvCategory: TextView = itemView.findViewById(R.id.tvCategory)
+        private val tvRating: TextView = itemView.findViewById(R.id.tvRating)
+        private val tvDistance: TextView = itemView.findViewById(R.id.tvDistance)
 
         private val layoutLike: View = itemView.findViewById(R.id.layoutLike)
-        private val ivLike: ImageView = itemView.findViewById(R.id.ivLike)
+        private val icLike: ImageView = itemView.findViewById(R.id.icLike)
         private val tvLikeCount: TextView = itemView.findViewById(R.id.tvLikeCount)
 
         fun bind(place: Place) {
-            tvPlaceName.text = place.name
-            tvPlaceCategory.text = place.category
-            tvStar.text = "⭐ ${place.rating}"
-            tvPlaceDistance.text = "평균 %.1fkm".format(place.distanceKm)
 
+            val context = itemView.context
+
+            tvName.text = place.name
+            tvCategory.text = place.category
+            tvRating.text = "%.1f".format(place.rating)
+            tvDistance.text = "평균 %.1fkm · %s".format(place.distanceKm, place.walkingTime)
+
+            // 좋아요 초기 UI
+            updateLikeIcon(place.isLiked, context)
             tvLikeCount.text = place.likeCount.toString()
-            updateLikeIcon(place.isLiked)
-
-            tvBadge.visibility = if (place.isRecommended) View.VISIBLE else View.GONE
 
             layoutLike.setOnClickListener {
-                Log.d("PlaceAdapter", "like clicked: ${place.name}") // ← 이게 로그에 안 뜨면 진짜로 이벤트가 안 오는 거
 
                 place.isLiked = !place.isLiked
                 place.likeCount += if (place.isLiked) 1 else -1
 
-                if (place.isLiked) animateLike(ivLike)
+                if (place.isLiked) animateLike(icLike)
 
+                updateLikeIcon(place.isLiked, context)
                 tvLikeCount.text = place.likeCount.toString()
-                updateLikeIcon(place.isLiked)
 
-                updateRecommendation()
                 notifyDataSetChanged()
             }
         }
 
-        private fun updateLikeIcon(isLiked: Boolean) {
+        private fun updateLikeIcon(isLiked: Boolean, context: Context) {
             val color = if (isLiked)
-                ContextCompat.getColor(itemView.context, R.color.brand_blue)
+                ContextCompat.getColor(context, R.color.brand_blue)
             else
-                ContextCompat.getColor(itemView.context, R.color.gray_700)
+                ContextCompat.getColor(context, R.color.gray_700)
 
-            ivLike.setColorFilter(color)
+            icLike.setColorFilter(color)
             tvLikeCount.setTextColor(color)
         }
 

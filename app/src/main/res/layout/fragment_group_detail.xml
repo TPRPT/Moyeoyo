@@ -70,7 +70,7 @@
                 android:elevation="2dp"
                 android:text="그룹 삭제"
                 android:textColor="@color/black"
-                android:textSize="14sp" />
+                android:textSize="12sp" />
 
 
             <!-- 다음 모임 카드 -->

@@ -98,7 +98,7 @@
                 android:inputType="text"
                 android:maxLines="1"
                 android:background="@drawable/bg_input_rounded"
-                android:paddingStart="16dp"
+                android:paddingStart="14dp"
                 android:paddingEnd="16dp" />
 
             <TextView
@@ -172,9 +172,9 @@
             android:layout_height="56dp"
             android:text="그룹 만들기"
             android:enabled="false"
-            android:textSize="18sp"
+            android:textSize="14sp"
             android:textStyle="bold"
-            android:backgroundTint="@color/blue"
+            android:backgroundTint="@color/brand_blue"
             android:textColor="@android:color/white" />
     </LinearLayout>
 

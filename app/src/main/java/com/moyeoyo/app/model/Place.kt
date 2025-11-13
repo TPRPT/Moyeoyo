@@ -10,5 +10,6 @@ data class Place(
     val drivingTime: String,
     var likeCount: Int,
     var isLiked: Boolean = false,
-    var memberCount: Int = 8
+    var memberCount: Int = 8,
+    var isRecommended: Boolean = false
 )

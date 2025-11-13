@@ -19,7 +19,8 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
 
     private lateinit var categoryButtons: List<TextView>
     private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: PlaceAdapter
+    private lateinit var adapter: RecommendedPlaceAdapter
+
 
     private var places = mutableListOf<Place>()
     private var currentCategory = "전체"
@@ -55,7 +56,7 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
 
         // RecyclerView 설정
         recyclerView = view.findViewById(R.id.rvPlaceList)
-        adapter = PlaceAdapter()
+        adapter = RecommendedPlaceAdapter()
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
 

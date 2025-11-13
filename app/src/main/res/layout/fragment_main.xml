@@ -83,13 +83,15 @@
                     android:textColor="@color/gray_600" />
             </LinearLayout>
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnLogout"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_round_blue_btn"
                 android:text="로그아웃"
                 android:textColor="@color/white"
-                android:backgroundTint="@color/blue"/>
+                android:textSize="12sp"
+                app:backgroundTint="@color/brand_blue" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -101,6 +103,7 @@
         android:text="내 그룹"
         android:textSize="22sp"
         android:textStyle="bold"
+        android:textColor="@color/black"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/cardProfile"
         app:layout_constraintEnd_toStartOf="@id/actions"
@@ -119,10 +122,10 @@
             android:id="@+id/btnNewGroup"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
+            android:layout_height="40dp"
             android:text="새 그룹"
             android:textAllCaps="false"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textColor="@color/white"
             android:backgroundTint="@android:color/black"
             app:strokeColor="#E9E9EF"

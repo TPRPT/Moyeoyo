@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/white">
 
-    <!-- 🔙 뒤로가기 버튼 -->
+    <!-- 뒤로가기 버튼 -->
     <ImageView
         android:id="@+id/btnBack"
         android:layout_width="24dp"
@@ -19,7 +19,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- 📍 장소 추천 텍스트 & 필터 버튼 -->
+    <!-- 장소 추천 텍스트 & 필터 버튼 -->
     <LinearLayout
         android:id="@+id/layoutHeader"
         android:layout_width="match_parent"

@@ -11,6 +11,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.moyeoyo.app.R
+import com.moyeoyo.app.model.Place
 
 class PlaceListFragment : Fragment() {
 
@@ -19,11 +20,48 @@ class PlaceListFragment : Fragment() {
     private lateinit var tvAddress: TextView
     private lateinit var tvDistance: TextView
 
+    // 🔹 기존 더미 데이터를 model.Place 로 변환
     private val placeList = listOf(
-        Place("스타벅스 역삼역점", "카페", "평균 2.3km"),
-        Place("투썸플레이스 선릉점", "카페", "평균 2.8km"),
-        Place("할리스 강남역점", "카페", "평균 3.1km"),
-        Place("메가커피 역삼역점", "카페", "평균 2.5km")
+        Place(
+            name = "스타벅스 역삼역점",
+            category = "카페",
+            rating = 4.5,
+            distanceKm = 2.3,
+            walkingTime = "",
+            transitTime = "",
+            drivingTime = "",
+            likeCount = 0
+        ),
+        Place(
+            name = "투썸플레이스 선릉점",
+            category = "카페",
+            rating = 4.2,
+            distanceKm = 2.8,
+            walkingTime = "",
+            transitTime = "",
+            drivingTime = "",
+            likeCount = 0
+        ),
+        Place(
+            name = "할리스 강남역점",
+            category = "카페",
+            rating = 4.3,
+            distanceKm = 3.1,
+            walkingTime = "",
+            transitTime = "",
+            drivingTime = "",
+            likeCount = 0
+        ),
+        Place(
+            name = "메가커피 역삼역점",
+            category = "카페",
+            rating = 4.1,
+            distanceKm = 2.5,
+            walkingTime = "",
+            transitTime = "",
+            drivingTime = "",
+            likeCount = 0
+        )
     )
 
     override fun onCreateView(
@@ -38,66 +76,42 @@ class PlaceListFragment : Fragment() {
         tvAddress = view.findViewById(R.id.tvMiddleAddress)
         tvDistance = view.findViewById(R.id.tvMiddleDistance)
 
-        // 더미 데이터
         setupMiddlePointCard()
         setupRecycler()
 
-
-    //  "추천 장소 > 위치" 버튼 클릭 시 위치 입력 화면으로 이동
-
-        val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
-        btnFilterLocation.setOnClickListener {
+        // 🔹 “추천 장소 > 위치” 필터 이동
+        view.findViewById<View>(R.id.btnFilterLocation).setOnClickListener {
             findNavController().navigate(R.id.action_groupDetailFragment_to_locationInputFragment)
         }
 
-        val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
-        btnFilterTime.setOnClickListener {
+        // 🔹 “추천 장소 > 시간” 필터 이동
+        view.findViewById<View>(R.id.btnFilterTime).setOnClickListener {
             findNavController().navigate(
                 R.id.action_groupDetailFragment_to_timeVoteFragment
             )
         }
 
-
         return view
     }
 
+    // 가운데 상단 미들포인트 카드 (더미 데이터)
     private fun setupMiddlePointCard() {
-        // 나중에 Firestore에서 받아올 부분
         middleCard.visibility = View.VISIBLE
         tvAddress.text = "서울시 강남구 역삼동 일대"
         tvDistance.text = "모든 멤버의 평균 이동거리: 2.5km"
     }
 
+    // 여기서 진짜 PlaceAdapter(좋아요 기능 있는)를 연결해줌
     private fun setupRecycler() {
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        recyclerView.adapter = PlaceAdapter(placeList)
+
+        val adapter = com.moyeoyo.app.ui.group.PlaceAdapter() // ← 진짜 좋아요 있는 어댑터
+        recyclerView.adapter = adapter
+
+        // 리스트 연결
+        adapter.submitList(placeList)
+
+        // NestedScrollView 안에서 클릭 가능하게 함
         recyclerView.isNestedScrollingEnabled = false
-    }
-
-    data class Place(val name: String, val category: String, val distance: String)
-
-    inner class PlaceAdapter(private val places: List<Place>) :
-        RecyclerView.Adapter<PlaceAdapter.PlaceViewHolder>() {
-
-        inner class PlaceViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvName = view.findViewById<TextView>(R.id.tvPlaceName)
-            val tvCategory = view.findViewById<TextView>(R.id.tvPlaceCategory)
-            val tvDistance = view.findViewById<TextView>(R.id.tvPlaceDistance)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaceViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_place_card, parent, false)
-            return PlaceViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: PlaceViewHolder, position: Int) {
-            val place = places[position]
-            holder.tvName.text = place.name
-            holder.tvCategory.text = place.category
-            holder.tvDistance.text = place.distance
-        }
-
-        override fun getItemCount(): Int = places.size
     }
 }

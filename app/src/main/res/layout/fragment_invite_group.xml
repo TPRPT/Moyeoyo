@@ -100,12 +100,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="초대 링크"
-                android:drawableStart="@drawable/ic_link"
+                android:drawableStart="@drawable/ic_link_24"
                 android:drawablePadding="8dp"
                 android:gravity="center_vertical"
                 android:textStyle="bold"
                 android:textColor="@color/black"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="12dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -127,15 +127,17 @@
                     android:clickable="true"
                     android:cursorVisible="false" />
 
-                <Button
+                <ImageButton
                     android:id="@+id/copyLinkButtonIcon"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
                     android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_round_button"
                     android:backgroundTint="@color/light_gray"
-                    android:textColor="@color/black"
-                    android:drawableStart="@drawable/ic_copy"
-                    android:contentDescription="링크 복사 아이콘" />
+                    android:src="@drawable/ic_copy"
+                    app:tint="@color/black"
+                    android:contentDescription="링크 복사" />
+
             </LinearLayout>
 
             <TextView
@@ -146,27 +148,37 @@
                 android:textSize="14sp"
                 android:layout_marginBottom="32dp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/copyLinkButtonFull"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="링크 복사하기"
-                android:backgroundTint="@color/light_gray"
                 android:textColor="@color/black"
-                android:drawableStart="@drawable/ic_copy"
+                android:textSize="14sp"
+                android:background="@drawable/bg_round_button"
+                app:backgroundTint="@color/light_gray"
+                app:icon="@drawable/ic_copy"
+                app:iconGravity="start"
+                app:iconPadding="12dp"
                 android:paddingStart="24dp"
                 android:layout_marginBottom="8dp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/shareKakaoButton"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="카카오톡으로 공유"
-                android:backgroundTint="@color/quantum_yellow"
                 android:textColor="@color/black"
-                android:drawableStart="@drawable/ic_kakaotalk"
+                android:textSize="14sp"
+                android:background="@drawable/bg_round_button"
+                app:backgroundTint="@color/quantum_yellow700"
+                app:icon="@drawable/ic_kakao_24"
+                app:iconGravity="start"
+                app:iconPadding="12dp"
                 android:paddingStart="24dp"
                 android:layout_marginBottom="32dp" />
+
+
         </LinearLayout>
     </ScrollView>
 
@@ -180,15 +192,18 @@
         android:elevation="8dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/goToGroupButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:text="그룹으로 이동"
-            android:textSize="18sp"
+            android:textSize="14sp"
             android:textStyle="bold"
-            android:backgroundTint="@color/brand_blue"
-            android:textColor="@android:color/white" />
+            android:textColor="@android:color/white"
+            android:background="@drawable/bg_round_button"
+            app:backgroundTint="@color/brand_blue" />
+
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
