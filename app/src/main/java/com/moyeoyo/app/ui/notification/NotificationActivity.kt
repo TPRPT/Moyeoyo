@@ -53,9 +53,10 @@ class NotificationActivity : AppCompatActivity() {
      * NotificationRepository를 사용하여 알림 데이터를 로드하고 UI를 업데이트합니다.
      */
     private fun loadNotifications() {
+        // Repository에서 알림을 가져오는 동안 UI 스레드를 차단하지 않도록 lifecycleScope 사용
         lifecycleScope.launch {
             try {
-                // Repository에서 알림 목록을 가져옵니다. (현재는 더미 데이터 또는 간단한 쿼리 결과)
+                // Repository에서 Firestore에 저장된 알림 목록을 가져옵니다.
                 val notifications = notificationRepository.getNotifications()
 
                 // 뷰 업데이트
@@ -105,12 +106,13 @@ class NotificationActivity : AppCompatActivity() {
             // 알림 타입에 따라 배경 또는 클릭 리스너 설정
             when (item.type) {
                 "friend_request" -> {
+                    // ⭐ 배경 리소스를 참조하여 설정합니다.
+                    holder.card.setBackgroundResource(R.drawable.bg_card_confirmed)
+
                     holder.card.setOnClickListener {
                         Toast.makeText(this@NotificationActivity, "친구 요청 처리 화면으로 이동합니다.", Toast.LENGTH_SHORT).show()
                         // TODO: 친구 요청 처리 다이얼로그나 Activity 이동 로직 구현
                     }
-                    // 임시 배경 (프로젝트에 bg_card_highlight 리소스가 있다고 가정)
-                    // holder.card.setBackgroundResource(R.drawable.bg_card_highlight)
                 }
                 "confirmed" -> holder.card.setBackgroundResource(R.drawable.bg_card_confirmed)
                 "d1" -> holder.card.setBackgroundResource(R.drawable.bg_card_d1)

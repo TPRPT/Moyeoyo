@@ -1,4 +1,3 @@
-// com.moyeoyo.app.data.repository.FriendRepository.kt
 package com.moyeoyo.app.data.repository
 
 import android.util.Log
@@ -8,6 +7,9 @@ import com.google.firebase.firestore.FieldValue
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+// ⭐ NEW: NotificationRepository Import 추가
+import com.moyeoyo.app.data.repository.NotificationRepository
+import kotlinx.coroutines.launch // ⭐ NEW: Coroutine Scope 사용을 위해 필요
 
 @Singleton
 class FriendRepository @Inject constructor(
@@ -17,6 +19,9 @@ class FriendRepository @Inject constructor(
     private val usersCollection = db.collection("users")
     private val friendRequestsCollection = db.collection("friendRequests")
     private val TAG = "FriendRepository"
+
+    // ⭐ NEW: NotificationRepository 인스턴스 추가
+    private val notificationRepository = NotificationRepository(db, auth)
 
     /**
      * UID와 함께 검색 상태를 반환하는 헬퍼 함수 (AddFriendActivity용)
@@ -116,12 +121,24 @@ class FriendRepository @Inject constructor(
             friendRequestsCollection.document(requestId).set(requestData).await()
 
             Log.d(TAG, "Friend request sent from $senderUid to $receiverUid")
+
+            // ⭐ NEW: 친구 요청 성공 후 푸시 알림 발송을 요청합니다.
+            // ⚠️ 주의: 실제 알림 발송은 Cloud Functions/서버에서 이루어져야 하므로,
+            // 여기서는 서버에 알림 발송 요청을 보내는 함수를 가정하고 호출합니다.
+            // (클라이언트에서 직접 FCM API를 호출하는 것은 보안상 비추천되므로, 임시 더미 함수를 호출하거나,
+            // Cloud Functions 트리거를 기다려야 합니다.)
+            //
+            // 여기서는 알림 발송을 요청하는 Repository 함수를 호출한다고 가정합니다.
+            notificationRepository.requestFriendNotification(receiverUid, senderUid)
+
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send friend request: ${e.message}", e)
             false
         }
     }
+
+    // ... 나머지 함수들 (getPendingRequests, acceptFriendRequest, getFriendUids, removeFriend) 유지
 
     /**
      * 현재 로그인된 사용자가 받은 친구 요청 목록을 조회합니다.
