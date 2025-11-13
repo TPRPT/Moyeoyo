@@ -35,6 +35,53 @@
         android:textColor="@color/gray_700"
         android:layout_marginBottom="20dp" />
 
+
+    <!-- 🚗 이동수단 필터 -->
+    <LinearLayout
+        android:id="@+id/layoutTransport"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="@drawable/bg_transport_group"
+        android:padding="3dp"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:id="@+id/btnWalk"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="도보"
+            android:textSize="14sp"
+            android:background="@drawable/bg_transport_unselected"
+            android:textColor="@color/black"/>
+
+        <TextView
+            android:id="@+id/btnTransit"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="대중교통"
+            android:textSize="14sp"
+            android:background="@drawable/bg_transport_selected"
+            android:textColor="@color/white"/>
+
+        <TextView
+            android:id="@+id/btnCar"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="자동차"
+            android:textSize="14sp"
+            android:background="@drawable/bg_transport_unselected"
+            android:textColor="@color/black"/>
+    </LinearLayout>
+
+
     <!-- 최대 거리 -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -56,7 +103,8 @@
             android:textSize="14sp"
             android:textColor="@color/gray_700"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"/>
     </LinearLayout>
 
     <SeekBar
@@ -90,7 +138,8 @@
             android:textSize="14sp"
             android:textColor="@color/gray_700"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"/>
     </LinearLayout>
 
     <SeekBar
@@ -104,7 +153,7 @@
         android:layout_marginBottom="24dp" />
 
     <!-- 필터 적용 버튼 -->
-    <Button
+    <android.widget.Button
         android:id="@+id/btnApplyFilter"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -20,8 +20,11 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
     private lateinit var categoryButtons: List<TextView>
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: PlaceAdapter
+
     private var places = mutableListOf<Place>()
     private var currentCategory = "전체"
+    private var currentTransport = "대중교통"   // 기본값
+
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -31,7 +34,7 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
             findNavController().navigateUp()
         }
 
-        // 필터 버튼 (정렬 바텀시트 열기)
+        // 필터 버튼
         val btnFilter = view.findViewById<LinearLayout>(R.id.btnFilter)
         btnFilter?.setOnClickListener {
             showFilterBottomSheet()
@@ -50,27 +53,61 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
             btn.setOnClickListener { selectCategory(btn.text.toString()) }
         }
 
+        // RecyclerView 설정
         recyclerView = view.findViewById(R.id.rvPlaceList)
         adapter = PlaceAdapter()
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
 
         loadDummyData()
+        updatePlaceList()
     }
 
+
+    // ------------------------------------------------------
+    // ⭐ 더미 데이터 로드 (이동수단 시간 추가됨)
+    // ------------------------------------------------------
     private fun loadDummyData() {
-        // 초기에는 모든 투표 수를 0으로 시작
         places = mutableListOf(
-            Place("스타벅스 역삼역점", "카페", 4.5, 2.3, "도보 8분", 0, memberCount = 8),
-            Place("본죽 강남점", "식당", 4.3, 2.1, "도보 7분", 0, memberCount = 8),
-            Place("투썸플레이스 선릉점", "카페", 4.8, 2.8, "도보 10분", 0, memberCount = 8),
-            Place("김가네 김밥", "식당", 4.0, 1.9, "도보 6분", 0, memberCount = 8)
+            Place(
+                "스타벅스 역삼역점", "카페", 4.5, 2.3,
+                walkingTime = "도보 8분",
+                transitTime = "대중교통 6분",
+                drivingTime = "자동차 3분",
+                likeCount = 0,
+                memberCount = 8
+            ),
+            Place(
+                "본죽 강남점", "식당", 4.3, 2.1,
+                walkingTime = "도보 7분",
+                transitTime = "대중교통 5분",
+                drivingTime = "자동차 2분",
+                likeCount = 0,
+                memberCount = 8
+            ),
+            Place(
+                "투썸플레이스 선릉점", "카페", 4.8, 2.8,
+                walkingTime = "도보 10분",
+                transitTime = "대중교통 7분",
+                drivingTime = "자동차 4분",
+                likeCount = 0,
+                memberCount = 8
+            ),
+            Place(
+                "김가네 김밥", "식당", 4.0, 1.9,
+                walkingTime = "도보 6분",
+                transitTime = "대중교통 4분",
+                drivingTime = "자동차 2분",
+                likeCount = 0,
+                memberCount = 8
+            )
         )
-        adapter.submitList(places)
     }
 
 
-
+    // ------------------------------------------------------
+    // ⭐ 카테고리 선택
+    // ------------------------------------------------------
     private fun selectCategory(category: String) {
         currentCategory = category
 
@@ -85,12 +122,39 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
             }
         }
 
-        val filtered = if (category == "전체") places
-        else places.filter { it.category == category }
-
-        adapter.submitList(filtered)
+        updatePlaceList()
     }
 
+
+    // ------------------------------------------------------
+    // ⭐ 이동수단 필터 + 거리/평점 필터 적용된 리스트 갱신
+    // ------------------------------------------------------
+    private fun updatePlaceList() {
+        val filteredByCategory = if (currentCategory == "전체") places
+        else places.filter { it.category == currentCategory }
+
+        // 선택된 이동수단에 맞게 시간 변경
+        val updatedTransportList = filteredByCategory.map { place ->
+            val time = when (currentTransport) {
+                "도보" -> place.walkingTime
+                "자동차" -> place.drivingTime
+                else -> place.transitTime // 기본값 대중교통
+            }
+
+            place.copy(
+                // PlaceAdapter 에서 항상 walkingTime 을 표시하고 있으므로
+                // 여기에 표시용으로 넣어줌
+                walkingTime = time
+            )
+        }
+
+        adapter.submitList(updatedTransportList)
+    }
+
+
+    // ------------------------------------------------------
+    // ⭐ 필터 바텀시트
+    // ------------------------------------------------------
     private fun showFilterBottomSheet() {
         val dialog = BottomSheetDialog(requireContext())
         val sheetView = layoutInflater.inflate(R.layout.bottomsheet_filter, null)
@@ -102,7 +166,36 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
         val btnClose = sheetView.findViewById<ImageView>(R.id.btnCloseFilter)
         val btnApply = sheetView.findViewById<Button>(R.id.btnApplyFilter)
 
-        // 거리 슬라이더 동작
+        // ⭐ 이동수단 버튼
+        val btnWalk = sheetView.findViewById<TextView>(R.id.btnWalk)
+        val btnTransit = sheetView.findViewById<TextView>(R.id.btnTransit)
+        val btnCar = sheetView.findViewById<TextView>(R.id.btnCar)
+
+        // 선택 UI 업데이트 함수
+        fun updateTransportSelection(selected: String) {
+            currentTransport = selected
+
+            val buttons = listOf(btnWalk, btnTransit, btnCar)
+            buttons.forEach { btn ->
+                if (btn.text == selected) {
+                    btn.setBackgroundResource(R.drawable.bg_transport_selected)
+                    btn.setTextColor(requireContext().getColor(R.color.black))
+                } else {
+                    btn.setBackgroundResource(R.drawable.bg_transport_unselected)
+                    btn.setTextColor(requireContext().getColor(R.color.black))
+                }
+            }
+        }
+
+        // 버튼 클릭 리스너
+        btnWalk.setOnClickListener { updateTransportSelection("도보") }
+        btnTransit.setOnClickListener { updateTransportSelection("대중교통") }
+        btnCar.setOnClickListener { updateTransportSelection("자동차") }
+
+        updateTransportSelection(currentTransport)
+
+
+        // 거리 슬라이더
         seekBarDistance.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val distanceValue = progress / 10.0
@@ -112,7 +205,7 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        // 평점 슬라이더 동작
+        // 평점 슬라이더
         seekBarRating.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val ratingValue = progress / 10.0
@@ -122,24 +215,22 @@ class RecommendedPlaceFragment : Fragment(R.layout.fragment_recommended_place) {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        // 닫기 버튼 (필터 적용 없이 닫기)
         btnClose.setOnClickListener { dialog.dismiss() }
 
-        // ✅ 필터 적용 버튼
         btnApply.setOnClickListener {
+
             val maxDistance = seekBarDistance.progress / 10.0
             val minRating = seekBarRating.progress / 10.0
 
-            val filtered = places.filter {
+            places = places.filter {
                 it.distanceKm <= maxDistance && it.rating >= minRating
-            }
+            }.toMutableList()
 
-            adapter.submitList(filtered)
+            updatePlaceList()
             dialog.dismiss()
         }
 
         dialog.setContentView(sheetView)
         dialog.show()
     }
-
 }

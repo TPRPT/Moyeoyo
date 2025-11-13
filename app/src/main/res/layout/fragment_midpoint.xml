@@ -322,7 +322,7 @@
 
 
     <!-- 하단 고정 버튼 -->
-    <Button
+    <android.widget.Button
         android:id="@+id/btnNearbyPlaces"
         android:layout_width="0dp"
         android:layout_height="wrap_content"

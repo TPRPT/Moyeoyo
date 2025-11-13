@@ -6,6 +6,8 @@ data class Place(
     val rating: Double,
     val distanceKm: Double,
     val walkingTime: String,
+    val transitTime: String,
+    val drivingTime: String,
     var likeCount: Int,
     var isLiked: Boolean = false,
     var memberCount: Int = 8

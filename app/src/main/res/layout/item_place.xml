@@ -13,7 +13,7 @@
         android:id="@+id/tvPlaceName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="스타벅스 역삼역점"
+        android:text="장소 이름"
         android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="@color/black"
@@ -24,7 +24,7 @@
         android:id="@+id/tvCategory"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="카페"
+        android:text="카테고리"
         android:textSize="13sp"
         android:textColor="@color/gray_700"
         android:layout_marginBottom="4dp" />
@@ -47,18 +47,18 @@
             android:id="@+id/tvRating"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="4.5"
+            android:text="0.0"
             android:textSize="13sp"
             android:textColor="@color/black" />
     </LinearLayout>
 
-    <!-- 위치/거리 -->
+    <!-- 거리/시간 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="6dp"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:layout_marginBottom="6dp">
 
         <ImageView
             android:layout_width="16dp"
@@ -70,7 +70,7 @@
             android:id="@+id/tvDistance"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="2.3km · 도보 8분"
+            android:text="0km · 대중교통 0분"
             android:textSize="13sp"
             android:textColor="@color/gray_700" />
     </LinearLayout>
@@ -114,7 +114,7 @@
                 android:id="@+id/tvLikeCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="4"
+                android:text="0"
                 android:textColor="@color/gray_700"
                 android:textSize="13sp" />
         </LinearLayout>

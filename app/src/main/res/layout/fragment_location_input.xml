@@ -227,7 +227,7 @@
             android:background="@color/light_gray"
             android:layout_marginBottom="16dp" />
 
-        <Button
+        <android.widget.Button
             android:id="@+id/btn_confirm_location"
             android:layout_width="match_parent"
             android:layout_height="52dp"

@@ -39,24 +39,28 @@ class PlaceAdapter : RecyclerView.Adapter<PlaceAdapter.PlaceViewHolder>() {
 
         fun bind(place: Place) {
             val context = itemView.context
+
             itemView.findViewById<TextView>(R.id.tvPlaceName).text = place.name
             itemView.findViewById<TextView>(R.id.tvCategory).text = place.category
             itemView.findViewById<TextView>(R.id.tvRating).text = "%.1f".format(place.rating)
+
+            //이동 수단 필터로 바뀐 walkingTime 표시됨
             itemView.findViewById<TextView>(R.id.tvDistance).text =
                 " · %.1fkm · %s".format(place.distanceKm, place.walkingTime)
 
+            // 좋아요 UI
             tvLikeCount.text = place.likeCount.toString()
             updateLikeIcon(place.isLiked, icLike, context)
 
-            // 좋아요 클릭 리스너
+            // 좋아요 클릭
             itemView.findViewById<View>(R.id.layoutLike).setOnClickListener {
                 if (place.isLiked) {
-                    // ✅ 투표 취소
+                    // 투표 취소
                     place.isLiked = false
                     place.likeCount -= 1
                     updateLikeIcon(false, icLike, context)
                 } else {
-                    // ✅ 새로운 투표 — 인원수 초과 검사
+                    // 투표 추가 (인원 수 초과 방지)
                     if (place.likeCount >= place.memberCount) {
                         Snackbar.make(
                             itemView,
@@ -65,6 +69,7 @@ class PlaceAdapter : RecyclerView.Adapter<PlaceAdapter.PlaceViewHolder>() {
                         ).show()
                         return@setOnClickListener
                     }
+
                     place.isLiked = true
                     place.likeCount += 1
                     animateLike(icLike)
@@ -80,6 +85,7 @@ class PlaceAdapter : RecyclerView.Adapter<PlaceAdapter.PlaceViewHolder>() {
                 ContextCompat.getColor(context, R.color.brand_blue)
             else
                 ContextCompat.getColor(context, R.color.gray_700)
+
             icon.setColorFilter(color)
         }
 
