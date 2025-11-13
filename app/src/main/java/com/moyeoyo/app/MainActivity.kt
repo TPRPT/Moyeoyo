@@ -7,7 +7,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // [TODO] 여기에 레이아웃 설정 코드를 추가합니다. (예: setContentView(R.layout.activity_main))
+        setContentView(R.layout.activity_main)
 
         // 1. [개발 시작] 로그인 화면으로 이동하는 로직을 여기에 추가합니다.
         // 이 부분이 LoginActivity를 띄우는 코드로 대체됩니다.

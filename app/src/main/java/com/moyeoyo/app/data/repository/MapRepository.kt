@@ -35,8 +35,7 @@ import com.moyeoyo.app.data.model.PlaceSuggestion
 import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.TimeCandidate
 import com.moyeoyo.app.data.model.TransportMode
-import com.moyeoyo.app.data.model.UserDefaultLocation
-import com.moyeoyo.app.data.model.UserProfile
+import com.moyeoyo.app.data.model.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -118,9 +117,9 @@ class MapRepository @Inject constructor(
     // =========================
 
     // users/{uid}
-    suspend fun getUserProfile(uid: String): UserProfile? {
+    suspend fun getUser(uid: String): User? {
         val doc = firestore.collection("users").document(uid).get().await()
-        return doc.toObject(UserProfile::class.java)
+        return doc.toObject(User::class.java)
     }
 
     suspend fun updateFcmToken(uid: String, token: String) {
@@ -128,15 +127,10 @@ class MapRepository @Inject constructor(
             .update(mapOf("fcmToken" to token)).await()
     }
 
-    suspend fun updateDefaultLocation(uid: String, loc: UserDefaultLocation) {
-        firestore.collection("users").document(uid)
-            .update(mapOf("defaultLocation" to loc)).await()
-    }
-
     // groups/{groupId}
     suspend fun getGroup(groupId: String): Group? {
         val doc = firestore.collection("groups").document(groupId).get().await()
-        return doc.toObject(Group::class.java)?.copy(groupId = groupId)
+        return doc.toObject(Group::class.java)?.copy(id = groupId)
     }
 
     // groups/{groupId}/placeCandidates

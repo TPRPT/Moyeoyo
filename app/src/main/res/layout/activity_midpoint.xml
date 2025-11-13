@@ -59,6 +59,8 @@
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardCenter"
             style="@style/Widget.Material3.CardView.Filled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="12dp">
             <LinearLayout
                 android:orientation="vertical"
@@ -74,10 +76,75 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSeeNearby"
                     style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:text="주변 후보 보기"
                     android:layout_marginTop="8dp"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <!-- 테스트 데이터 불러오기 버튼 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLoadTestData"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="테스트 데이터 불러오기"
+            android:layout_marginTop="12dp"/>
+
+        <!-- 멤버 UID 입력 -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutMemberUid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="멤버 UID 입력">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editMemberUid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- 이동수단 선택 -->
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/groupTransportMode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:singleSelection="true">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonModeWalk"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/mode_walk" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonModeTransit"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/mode_transit" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonModeDrive"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/mode_drive" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!-- 이동수단 저장 버튼 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonSaveTransportMode"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:text="@string/save_mode_button_label"
+            android:textSize="12sp"
+            android:minHeight="40dp"
+            android:layout_marginTop="8dp"/>
 
         <TextView
             android:layout_width="match_parent"
