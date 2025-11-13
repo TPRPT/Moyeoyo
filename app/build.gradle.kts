@@ -1,3 +1,12 @@
+//import java.util.Properties
+// val properties = Properties()
+//val localPropertiesFile = rootProject.file("local.properties")
+//if (localPropertiesFile.exists()) {
+//    localPropertiesFile.inputStream().use { properties.load(it) }
+//}
+
+val apiKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_FALLBACK_KEY_IF_ENV_FAILS"
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -18,6 +27,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = properties.getProperty("GOOGLE_MAPS_API_KEY") ?: "YOUR_FALLBACK_KEY_IF_LOCAL_FAILS"
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = apiKey
+    }
+
+    buildFeatures {
+        viewBinding=true
     }
 
     buildTypes {
@@ -55,13 +71,19 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics:23.0.0")
 
     implementation("com.google.firebase:firebase-auth:24.0.1")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.firebase:firebase-firestore:26.0.2")
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("com.google.firebase:firebase-dynamic-links:22.1.0")
 
+    implementation("com.github.bumptech.glide:glide:4.15.1")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.15.1")
+
+    implementation("com.google.android.libraries.places:places:3.5.0")
+    implementation("com.google.android.gms:play-services-maps:19.2.0")
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
 }
-

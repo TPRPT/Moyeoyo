@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:colorBackground">
+
+    <TextView
+        android:id="@+id/group_name_text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="그룹 이름"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:padding="16dp"
+        android:background="@android:color/white"
+        android:elevation="2dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/group_name_text"
+        app:layout_constraintBottom_toTopOf="@id/bottom_fixed_controls">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:id="@+id/member_count_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="현재 그룹 멤버 수:"
+                android:textSize="18sp"
+                android:layout_marginTop="16dp" />
+
+            <TextView
+                android:id="@+id/member_count_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1명 (당신)"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#3B82F6"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="32dp"/>
+
+            <Button
+                android:id="@+id/btn_confirm_schedule_now"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="확정 및 캘린더 추가 (테스트용)"
+                android:backgroundTint="#10B981"
+                android:textSize="16sp"
+                android:layout_marginBottom="32dp"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="팀원 목록"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:layout_marginBottom="8dp"/>
+
+            <LinearLayout
+                android:id="@+id/member_list_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_input_field"
+                android:padding="8dp"
+                android:layout_marginBottom="32dp"/>
+
+            <LinearLayout
+                android:id="@+id/confirmed_schedule_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_info_box_blue"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="확정된 약속 정보"
+                    android:textStyle="bold"
+                    android:textColor="#003366"
+                    android:textSize="18sp"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/text_confirmed_place"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="장소: 미정"
+                    android:textColor="#003366"
+                    android:drawableStart="@drawable/ic_google_calendar"
+                    android:drawablePadding="8dp"
+                    android:textSize="16sp"
+                    android:layout_marginBottom="4dp"/>
+
+                <TextView
+                    android:id="@+id/text_confirmed_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="일시: 미정"
+                    android:textColor="#003366"
+                    android:drawableStart="@drawable/ic_calendar_other"
+                    android:drawablePadding="8dp"
+                    android:textSize="16sp"/>
+            </LinearLayout>
+
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="여기에 투표, 장소, 시간 선택 기능이 들어갑니다."
+                android:textColor="#999999"
+                android:layout_marginTop="40dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/bottom_fixed_controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:padding="16dp"
+        android:elevation="8dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <Button
+            android:id="@+id/btn_invite_friends"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="0.65"
+            android:text="친구 초대하기"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:drawableStart="@drawable/ic_link"
+            android:drawablePadding="8dp"
+            android:backgroundTint="#3B82F6"
+            android:layout_marginEnd="10dp"/>
+
+        <Button
+            android:id="@+id/btn_delete_group"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="0.35"
+            android:text="삭제"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="#EF4444"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btn_leave_group"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="0.35"
+            android:text="나가기"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="#FF5722"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

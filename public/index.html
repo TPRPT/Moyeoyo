@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moyeoyo 그룹 초대</title>
+
+  <style media="screen">
+    body {
+      font-family: Roboto, Helvetica, Arial, sans-serif;
+      text-align: center;
+      padding-top: 50px;
+      background-color: #f4f4f4;
+    }
+    h1 { color: #039be5; font-size: 24px; }
+    p { color: rgba(0,0,0,0.7); font-size: 16px; }
+    #openAppButton {
+      display: none;
+      background-color: #039be5;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<h1>Moyeoyo 앱 실행 중...</h1>
+<p>그룹 초대를 처리하고 있습니다. 잠시만 기다려 주세요.</p>
+<a id="openAppButton" href="#">앱으로 이동</a>
+
+<script>
+  const APP_PACKAGE = "com.moyeoyo.app";
+  const HOSTING_DOMAIN = "moyeoyo-57ac0.web.app";
+
+  /**
+   * URL에서 쿼리 파라미터(groupId)를 추출합니다.
+   */
+  function getParameterByName(name, url = window.location.href) {
+      name = name.replace(/[\[\]]/g, '\\$&');
+      var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+          results = regex.exec(url);
+      if (!results) return null;
+      if (!results[2]) return '';
+      return decodeURIComponent(results[2].replace(/\+/g, ' '));
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+      var groupId = getParameterByName('groupId');
+      var openAppButton = document.getElementById('openAppButton');
+
+      if (groupId) {
+          // ⭐ 핵심 수정: 앱 강제 실행을 위한 android-app:// URI 생성
+          // 이 URI는 App Link 인증이 완료된 상태에서 앱을 열도록 강력하게 지시합니다.
+          var deepLinkUri = 'android-app://' + APP_PACKAGE + '/https/' + HOSTING_DOMAIN + '/join?groupId=' + groupId;
+
+          // 1. 브라우저 히스토리 조작 없이 즉시 앱 실행을 시도합니다.
+          window.location.replace(deepLinkUri);
+
+          // 2. 1초 후에도 앱이 열리지 않으면 수동 버튼을 활성화합니다.
+          setTimeout(function() {
+              openAppButton.style.display = 'block';
+              // 수동 버튼도 android-app:// URI를 사용하도록 설정
+              openAppButton.href = deepLinkUri;
+              document.querySelector('h1').textContent = "앱이 자동으로 열리지 않습니다.";
+              document.querySelector('p').textContent = "아래 버튼을 눌러 수동으로 앱을 열어 주세요.";
+          }, 1000);
+
+      } else {
+          document.querySelector('h1').textContent = "유효하지 않은 초대 링크입니다.";
+          document.querySelector('p').textContent = "링크에 그룹 ID 정보가 누락되었습니다.";
+      }
+  });
+</script>
+</body>
+</html>
