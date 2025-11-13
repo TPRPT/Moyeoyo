@@ -34,7 +34,8 @@ import kotlinx.coroutines.launch
 import android.app.ProgressDialog
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-
+// ⭐ NEW: NotificationActivity Import 추가
+import com.moyeoyo.app.ui.notification.NotificationActivity
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -137,9 +138,11 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, AddFriendActivity::class.java))
         }
 
-        // ⭐ 알림 버튼 클릭 리스너 설정
+        // ⭐ 알림 버튼 클릭 리스너 수정: NotificationActivity로 이동
         btnNotifications.setOnClickListener {
-            showFriendRequestsDialog()
+            // 기존: showFriendRequestsDialog()
+            // 수정: NotificationActivity로 이동하여 알림 화면을 띄움
+            startActivity(Intent(this, NotificationActivity::class.java))
         }
     }
 
@@ -237,6 +240,8 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 친구 요청 목록을 가져와 다이얼로그로 보여주는 함수 (알림 기능)
+     * 이 함수는 이제 btnNotifications 클릭 리스너에서는 호출되지 않지만,
+     * 알림 화면 내에서 필요한 경우 사용될 수 있습니다.
      */
     private fun showFriendRequestsDialog() {
         lifecycleScope.launch {

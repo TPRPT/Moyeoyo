@@ -106,6 +106,7 @@ dependencies {
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("com.google.firebase:firebase-dynamic-links:22.1.0")
+    implementation("com.google.firebase:firebase-messaging:25.0.1")
 
     // Distance Matrix 호출용 (OkHttp)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
