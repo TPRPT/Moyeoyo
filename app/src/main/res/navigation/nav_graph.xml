@@ -114,6 +114,11 @@
             app:destination="@id/mainFragment"
             app:popUpTo="@id/mainFragment"
             app:popUpToInclusive="true" />
+
+        <action
+            android:id="@+id/action_groupDetailFragment_to_shareMeetingFragment"
+            app:destination="@id/shareMeetingFragment" />
+
     </fragment>
 
     <!-- ✅ 위치 입력 -->
@@ -202,4 +207,35 @@
             android:id="@+id/action_inviteGroupFragment_to_groupDetailFragment"
             app:destination="@id/groupDetailFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/shareMeetingFragment"
+        android:name="com.moyeoyo.app.ui.group.ShareMeetingFragment"
+        android:label="약속 공유"
+        tools:layout="@layout/fragment_share_meeting">
+
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+
+        <argument
+            android:name="meetingTime"
+            app:argType="string"
+            app:nullable="true" />
+
+        <argument
+            android:name="meetingPlace"
+            app:argType="string"
+            app:nullable="true" />
+
+        <argument
+            android:name="memberCount"
+            app:argType="integer"
+            android:defaultValue="0" />
+    </fragment>
+
 </navigation>

@@ -72,7 +72,8 @@
                 android:textColor="@color/black"
                 android:textSize="14sp" />
 
-            <!-- ✅ 다음 모임 카드 -->
+
+            <!-- 다음 모임 카드 -->
             <LinearLayout
                 android:id="@+id/nextMeetingCard"
                 android:layout_width="match_parent"

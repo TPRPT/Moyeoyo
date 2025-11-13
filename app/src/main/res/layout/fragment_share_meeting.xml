@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- 상단 툴바 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_arrow_back"
+                android:contentDescription="뒤로가기" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="약속 공유"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/black" />
+        </LinearLayout>
+
+
+        <!-- 설명 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="확정된 약속을 공유하세요"
+            android:textSize="14sp"
+            android:textColor="@color/gray_700" />
+
+        <!-- 약속 카드 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:background="@drawable/bg_purple_gradient"
+            android:clipToOutline="true">
+
+            <!-- 그룹명 -->
+            <TextView
+                android:id="@+id/tvGroupName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="그룹명"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/white" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_person_24"
+                    app:tint="@color/white" />
+
+                <TextView
+                    android:id="@+id/tvMemberCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="5명"
+                    android:textColor="@color/white" />
+            </LinearLayout>
+
+            <!-- 날짜 -->
+            <TextView
+                android:id="@+id/tvMeetingTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="2025년 10월 20일 (일) 18:00"
+                android:textColor="@color/white" />
+
+            <!-- 장소 -->
+            <TextView
+                android:id="@+id/tvMeetingLocation"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="스타벅스 역삼역점\n서울시 강남구 역삼동 123-45"
+                android:textColor="@color/white" />
+        </LinearLayout>
+
+
+        <!-- 공유 링크 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="공유 링크"
+            android:textStyle="bold"
+            android:textColor="@color/black" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_search_bar"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp">
+
+            <TextView
+                android:id="@+id/tvShareLink"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="https://meetapp.kr/meeting/abc123"
+                android:textColor="@color/black"
+                android:textSize="14sp" />
+
+            <ImageButton
+                android:id="@+id/btnCopyLink"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_copy" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="이 링크를 받은 사람은 앱 없이도 약속 정보를 볼 수 있어요"
+            android:textColor="@color/gray_700"
+            android:textSize="12sp" />
+
+        <!-- 공유하기 버튼들 -->
+        <android.widget.Button
+            android:id="@+id/btnShareOther"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="다른 앱으로 공유"
+            android:background="@drawable/bg_light_gray_outline_box"
+            android:textColor="@color/black"
+            android:backgroundTint="@color/white"
+            style="@style/Widget.AppCompat.Button"/>
+
+        <android.widget.Button
+            android:id="@+id/btnCopy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="링크 복사"
+            android:background="@drawable/bg_chip_outline"
+            android:textColor="@color/black"
+            android:backgroundTint="@color/white"
+            style="@style/Widget.AppCompat.Button" />
+
+        <android.widget.Button
+            android:id="@+id/btnKakaoShare"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="카카오톡으로 공유"
+            android:backgroundTint="@color/quantum_yellow600"
+            android:textColor="@color/black" />
+
+        <!-- 지도 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:background="@drawable/bg_lightgreen_box"
+            android:padding="12dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_place_white_24"
+                    app:tint="@color/green_700"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="지도로 보기"
+                    android:textColor="@color/green_700"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <android.widget.Button
+                android:id="@+id/btnOpenMap"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:layout_gravity="center_horizontal"
+                android:text="구글 지도에서 열기"
+                android:textColor="@color/black"
+                android:backgroundTint="@color/white"
+                style="@style/Widget.AppCompat.Button"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+
+        <!-- 미리보기 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_card_light_blue"
+            android:padding="12dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_lightbulb_24" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="링크를 클릭한 사람은 약속 정보와 지도를 볼 수 있습니다. 앱이 설치되어 있다면 앱에서, 없다면 웹 브라우저에서 볼 수 있어요."
+                android:textColor="@color/brand_blue"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- 완료 버튼 -->
+        <android.widget.Button
+            android:id="@+id/btnDone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="완료"
+            android:textColor="@color/black"
+            android:background="@drawable/bg_light_outline_button"
+            />
+
+    </LinearLayout>
+</ScrollView>

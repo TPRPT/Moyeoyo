@@ -32,12 +32,11 @@ class NotificationAdapter(private val items: List<NotificationUi>) :
         holder.time.text = item.time
 
         val context = holder.itemView.context
-        val colorRes = when (item.type) {
-            "confirmed" -> R.color.green_light
-            "d1" -> R.color.blue_light
-            "changed" -> R.color.orange_light
-            else -> R.color.gray_light
+        when (item.type) {
+            "confirmed" -> holder.card.setBackgroundResource(R.drawable.bg_card_confirmed)
+            "d1" -> holder.card.setBackgroundResource(R.drawable.bg_card_d1)
+            "changed" -> holder.card.setBackgroundResource(R.drawable.bg_card_changed)
+            else -> holder.card.setBackgroundResource(R.drawable.bg_card_gray)
         }
-        holder.card.setCardBackgroundColor(ContextCompat.getColor(context, colorRes))
     }
 }
