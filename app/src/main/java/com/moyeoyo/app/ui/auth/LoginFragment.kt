@@ -8,6 +8,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -34,14 +35,14 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
         auth = FirebaseAuth.getInstance()
         firestore = FirebaseFirestore.getInstance()
 
-        // 🔹 Google 로그인 옵션 설정
+        // Google 로그인 옵션 설정
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id)) // Firebase 콘솔의 웹 클라이언트 ID
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(requireContext(), gso)
 
-        // 🔹 Google 로그인 버튼 클릭
+        // Google 로그인 버튼 클릭
         val googleLoginButton = view.findViewById<LinearLayout>(R.id.btn_google_login)
         googleLoginButton.setOnClickListener {
             startGoogleLogin()
@@ -49,7 +50,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     }
 
     /**
-     * 🔹 구글 로그인 시작
+     * 구글 로그인 시작
      */
     private fun startGoogleLogin() {
         val signInIntent = googleSignInClient.signInIntent
@@ -57,7 +58,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     }
 
     /**
-     * 🔹 로그인 결과 처리
+     * 로그인 결과 처리
      */
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -76,7 +77,7 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     }
 
     /**
-     * 🔹 Firebase에 Google 계정 인증 연결
+     * Firebase에 Google 계정 인증 연결
      */
     private fun firebaseAuthWithGoogle(account: GoogleSignInAccount?) {
         if (account == null) return
@@ -96,17 +97,31 @@ class LoginFragment : Fragment(R.layout.fragment_login) {
     }
 
     /**
-     * 🔹 Firestore에 사용자 프로필 데이터 존재 여부 확인
+     * Firestore에 사용자 프로필 데이터 존재 여부 확인
      */
     private fun checkUserProfile(uid: String) {
         firestore.collection("users").document(uid).get()
             .addOnSuccessListener { doc ->
+
+                // 추가: popUpTo 설정해서 로그인 화면을 backstack에서 제거
+                val navOptions = NavOptions.Builder()
+                    .setPopUpTo(R.id.loginFragment, true) // LoginFragment 없애기
+                    .build()
+
                 if (doc.exists()) {
-                    // ✅ 프로필 존재 → 메인화면으로 이동
-                    findNavController().navigate(R.id.action_loginFragment_to_mainFragment)
+                    // 기존 사용자 → 메인으로 이동
+                    findNavController().navigate(
+                        R.id.action_loginFragment_to_mainFragment,
+                        null,
+                        navOptions  // 적용
+                    )
                 } else {
-                    // ❌ 프로필 없음 → 프로필 설정 화면으로 이동
-                    findNavController().navigate(R.id.action_loginFragment_to_profileSetupFragment)
+                    // 신규 사용자 → 프로필 설정 → 이후 메인으로 이동
+                    findNavController().navigate(
+                        R.id.action_loginFragment_to_profileSetupFragment,
+                        null,
+                        navOptions  // 적용
+                    )
                 }
             }
             .addOnFailureListener { e ->

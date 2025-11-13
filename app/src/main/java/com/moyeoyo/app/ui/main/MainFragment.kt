@@ -31,6 +31,13 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user == null) {
+            // 로그인 안 되어 있으면 로그인 화면으로 보내기
+            findNavController().navigate(R.id.action_mainFragment_to_loginFragment)
+            return
+        }
+
         /** -------------------------------
          * ✅ 1. AppBar (툴바)
          * ------------------------------- */

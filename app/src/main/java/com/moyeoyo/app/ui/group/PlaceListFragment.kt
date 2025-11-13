@@ -52,12 +52,11 @@ class PlaceListFragment : Fragment() {
 
         val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
         btnFilterTime.setOnClickListener {
-            val navController = requireActivity()
-                .supportFragmentManager
-                .findFragmentById(R.id.nav_host)
-                ?.findNavController()
-            navController?.navigate(R.id.action_groupDetailFragment_to_timeVoteFragment)
+            findNavController().navigate(
+                R.id.action_groupDetailFragment_to_timeVoteFragment
+            )
         }
+
 
         return view
     }

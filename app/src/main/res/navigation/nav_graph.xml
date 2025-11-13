@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/loginFragment">
+    app:startDestination="@id/mainFragment">
 
     <!-- ✅ 로그인 화면 -->
     <fragment
@@ -36,12 +36,17 @@
             app:destination="@id/mainFragment" />
     </fragment>
 
-    <!-- ✅ 메인 화면 -->
+    <!-- 메인 화면 -->
     <fragment
         android:id="@+id/mainFragment"
         android:name="com.moyeoyo.app.ui.main.MainFragment"
         android:label="메인"
         tools:layout="@layout/fragment_main">
+
+        <!-- 메인 → 로그인 (로그인 안된 경우 이동) -->
+        <action
+            android:id="@+id/action_mainFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
 
         <!-- 알림 화면으로 이동 -->
         <action
@@ -65,7 +70,7 @@
 
         <!-- 로그아웃 시 로그인 화면으로 이동 -->
         <action
-            android:id="@+id/action_mainFragment_to_loginFragment"
+            android:id="@+id/action_mainFragment_to_loginFragment_logout"
             app:destination="@id/loginFragment"
             app:popUpTo="@id/nav_graph"
             app:popUpToInclusive="true" />
