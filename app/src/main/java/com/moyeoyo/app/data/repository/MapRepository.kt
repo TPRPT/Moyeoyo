@@ -547,8 +547,7 @@ class MapRepository @Inject constructor(
 
     suspend fun saveComputedCenter(groupId: String, center: LatLngData) {
         val data = mapOf(
-            "computedCenter" to GeoPoint(center.lat, center.lng),
-            "computedCenterUpdatedAt" to FieldValue.serverTimestamp()
+            "midPoint" to GeoPoint(center.lat, center.lng)
         )
         firestore.collection("groups")
             .document(groupId)
