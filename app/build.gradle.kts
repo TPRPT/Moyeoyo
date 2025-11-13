@@ -38,6 +38,13 @@ android {
         // Distance Matrix 웹 서비스 키
         buildConfigField("String", "DISTANCE_MATRIX_API_KEY", "\"${localProperties.getProperty("DISTANCE_MATRIX_API_KEY") ?: ""}\"")
         resValue("string", "maps_web_key", localProperties.getProperty("DISTANCE_MATRIX_API_KEY") ?: "")
+
+        // manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = properties.getProperty("GOOGLE_MAPS_API_KEY") ?: "YOUR_FALLBACK_KEY_IF_LOCAL_FAILS"
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = apiKey
+    }
+
+    buildFeatures {
+        viewBinding=true
     }
 
     buildTypes {
@@ -64,6 +71,7 @@ android {
 }
 
 dependencies {
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -87,11 +95,20 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics:23.0.0")
 
     implementation("com.google.firebase:firebase-auth:24.0.1")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.firebase:firebase-firestore:26.0.2")
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("com.google.firebase:firebase-dynamic-links:22.1.0")
 
+    implementation("com.github.bumptech.glide:glide:4.15.1")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.15.1")
+
+    implementation("com.google.android.libraries.places:places:3.5.0")
+    implementation("com.google.android.gms:play-services-maps:19.2.0")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     // Distance Matrix 호출용 (OkHttp)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")

@@ -1,5 +1,6 @@
-package com.moyeoyo.app.data.model
+// app/data/model/User.kt
 
+package com.moyeoyo.app.data.model
 data class User(
     val uid: String = "",
     val nickname: String = "",
@@ -11,4 +12,3 @@ data class User(
     val groups: List<String> = emptyList(), // 참여 그룹 목록
     val friends: List<String> = emptyList() // 친구 목록
 )
-

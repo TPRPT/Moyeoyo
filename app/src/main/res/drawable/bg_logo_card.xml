@@ -1,0 +1,20 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 그림자 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1A000000" /> <!-- 10% 블랙 그림자 -->
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- 본체 (약간 위로 올려서 그림자 효과) -->
+    <item android:top="4dp" android:left="0dp" android:right="0dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor= "#1666FF"
+                android:endColor="#0A47D1"
+                android:angle="270" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+</layer-list>

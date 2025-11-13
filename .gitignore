@@ -1,17 +1,29 @@
-# =================
-# Gradle / Build
-# =================
-.gradle/
-build/
-gradlew
-gradlew.bat
-gradle-wrapper.jar
-gradle-wrapper.properties
+# ----------------------------------------------------
+# 1. Android Studio / IntelliJ IDEA Files
+# ----------------------------------------------------
+/.idea/
+.idea/libraries/
+.idea/runConfigurations.xml
+.idea/workspace.xml
 
-# =================
-# Java / Kotlin
-# =================
+# Gradle 및 빌드 캐시 (루트 경로에 있는 모든 .gradle 폴더 무시)
+/.gradle/
+/local.properties
+/captures/
+/temp/
+.DS_Store
+
+# ----------------------------------------------------
+# 2. Build Artifacts / Compiled Files
+# ----------------------------------------------------
+/build
+/app/build
+/app/build/generated
+# Compiled class file
 *.class
+# Log file
+*.log
+# Package Files
 *.jar
 *.war
 *.nar
@@ -35,7 +47,44 @@ gradle-wrapper.properties
 # =================
 # Firebase / Google Services
 # =================
+# VM crash logs
+hs_err_pid*
+replay_pid*
+
+# ----------------------------------------------------
+# 3. Android-Specific (Non-Gradle)
+# ----------------------------------------------------
+/captures
+/external-storage-host
+/gradlew
+/gradlew.bat
+
+# User-specific settings
+/android-settings.xml
+
+# Keystore and Signing
+# 앱 서명에 사용되는 키 파일 (필수 제외)
+*.jks
+*.keystore
+*debug.keystore
+
+# ----------------------------------------------------
+# 4. Kotlin and Native Tooling
+# ----------------------------------------------------
+# Kotlin Gradle plugin data
+.kotlin/
+# JNI/NDK native build files
+/cmake-build-debug
+
+# ----------------------------------------------------
+# 5. Firebase & Security Secrets (필수)
+# ----------------------------------------------------
+# Firebase 설정 파일 (API Keys 포함, 필수 제외)
 /app/google-services.json
+/.gradle/*/*/*/executionHistory/
+**/*.bin
+
+# Firebase CLI, Hosting, and Functions
 google-services.json
 .firebase/
 .firebaserc

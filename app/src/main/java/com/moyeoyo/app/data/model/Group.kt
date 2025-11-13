@@ -13,5 +13,3 @@ data class Group(
     val confirmedTime: Timestamp? = null,
     val status: String = "VOTING"
 )
-
-
