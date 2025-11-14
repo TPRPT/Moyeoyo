@@ -35,7 +35,6 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-
         <!--  주차 타이틀 + 이전/다음 버튼 -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -69,6 +68,7 @@
                 android:padding="4dp"
                 android:layout_marginStart="8dp" />
         </LinearLayout>
+
         <!-- 요일 + 날짜 (월~일) -->
         <LinearLayout
             android:id="@+id/layoutWeekDays"
@@ -84,7 +84,8 @@
     </LinearLayout>
 
     <!-- 시간표 (0시~23시) -->
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollViewTimeSlots"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -100,7 +101,7 @@
             android:alignmentMode="alignMargins"
             android:useDefaultMargins="true"
             android:rowOrderPreserved="false" />
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- 하단 버튼 -->
     <Button

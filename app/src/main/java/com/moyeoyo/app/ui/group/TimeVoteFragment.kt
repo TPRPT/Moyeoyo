@@ -1,6 +1,8 @@
 package com.moyeoyo.app.ui.group
 
+import android.graphics.Rect
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -34,6 +36,9 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
     private val selectedTimes = mutableSetOf<String>()
     private var selectedDayButton: View? = null
 
+    // 드래그용 시간 버튼 리스트
+    private val timeButtons = mutableListOf<MaterialButton>()
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentTimeVoteBinding.bind(view)
@@ -44,22 +49,66 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
         setupButton()
         observeFirestoreVotes()
 
-        // Firestore 테스트용 더미 데이터 (한 번만 실행)
+        // Firestore 테스트용 더미 데이터
         repository.seedDummyVotes(groupId, dateFormat.format(selectedDate))
+
+        // 스크롤뷰 설정 & 드래그 리스너
+        binding.scrollViewTimeSlots.isNestedScrollingEnabled = false
+        binding.scrollViewTimeSlots.setOnTouchListener { _, event ->
+            handleDragSelect(event)
+            true
+        }
     }
 
-    // 상단 툴바
+    // ----------------------- 드래그 선택 -----------------------
+
+    private fun handleDragSelect(event: MotionEvent) {
+        // ScrollView가 터치 이벤트 가로채지 않게
+        binding.scrollViewTimeSlots.requestDisallowInterceptTouchEvent(true)
+
+        val x = event.rawX.toInt()
+        val y = event.rawY.toInt()
+
+        when (event.action) {
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_MOVE -> {
+                timeButtons.forEach { button ->
+                    val rect = Rect()
+                    button.getGlobalVisibleRect(rect)
+
+                    if (rect.contains(x, y)) {
+                        selectTimeSlot(button)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun selectTimeSlot(button: MaterialButton) {
+        if (button.tag == true) return  // 이미 선택된 버튼이면 무시
+
+        val time = button.text.toString()
+        button.tag = true
+        selectedTimes.add(time)
+
+        button.backgroundTintList =
+            ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
+        button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+
+        updateButtonState()
+    }
+
+    // ----------------------- 상단 UI -----------------------
+
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
     }
 
-    // 주차 + 요일 헤더 생성
     private fun setupWeekHeader() {
         updateWeekTitle()
 
-        // 이전/다음 주 버튼
         binding.btnPrevWeek.setOnClickListener {
             calendar.add(Calendar.WEEK_OF_YEAR, -1)
             setupWeekDays()
@@ -75,14 +124,12 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
         setupWeekDays()
     }
 
-    // “11월 3째주” 표시
     private fun updateWeekTitle() {
         val month = calendar.get(Calendar.MONTH) + 1
         val weekOfMonth = calendar.get(Calendar.WEEK_OF_MONTH)
         binding.tvWeekTitle.text = "${month}월 ${weekOfMonth}째주"
     }
 
-    // 주차별 날짜 버튼 (월~일) 동적 생성
     private fun setupWeekDays() {
         val layout = binding.layoutWeekDays
         layout.removeAllViews()
@@ -96,10 +143,11 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
         for (i in 0 until 7) {
             val date = tempCal.time
             val dayLabel = weekDays[i]
+
             val button = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.VERTICAL
-                val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                layoutParams = params
+                layoutParams =
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 setPadding(4, 8, 4, 8)
                 setOnClickListener {
                     selectedDate = date
@@ -127,7 +175,6 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
 
             layout.addView(button)
 
-            // 오늘 날짜 기본 선택
             if (isSameDay(date, Date())) {
                 selectedDate = date
                 highlightSelectedDay(button)
@@ -137,14 +184,12 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
         }
     }
 
-    // 선택된 요일 강조
     private fun highlightSelectedDay(selectedButton: View) {
         selectedDayButton?.background = null
         selectedButton.setBackgroundResource(R.drawable.bg_light_gray_outline)
         selectedDayButton = selectedButton
     }
 
-    // 같은 날짜인지 비교
     private fun isSameDay(d1: Date, d2: Date): Boolean {
         val cal1 = Calendar.getInstance().apply { time = d1 }
         val cal2 = Calendar.getInstance().apply { time = d2 }
@@ -152,16 +197,21 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
                 cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
     }
 
-    // 시간대 버튼 (0~23시)
+    // ----------------------- 시간 버튼 -----------------------
+
     private fun setupTimeGrid() {
-        val grid = binding.gridTimeSlots
+        val grid = binding.gridTimeSlots          // ✅ GridLayout 사용
         grid.removeAllViews()
+        timeButtons.clear()
+        selectedTimes.clear()
+
         val times = (0..23).map { String.format(Locale.KOREA, "%02d시", it) }
 
         times.forEach { time ->
             val button = MaterialButton(requireContext()).apply {
                 text = time
                 tag = false
+
                 layoutParams = android.widget.GridLayout.LayoutParams().apply {
                     width = 0
                     columnSpec = android.widget.GridLayout.spec(
@@ -181,24 +231,38 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
                         selectedTimes.add(time)
                         backgroundTintList =
                             ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
-                        setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                        setTextColor(
+                            ContextCompat.getColor(
+                                requireContext(),
+                                R.color.white
+                            )
+                        )
                     } else {
                         selectedTimes.remove(time)
                         backgroundTintList =
                             ContextCompat.getColorStateList(requireContext(), R.color.white)
-                        setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+                        setTextColor(
+                            ContextCompat.getColor(
+                                requireContext(),
+                                R.color.black
+                            )
+                        )
                     }
                     updateButtonState()
                 }
             }
+
             grid.addView(button)
+            timeButtons.add(button)
         }
     }
 
-    //  Firestore 실시간 반영 (날짜 변경 시 다시 로드)
+    // ----------------------- Firestore 연동 -----------------------
+
     private fun observeFirestoreVotes() {
         val uid = auth.currentUser?.uid ?: "sample_uid_1"
         val dateStr = dateFormat.format(selectedDate)
+
         lifecycleScope.launch {
             repository.observeVotes(groupId, dateStr).collectLatest { data ->
                 updateGridFromFirestore(data, uid)
@@ -206,13 +270,13 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
         }
     }
 
-    //  Firestore 기반 시간대 표시 갱신
     private fun updateGridFromFirestore(data: Map<String, List<String>>, uid: String) {
-        val grid = binding.gridTimeSlots
+        val grid = binding.gridTimeSlots   // ✅ GridLayout 기준
+
         for (i in 0 until grid.childCount) {
             val button = grid.getChildAt(i) as MaterialButton
-            val time = button.text.toString().replace("시", ":00")
-            val voters = data[time] ?: emptyList()
+            val timeKey = button.text.toString().replace("시", ":00")
+            val voters = data[timeKey] ?: emptyList()
             val isMyVote = voters.contains(uid)
 
             if (isMyVote) {
@@ -220,22 +284,25 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
                 button.backgroundTintList =
                     ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
                 button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                selectedTimes.add(time)
+                selectedTimes.add(button.text.toString())
             } else {
                 button.tag = false
                 button.backgroundTintList =
                     ContextCompat.getColorStateList(requireContext(), R.color.white)
                 button.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
-                selectedTimes.remove(time)
+                selectedTimes.remove(button.text.toString())
             }
         }
+
         updateButtonState()
     }
 
-    //  하단 버튼 상태
+    // ----------------------- 하단 버튼 -----------------------
+
     private fun updateButtonState() {
         val count = selectedTimes.size
         binding.btnCompleteVote.text = "투표 완료 (${count}개)"
+
         val enabled = count > 0
         binding.btnCompleteVote.isEnabled = enabled
         binding.btnCompleteVote.backgroundTintList =
@@ -253,15 +320,13 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
             }
 
             val dateStr = dateFormat.format(selectedDate)
-            android.util.Log.d("FIRESTORE", "버튼 클릭 - date=$dateStr, times=${selectedTimes.joinToString()}")
 
             lifecycleScope.launch {
                 selectedTimes.forEach { time ->
                     val formattedTime = time.replace("시", ":00")
-                    android.util.Log.d("FIRESTORE", "voteTime 호출: $formattedTime")
                     repository.voteTime(groupId, dateStr, formattedTime)
                 }
-                android.util.Log.d("FIRESTORE", "모든 voteTime 완료")
+
                 Toast.makeText(requireContext(), "투표가 저장되었습니다 ✅", Toast.LENGTH_SHORT).show()
 
                 val userUid = FirebaseAuth.getInstance().currentUser?.uid
@@ -269,24 +334,26 @@ class TimeVoteFragment : Fragment(R.layout.fragment_time_vote) {
                     com.google.firebase.firestore.FirebaseFirestore.getInstance()
                         .collection("groups")
                         .document(groupId)
-                        .update("votedMembers", com.google.firebase.firestore.FieldValue.arrayUnion(userUid))
+                        .update(
+                            "votedMembers",
+                            com.google.firebase.firestore.FieldValue.arrayUnion(userUid)
+                        )
                         .addOnSuccessListener {
-                            android.util.Log.d("FIRESTORE", "votedMembers 업데이트 완료: $userUid")
-
-                            // 업데이트 후 1초 후 자동 복귀
                             binding.btnCompleteVote.postDelayed({
-                                findNavController().popBackStack() // 그룹 디테일로 복귀
+                                findNavController().popBackStack()
                             }, 1000)
                         }
-                        .addOnFailureListener { e ->
-                            android.util.Log.e("FIRESTORE", "votedMembers 업데이트 실패", e)
-                            Toast.makeText(requireContext(), "투표 저장 중 오류 발생", Toast.LENGTH_SHORT).show()
+                        .addOnFailureListener {
+                            Toast.makeText(
+                                requireContext(),
+                                "투표 저장 중 오류 발생",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                 }
             }
         }
     }
-
 
     override fun onDestroyView() {
         super.onDestroyView()
