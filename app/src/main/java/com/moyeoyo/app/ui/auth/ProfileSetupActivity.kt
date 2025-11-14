@@ -26,6 +26,8 @@ import com.moyeoyo.app.MainActivity
 import com.moyeoyo.app.R
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 
 // Places SDK 및 Maps 관련 Imports
 import com.google.android.libraries.places.api.Places
@@ -234,31 +236,49 @@ class ProfileSetupActivity : AppCompatActivity() {
         btnSetCurrentHomeLocation.isEnabled = false
         btnSetCurrentWorkLocation.isEnabled = false
 
+        // ⭐ 실시간 위치 가져오기 (lastLocation 대신 getCurrentLocation 사용)
+        // lastLocation은 캐시된 위치를 반환하여 정확하지 않을 수 있습니다.
+        val cts = CancellationTokenSource()
+        try {
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+                .addOnSuccessListener { location ->
+                    progressDialog.dismiss()
+                    btnSetCurrentHomeLocation.isEnabled = true
+                    btnSetCurrentWorkLocation.isEnabled = true
 
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location ->
-                progressDialog.dismiss()
-                btnSetCurrentHomeLocation.isEnabled = true
-                btnSetCurrentWorkLocation.isEnabled = true
+                    if (location != null) {
+                        val latLng = LatLng(location.latitude, location.longitude)
+                        Log.d("LOCATION", "현재 위치 획득: lat=${location.latitude}, lng=${location.longitude}")
 
-                if (location != null) {
-                    val latLng = LatLng(location.latitude, location.longitude)
+                        // ConfirmLocationActivity로 이동하여 지도에서 위치를 확인하도록 함
+                        val intent = ConfirmLocationActivity.newIntent(this, latLng, isSettingHomeLocation)
+                        confirmLocationLauncher.launch(intent)
 
-                    // ConfirmLocationActivity로 이동하여 지도에서 위치를 확인하도록 함
-                    val intent = ConfirmLocationActivity.newIntent(this, latLng, isSettingHomeLocation)
-                    confirmLocationLauncher.launch(intent)
-
-                } else {
-                    Snackbar.make(rootView, "위치 정보를 가져올 수 없습니다. GPS를 확인하세요.", Snackbar.LENGTH_LONG).show()
+                    } else {
+                        Snackbar.make(rootView, "위치 정보를 가져올 수 없습니다. GPS를 켜고 잠시 후 다시 시도해주세요.", Snackbar.LENGTH_LONG).show()
+                        Log.w("LOCATION", "getCurrentLocation returned null - GPS may be disabled")
+                    }
                 }
-            }
-            .addOnFailureListener { e ->
-                progressDialog.dismiss()
-                btnSetCurrentHomeLocation.isEnabled = true
-                btnSetCurrentWorkLocation.isEnabled = true
-                Snackbar.make(rootView, "위치 가져오기 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
-                Log.e("LOCATION", "Last location failed", e)
-            }
+                .addOnFailureListener { e ->
+                    progressDialog.dismiss()
+                    btnSetCurrentHomeLocation.isEnabled = true
+                    btnSetCurrentWorkLocation.isEnabled = true
+                    Snackbar.make(rootView, "위치 가져오기 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+                    Log.e("LOCATION", "getCurrentLocation failed", e)
+                }
+        } catch (e: SecurityException) {
+            progressDialog.dismiss()
+            btnSetCurrentHomeLocation.isEnabled = true
+            btnSetCurrentWorkLocation.isEnabled = true
+            Snackbar.make(rootView, "위치 권한이 필요합니다.", Snackbar.LENGTH_LONG).show()
+            Log.e("LOCATION", "SecurityException", e)
+        } catch (e: Exception) {
+            progressDialog.dismiss()
+            btnSetCurrentHomeLocation.isEnabled = true
+            btnSetCurrentWorkLocation.isEnabled = true
+            Snackbar.make(rootView, "위치 가져오기 중 오류 발생: ${e.message}", Snackbar.LENGTH_LONG).show()
+            Log.e("LOCATION", "Exception", e)
+        }
     }
 
 

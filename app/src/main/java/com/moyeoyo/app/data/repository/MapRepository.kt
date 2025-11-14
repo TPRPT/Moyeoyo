@@ -295,7 +295,7 @@ class MapRepository @Inject constructor(
                 TransportMode.DRIVE -> "driving"
             }
             val useSnapToRoad = mode == TransportMode.DRIVE
-            val key = context.getString(R.string.maps_web_key)
+            val key = context.getString(R.string.google_maps_key)
             val departureParam =
                 if (mode == TransportMode.TRANSIT) "&departure_time=${System.currentTimeMillis() / 1000}" else ""
             val adjustedDestination = if (useSnapToRoad) {
@@ -426,7 +426,7 @@ class MapRepository @Inject constructor(
     }
 
     private fun snapToRoad(latLng: LatLngData): LatLngData? {
-        val key = context.getString(R.string.maps_web_key)
+        val key = context.getString(R.string.google_maps_key)
         val path = "${latLng.lat},${latLng.lng}"
         val url =
             "https://roads.googleapis.com/v1/snapToRoads?path=$path&interpolate=false&key=$key"
@@ -465,7 +465,7 @@ class MapRepository @Inject constructor(
         radiusMeters: Int = 1500,
         type: String = "point_of_interest"
     ): List<NearbyPlace> = suspendCancellableCoroutine { cont ->
-        val key = context.getString(R.string.maps_web_key)
+        val key = context.getString(R.string.google_maps_key)
         val url =
             "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${center.lat},${center.lng}&radius=$radiusMeters&type=$type&language=ko&key=$key"
 

@@ -2,9 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 지도 및 인터넷 관련 권한 (정확하게 잘 추가되었습니다) -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- 지도 및 인터넷 관련 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -22,15 +20,8 @@
         android:theme="@style/Theme.Moyeoyo">
 
         <activity
-            android:name=".MainActivity"
-            android:exported="true" />
-
-        <activity
             android:name=".map.MidpointActivity"
-
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${GOOGLE_MAPS_API_KEY}" />
+            android:exported="true" />
 
         <activity android:name=".ui.auth.LoginActivity" />
         <activity android:name=".ui.auth.ProfileSetupActivity" />

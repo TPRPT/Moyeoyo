@@ -56,12 +56,17 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.rvDistances.layoutManager = LinearLayoutManager(this)
         binding.rvDistances.adapter = adapter
 
-        // 그룹 ID 설정 (테스트 데이터 버튼을 눌렀을 때 로드)
+        // 그룹 ID 설정
         val groupId = intent.getStringExtra("groupId") ?: "test-group-123"
         viewModel.setGroupId(groupId)
 
         setupViews()
         observe()
+
+        // Intent로 groupId가 전달된 경우 자동으로 데이터 로드
+        if (intent.hasExtra("groupId")) {
+            viewModel.loadGroupMembers(groupId)
+        }
     }
 
     private fun setupViews() {
