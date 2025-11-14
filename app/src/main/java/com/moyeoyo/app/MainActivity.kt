@@ -16,6 +16,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
@@ -36,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore
     private lateinit var progressDialog: ProgressDialog
+    private lateinit var googleSignInClient: GoogleSignInClient
 
     private val groupRepository = GroupRepository()
     private val friendRepository = FriendRepository()
@@ -64,6 +68,13 @@ class MainActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
         firestore = FirebaseFirestore.getInstance()
+        googleSignInClient = GoogleSignIn.getClient(
+            this,
+            GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build()
+        )
 
         // View 초기화 (findViewById)
         profileImage = findViewById(R.id.profile_image)
@@ -105,9 +116,11 @@ class MainActivity : AppCompatActivity() {
 
         // 🔹 버튼 리스너 설정
         btnLogout.setOnClickListener {
-            auth.signOut()
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
+            googleSignInClient.signOut().addOnCompleteListener {
+                auth.signOut()
+                startActivity(Intent(this, LoginActivity::class.java))
+                finish()
+            }
         }
 
         btnCreateGroup.setOnClickListener {

@@ -6,6 +6,7 @@ data class User(
     val nickname: String = "",
     val email: String = "",
     val profileImageUrl: String? = null,
+    val photoUrl: String? = null, // Firestore의 photoUrl 필드 (profileImageUrl과 별도)
     val fcmToken: String? = null,
     val homeLocation: Map<String, Any>? = null, // GeoPoint 및 주소 포함
     val workLocation: Map<String, Any>? = null, // GeoPoint 및 주소 포함

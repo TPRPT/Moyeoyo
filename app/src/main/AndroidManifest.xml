@@ -2,12 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 지도 및 인터넷 관련 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
+        android:name=".App"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -17,13 +19,14 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Moyeoyo">
 
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${GOOGLE_MAPS_API_KEY}" />
+        <activity
+            android:name=".map.MidpointActivity"
+            android:exported="true" />
 
         <activity android:name=".ui.auth.LoginActivity" />
         <activity android:name=".ui.auth.ProfileSetupActivity" />
         <activity android:name=".ui.auth.ConfirmLocationActivity" />
+        <activity android:name=".ui.location.LocationInputActivity" />
 
         <activity android:name=".ui.friends.AddFriendActivity" />
 
@@ -36,9 +39,9 @@
 
         <activity android:name=".MainActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
@@ -55,6 +58,10 @@
 
         </activity>
 
+        <!-- 맵 SDK 키 (정확하게 잘 추가되었습니다) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" />
     </application>
 
 </manifest>

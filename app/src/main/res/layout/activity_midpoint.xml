@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- 스크롤 영역 -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:fillViewport="true">
+
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- 뒤로가기(컨테이너, TextView 아님) -->
+            <LinearLayout
+                android:id="@+id/btnBack"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_left"
+                    app:tint="@color/black" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
+                    android:layout_marginStart="6dp"/>
+
+            </LinearLayout>
+
+            <!-- 제목 / 부제 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="중간 지점 계산"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="모두에게 공평한 중간 지점"
+                android:textSize="14sp"
+                android:textColor="@color/gray_600"
+                android:layout_marginBottom="20dp"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenFilter"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:text="@string/filter_sheet_title"
+                android:textColor="@color/blue_500"
+                app:icon="@drawable/ic_filter_24"
+                app:iconTint="@color/blue_500"
+                app:strokeColor="@color/blue_500"
+                app:strokeWidth="1dp"
+                app:iconPadding="8dp"
+                app:iconGravity="textStart" />
+
+            <!-- 지도 미리보기 카드 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardMapPreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/blue_500"
+                app:strokeWidth="2dp"
+                app:cardBackgroundColor="@android:color/transparent">
+
+                <FrameLayout
+                android:layout_width="match_parent"
+                    android:layout_height="260dp">
+
+                    <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/mapFragment"
+            android:name="com.google.android.gms.maps.SupportMapFragment"
+            android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardMidpointInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/blue_500">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <ImageView
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:layout_marginEnd="8dp"
+                            android:src="@drawable/ic_navigation"
+                            app:tint="@color/white" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="계산된 중간 지점"
+                            android:textColor="@color/white"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvMidpointAddress"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="서울특별시 성북구 동소"
+                        android:textColor="@color/white"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/tvMidpointCoords"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="위도: 37.593021° / 경도: 127.023819°"
+                        android:textColor="@color/white"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnLoadNearby"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/Widget.MaterialComponents.Button"
+                android:text="@string/load_nearby_button_label"
+                android:layout_marginBottom="20dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+        <TextView
+                        android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+                        android:text="@string/member_travel_time_title"
+                        android:textColor="@color/black"
+                        android:textSize="15sp"
+            android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/member_travel_time_subtitle"
+                        android:textColor="@color/gray_700"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="12dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvDistances"
+            android:layout_width="match_parent"
+                        android:layout_height="220dp"
+                        android:nestedScrollingEnabled="true"
+                        android:overScrollMode="always" />
+
+    </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 평균 이동 거리 카드 -->
+            <LinearLayout
+                android:id="@+id/cardAverage"
+                android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_info_box_blue"
+                android:layout_marginTop="12dp">
+
+                <!-- 파란색 체크 아이콘 -->
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_check_blue"
+                    app:tint="@color/blue_500"
+                    android:layout_marginEnd="10dp"/>
+
+                <!-- 텍스트 영역 -->
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:id="@+id/tvAvgDistance"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="평균 이동 거리: 2.5km"
+                        android:textSize="14sp"
+                        android:textColor="@color/badge_blue_text"/>
+
+                    <TextView
+                        android:id="@+id/tvMaxDeviation"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="최대 편차: ±0.4km (공평한 위치)"
+                        android:textSize="13sp"
+                        android:textColor="@color/badge_blue_text"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

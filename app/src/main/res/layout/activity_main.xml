@@ -111,7 +111,7 @@
                         android:textStyle="bold"
                         android:textSize="18sp" />
 
-                    <TextView
+    <TextView
                         android:id="@+id/text_email"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -123,8 +123,8 @@
 
                 <Button
                     android:id="@+id/btn_logout"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
                     android:text="로그아웃"
                     android:textColor="@android:color/white"
                     android:backgroundTint="#3B82F6" />

@@ -19,6 +19,7 @@ import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.ui.vote.ConfirmActivity
 import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
 import com.moyeoyo.app.MainActivity
+import com.moyeoyo.app.ui.location.LocationInputActivity
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
@@ -62,6 +63,15 @@ class GroupDetailActivity : AppCompatActivity() {
         // 3. 그룹 나가기 버튼 리스너 (일반 멤버 권한)
         binding.btnLeaveGroup.setOnClickListener {
             showLeaveConfirmationDialog()
+        }
+
+        // 중간값 계산 버튼 리스너
+        binding.btnCalculateMidpoint.setOnClickListener {
+            // LocationInputActivity로 이동하여 위치 선택 화면 표시
+            val intent = Intent(this, LocationInputActivity::class.java).apply {
+                putExtra("groupId", groupId)
+            }
+            startActivity(intent)
         }
 
         // 일정 확정 버튼 리스너

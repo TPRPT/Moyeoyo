@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:hint="주소, 건물명, 지하철역 검색">
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/edtSearch"
+            android:imeOptions="actionSearch"
+            android:inputType="text"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.chip.Chip
+        android:id="@+id/chipSelected"
+        style="@style/Widget.Material3.Chip.Suggestion"
+        android:layout_marginTop="8dp"
+        android:text="선택한 위치 없음" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvSuggestions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"/>
+</merge>

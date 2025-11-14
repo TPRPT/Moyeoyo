@@ -3,7 +3,21 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <color name="gray_600">#4B5563</color> <color name="gray_500">#6B7280</color> <color name="gray_100">#F3F4F6</color> <color name="gray_300">#D1D5DB</color> <color name="blue_500">#3B82F6</color> <color name="blue_900">#1E3A8A</color> <color name="blue_800">#1E40AF</color> <color name="kakao_yellow">#FEE500</color>
+    <color name="gray_600">#4B5563</color>
+    <color name="gray_500">#6B7280</color>
+    <color name="gray_100">#F3F4F6</color>
+    <color name="gray_300">#D1D5DB</color>
+    <color name="gray_700">#374151</color>
+    <color name="blue_500">#3B82F6</color>
+    <color name="blue_900">#1E3A8A</color>
+    <color name="blue_800">#1E40AF</color>
+    <color name="kakao_yellow">#FEE500</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="light_gray">#E5E7EB</color>
+    <color name="brand_blue">#3B82F6</color>
+    <color name="brand_green">#10B981</color>
+    <color name="green_700">#047857</color>
+    <color name="badge_blue_text">#1E40AF</color>
 
     <color name="color_primary">#6C5CE7</color>
 </resources>

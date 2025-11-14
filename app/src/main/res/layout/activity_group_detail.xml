@@ -52,6 +52,16 @@
                 android:layout_marginBottom="32dp"/>
 
             <Button
+                android:id="@+id/btn_calculate_midpoint"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="중간값 계산하기"
+                android:backgroundTint="#8B5CF6"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+
+            <Button
                 android:id="@+id/btn_confirm_schedule_now"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
