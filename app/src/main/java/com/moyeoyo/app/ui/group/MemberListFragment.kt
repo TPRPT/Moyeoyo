@@ -49,24 +49,29 @@ class MemberListFragment : Fragment() {
         recyclerView = view.findViewById(R.id.recyclerMemberList)
         btnInviteMember = view.findViewById(R.id.btnInviteMember)
 
+        // ➤ 그룹 정보 받기
         groupId = arguments?.getString("groupId")
         groupName = arguments?.getString("groupName")
 
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = MemberAdapter(memberList)
 
-        // 🔹 초대 버튼 클릭 시 InviteGroupFragment로 이동
+        // ➤ 초대 버튼 클릭 → InviteGroupFragment로 이동
         btnInviteMember.setOnClickListener {
             if (groupId != null && groupName != null) {
                 val action = GroupDetailFragmentDirections
-                    .actionGroupDetailFragmentToInviteGroupFragment(groupId!!, groupName!!)
+                    .actionGroupDetailFragmentToInviteGroupFragment(
+                        groupId!!,
+                        groupName!!,
+                        emptyArray()   // ⭐ 친구 선택 없이 초대 화면 이동
+                    )
                 findNavController().navigate(action)
             } else {
                 Toast.makeText(requireContext(), "그룹 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // 🔹 Firestore 데이터 로드
+        // ➤ Firestore 멤버 목록 로드
         loadMembersFromFirestore()
     }
 
@@ -87,23 +92,24 @@ class MemberListFragment : Fragment() {
 
                     memberList.clear()
 
-                    // 🔹 모든 멤버 UID
+                    // ➤ 멤버 UID들
                     val memberUids = snapshot.get("memberUids") as? List<String> ?: emptyList()
 
-                    // 🔹 투표 완료 멤버 UID
+                    // ➤ 투표 완료 멤버 UID들
                     val votedUids = snapshot.get("votedMembers") as? List<String> ?: emptyList()
 
-                    // 🔹 멤버 리스트 구성
+                    // ➤ 표시 이름/투표 여부 저장
                     memberUids.forEach { uid ->
                         val isMe = uid == auth.currentUser?.uid
                         val name = if (isMe) "나" else "멤버"
                         val voted = votedUids.contains(uid)
+
                         memberList.add(Member(name, "주소 미정", voted))
                     }
 
                     recyclerView.adapter?.notifyDataSetChanged()
 
-                    // 🔹 투표 현황 업데이트
+                    // ➤ 투표 진행율 업데이트
                     updateVoteProgress(memberUids.size, votedUids.size)
                 }
         }
@@ -125,6 +131,7 @@ class MemberListFragment : Fragment() {
     // ===============================
     // RecyclerView 어댑터
     // ===============================
+
     data class Member(
         val name: String,
         val region: String,
@@ -135,10 +142,10 @@ class MemberListFragment : Fragment() {
         RecyclerView.Adapter<MemberAdapter.MemberViewHolder>() {
 
         inner class MemberViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvInitial = view.findViewById<TextView>(R.id.tvMemberInitial)
-            val tvName = view.findViewById<TextView>(R.id.tvMemberName)
-            val tvRegion = view.findViewById<TextView>(R.id.tvMemberRegion)
-            val tvStatus = view.findViewById<TextView>(R.id.tvVoteStatusBadge)
+            val tvInitial: TextView = view.findViewById(R.id.tvMemberInitial)
+            val tvName: TextView = view.findViewById(R.id.tvMemberName)
+            val tvRegion: TextView = view.findViewById(R.id.tvMemberRegion)
+            val tvStatus: TextView = view.findViewById(R.id.tvVoteStatusBadge)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MemberViewHolder {

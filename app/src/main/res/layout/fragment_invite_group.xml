@@ -61,6 +61,7 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <!-- 상단 성공 카드 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -96,6 +97,7 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
+            <!-- 초대 링크 섹션 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -146,8 +148,36 @@
                 android:text="이 링크를 친구들에게 공유하여 그룹에 초대하세요"
                 android:textColor="@color/gray_600"
                 android:textSize="14sp"
-                android:layout_marginBottom="32dp" />
+                android:layout_marginBottom="24dp" />
 
+            <!-- 초대한 친구 목록 컨테이너 (동적으로 채움) -->
+            <LinearLayout
+                android:id="@+id/invitedFriendsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_light_gray_outline"
+                android:visibility="gone"
+                android:layout_marginBottom="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="초대한 친구"
+                    android:textColor="@color/black"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/invitedFriendsList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <!-- 링크 복사 / 카카오 공유 버튼들 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/copyLinkButtonFull"
                 android:layout_width="match_parent"
@@ -178,11 +208,10 @@
                 android:paddingStart="24dp"
                 android:layout_marginBottom="32dp" />
 
-
         </LinearLayout>
     </ScrollView>
 
-    <!-- 하단 버튼 -->
+    <!-- 하단 버튼 영역 -->
     <LinearLayout
         android:id="@+id/bottomCompleteLayout"
         android:layout_width="match_parent"
@@ -202,8 +231,6 @@
             android:textColor="@android:color/white"
             android:background="@drawable/bg_round_button"
             app:backgroundTint="@color/brand_blue" />
-
-
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

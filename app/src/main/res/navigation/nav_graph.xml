@@ -5,7 +5,7 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/mainFragment">
 
-    <!-- ✅ 로그인 화면 -->
+    <!-- 로그인 화면 -->
     <fragment
         android:id="@+id/loginFragment"
         android:name="com.moyeoyo.app.ui.auth.LoginFragment"
@@ -23,7 +23,7 @@
             app:destination="@id/mainFragment" />
     </fragment>
 
-    <!-- ✅ 프로필 설정 화면 -->
+    <!-- 프로필 설정 화면 -->
     <fragment
         android:id="@+id/profileSetupFragment"
         android:name="com.moyeoyo.app.ui.auth.ProfileSetupFragment"
@@ -74,6 +74,11 @@
             app:destination="@id/loginFragment"
             app:popUpTo="@id/nav_graph"
             app:popUpToInclusive="true" />
+
+        <action
+            android:id="@+id/action_mainFragment_to_friendSearchFragment"
+            app:destination="@id/friendSearchFragment" />
+
     </fragment>
 
     <fragment
@@ -82,7 +87,7 @@
         android:label="알림"
         tools:layout="@layout/fragment_notification" />
 
-    <!-- ✅ 그룹 상세 화면 -->
+    <!-- 그룹 상세 화면 -->
     <fragment
         android:id="@+id/groupDetailFragment"
         android:name="com.moyeoyo.app.ui.group.GroupDetailFragment"
@@ -124,9 +129,12 @@
             android:id="@+id/action_groupDetailFragment_to_shareMeetingFragment"
             app:destination="@id/shareMeetingFragment" />
 
+        <action
+            android:id="@+id/action_groupDetailFragment_to_calendarSyncFragment"
+            app:destination="@id/calendarSyncFragment" />
     </fragment>
 
-    <!-- ✅ 위치 입력 -->
+    <!-- 위치 입력 -->
     <fragment
         android:id="@+id/locationInputFragment"
         android:name="com.moyeoyo.app.ui.group.LocationInputFragment"
@@ -139,7 +147,7 @@
             app:destination="@id/midpointFragment" />
     </fragment>
 
-    <!-- ✅ 중간지점 계산 -->
+    <!-- 중간지점 계산 -->
     <fragment
         android:id="@+id/midpointFragment"
         android:name="com.moyeoyo.app.ui.group.MidpointFragment"
@@ -157,21 +165,21 @@
             app:destination="@id/recommendedPlaceFragment" />
     </fragment>
 
-    <!-- ✅ 추천 장소 -->
+    <!-- 추천 장소 -->
     <fragment
         android:id="@+id/recommendedPlaceFragment"
         android:name="com.moyeoyo.app.ui.group.RecommendedPlaceFragment"
         android:label="주변 장소 추천"
         tools:layout="@layout/fragment_recommended_place" />
 
-    <!-- ✅ 시간 투표 -->
+    <!-- 시간 투표 -->
     <fragment
         android:id="@+id/timeVoteFragment"
         android:name="com.moyeoyo.app.ui.group.TimeVoteFragment"
         android:label="시간 투표"
         tools:layout="@layout/fragment_time_vote" />
 
-    <!-- ✅ 새 그룹 생성 -->
+    <!-- 새 그룹 생성 -->
     <fragment
         android:id="@+id/createGroupFragment"
         android:name="com.moyeoyo.app.ui.group.CreateGroupFragment"
@@ -184,14 +192,14 @@
             app:destination="@id/inviteGroupFragment" />
     </fragment>
 
-    <!-- ✅ 그룹 초대 -->
+    <!-- 그룹 초대 -->
     <fragment
         android:id="@+id/inviteGroupFragment"
         android:name="com.moyeoyo.app.ui.group.InviteGroupFragment"
         android:label="그룹 초대"
         tools:layout="@layout/fragment_invite_group">
 
-        <!-- ✅ 인자 추가 -->
+        <!-- 인자 추가 -->
         <argument
             android:name="groupId"
             app:argType="string" />
@@ -200,6 +208,12 @@
             android:name="groupName"
             app:argType="string" />
 
+<!--        그룹 생성 때 선택한 친구들 전달-->
+        <argument
+            android:name="invitedFriendUids"
+            app:argType="string[]"
+            app:nullable="true" />
+
         <!-- 초대 완료 후 메인 화면으로 이동 -->
         <action
             android:id="@+id/action_inviteGroupFragment_to_mainFragment"
@@ -207,7 +221,7 @@
             app:popUpTo="@id/mainFragment"
             app:popUpToInclusive="true" />
 
-        <!-- ✅ 그룹 상세로 이동 -->
+        <!-- 그룹 상세로 이동 -->
         <action
             android:id="@+id/action_inviteGroupFragment_to_groupDetailFragment"
             app:destination="@id/groupDetailFragment" />
@@ -239,8 +253,24 @@
 
         <argument
             android:name="memberCount"
-            app:argType="integer"
-            android:defaultValue="0" />
+            android:defaultValue="0"
+            app:argType="integer" />
     </fragment>
 
+    <fragment
+        android:id="@+id/friendSearchFragment"
+        android:name="com.moyeoyo.app.ui.friend.FriendSearchFragment"
+        android:label="친구 검색"
+        tools:layout="@layout/fragment_friends_search" />
+
+    <fragment
+        android:id="@+id/calendarSyncFragment"
+        android:name="com.moyeoyo.app.ui.calendar.CalendarSyncFragment"
+        android:label="캘린더 연동"
+        tools:layout="@layout/fragment_calendar_sync">
+
+        <argument android:name="title" app:argType="string" />
+        <argument android:name="dateTime" app:argType="string" />
+        <argument android:name="place" app:argType="string" />
+    </fragment>
 </navigation>

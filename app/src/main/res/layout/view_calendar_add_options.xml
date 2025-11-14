@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- Google Calendar에 추가 -->
+    <LinearLayout
+        android:id="@+id/btnGoogleCalendar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_input_rounded"
+        android:paddingHorizontal="14dp"
+        android:layout_marginTop="12dp">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_google_logo"
+            android:layout_marginEnd="8dp"
+            app:tint="@color/black" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Google Calendar에 추가"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:gravity="center"/>
+
+    </LinearLayout>
+
+    <!-- 다른 캘린더 앱에 추가 -->
+    <LinearLayout
+        android:id="@+id/btnOtherCalendar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_input_rounded"
+        android:paddingHorizontal="14dp"
+        android:layout_marginTop="10dp">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_event_24"
+            android:layout_marginEnd="8dp"
+            app:tint="@color/black" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="다른 캘린더 앱에 추가"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:gravity="center"/>
+    </LinearLayout>
+
+</LinearLayout>

@@ -95,7 +95,29 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- 내 그룹 섹션 -->
+    <!-- 친구 추가하기 버튼 (프로필 카드 바로 아래!) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAddFriend"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="16dp"
+        android:text="친구 추가하기"
+        android:textSize="14sp"
+        android:textColor="@color/black"
+        android:gravity="center"
+        app:icon="@drawable/ic_person_24"
+        app:iconTint="@color/black"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
+        style="?attr/materialButtonOutlinedStyle"
+        app:cornerRadius="12dp"
+        app:strokeColor="#E9E9EF"
+        app:strokeWidth="1dp"
+        app:layout_constraintTop_toBottomOf="@id/cardProfile"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 내 그룹 텍스트 -->
     <TextView
         android:id="@+id/titleText"
         android:layout_width="0dp"
@@ -104,11 +126,12 @@
         android:textSize="22sp"
         android:textStyle="bold"
         android:textColor="@color/black"
+        android:layout_marginTop="20dp"
+        app:layout_constraintTop_toBottomOf="@id/btnAddFriend"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/cardProfile"
-        app:layout_constraintEnd_toStartOf="@id/actions"
-        android:layout_marginTop="20dp"/>
+        app:layout_constraintEnd_toStartOf="@id/actions"/>
 
+    <!-- 새 그룹 버튼 영역 -->
     <LinearLayout
         android:id="@+id/actions"
         android:layout_width="wrap_content"
@@ -116,7 +139,6 @@
         android:orientation="horizontal"
         app:layout_constraintTop_toTopOf="@id/titleText"
         app:layout_constraintEnd_toEndOf="parent">
-
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnNewGroup"
@@ -144,9 +166,9 @@
         android:text="참여중인 그룹 3개"
         android:textSize="12sp"
         android:textColor="#666666"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="6dp"
         app:layout_constraintTop_toBottomOf="@id/titleText"
-        android:layout_marginTop="6dp"/>
+        app:layout_constraintStart_toStartOf="parent"/>
 
     <!-- 그룹 리스트 -->
     <androidx.recyclerview.widget.RecyclerView
@@ -162,4 +184,5 @@
         app:layout_constraintEnd_toEndOf="parent"
         tools:listitem="@layout/item_group_card"
         tools:itemCount="3"/>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

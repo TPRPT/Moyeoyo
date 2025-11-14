@@ -364,6 +364,7 @@
                     android:background="@drawable/bg_segment_selected_right" />
             </RadioGroup>
 
+
             <!-- ViewPager -->
             <androidx.viewpager2.widget.ViewPager2
                 android:id="@+id/viewPager"

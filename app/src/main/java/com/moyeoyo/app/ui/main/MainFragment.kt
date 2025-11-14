@@ -15,6 +15,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.R
@@ -110,6 +111,11 @@ class MainFragment : Fragment(R.layout.fragment_main) {
             auth.signOut()
             Toast.makeText(requireContext(), "로그아웃 되었습니다.", Toast.LENGTH_SHORT).show()
             findNavController().navigate(R.id.action_mainFragment_to_loginFragment)
+        }
+
+        val btnAddFriend = view.findViewById<MaterialButton>(R.id.btnAddFriend)
+        btnAddFriend.setOnClickListener {
+            findNavController().navigate(R.id.action_mainFragment_to_friendSearchFragment)
         }
 
         /** -------------------------------
