@@ -10,6 +10,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Geocoder
+import android.location.Location
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.moyeoyo.app.R
@@ -37,8 +38,11 @@ import com.moyeoyo.app.data.model.TimeCandidate
 import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.data.model.User
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -92,13 +96,22 @@ class MapRepository @Inject constructor(
     fun currentUserId(): String? = currentUid()
 
     // 그룹의 입력 위치 목록 1회 조회
-    suspend fun getInputLocations(groupId: String): List<InputLocation> {
+    suspend fun getInputLocations(groupId: String): List<InputLocation> = coroutineScope {
         val snap = firestore.collection("groups")
             .document(groupId)
             .collection("inputLocations")
             .get()
             .await()
-        return snap.documents.mapNotNull { it.toInputLocation() }
+        val baseLocations = snap.documents.mapNotNull { it.toInputLocation() }
+        val nicknameMap = baseLocations.map { location ->
+            async {
+                val nickname = getUser(location.uid)?.nickname
+                location.uid to nickname
+            }
+        }.awaitAll().toMap()
+        baseLocations.map { location ->
+            location.copy(nickname = nicknameMap[location.uid])
+        }
     }
 
     // 내 입력 위치 저장/업데이트
@@ -523,20 +536,29 @@ class MapRepository @Inject constructor(
                         }
                         val rating = obj.optDouble("rating").takeUnless { it.isNaN() }
                         val vicinity = obj.optString("vicinity").takeIf { it.isNotBlank() }
+                        val latLng = LatLngData(lat, lng)
+                        val distanceMeters = calculateDistanceMeters(center, latLng)
 
                         places += NearbyPlace(
                             placeId = placeId,
                             name = name,
                             address = vicinity,
-                            latLng = LatLngData(lat, lng),
+                            latLng = latLng,
                             categories = categories,
-                            rating = rating
+                            rating = rating,
+                            distanceMeters = distanceMeters
                         )
                     }
                     cont.resume(places)
                 }
             }
         })
+    }
+
+    private fun calculateDistanceMeters(from: LatLngData, to: LatLngData): Double {
+        val result = FloatArray(1)
+        Location.distanceBetween(from.lat, from.lng, to.lat, to.lng, result)
+        return result.firstOrNull()?.toDouble() ?: 0.0
     }
 
     suspend fun saveComputedCenter(groupId: String, center: LatLngData) {
@@ -624,6 +646,7 @@ class MapRepository @Inject constructor(
     private fun DocumentSnapshot.toInputLocation(): InputLocation? {
         val data = data ?: return null
 
+        // latLng 필드 확인 (GeoPoint 또는 Map)
         val latLngData = when (val raw = data["latLng"]) {
             is GeoPoint -> LatLngData(raw.latitude, raw.longitude)
             is Map<*, *> -> {
@@ -634,6 +657,13 @@ class MapRepository @Inject constructor(
                 if (lat != null && lng != null) LatLngData(lat, lng) else null
             }
             else -> null
+        }
+        
+        // latLng 필드가 없으면 latitude, longitude 별도 필드 확인
+        val finalLatLng = latLngData ?: run {
+            val lat = (data["latitude"] as? Number)?.toDouble()
+            val lng = (data["longitude"] as? Number)?.toDouble()
+            if (lat != null && lng != null) LatLngData(lat, lng) else null
         } ?: return null
 
                 val modeName = data["transportMode"] as? String ?: TransportMode.TRANSIT.name
@@ -648,7 +678,7 @@ class MapRepository @Inject constructor(
 
         return InputLocation(
             uid = id,
-            latLng = latLngData,
+            latLng = finalLatLng,
             transportMode = mode,
             label = label
         )

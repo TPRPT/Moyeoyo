@@ -16,6 +16,7 @@ import com.moyeoyo.app.data.model.TransportMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -150,7 +151,7 @@ class MapViewModel @Inject constructor(
     fun loadGroupMembers(groupId: String) {
         val isGroupChanged = state.value?.groupId != groupId
         if (isGroupChanged) {
-            setGroupId(groupId)
+        setGroupId(groupId)
             update {
                 it.copy(
                     isLoading = true,
@@ -179,9 +180,14 @@ class MapViewModel @Inject constructor(
                 }
 
                 withContext(Dispatchers.Main) {
-                    update { it.copy(members = members) }
+                    val overrideMode = _state.value?.transportFilterMode
+                    val adjustedMembers = overrideMode?.let { mode ->
+                        members.map { it.copy(transportMode = mode) }
+                    } ?: members
 
-                    val center = repo.computeWeightedCenter(members)
+                    update { it.copy(members = adjustedMembers) }
+
+                    val center = repo.computeWeightedCenter(adjustedMembers)
                     if (center != null) {
                         Log.d(
                             "MapViewModel",
@@ -228,7 +234,7 @@ class MapViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("MapViewModel", "Firestore 로드 중 예외 발생: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    update { it.copy(error = e.message, isLoading = false) }
+                update { it.copy(error = e.message, isLoading = false) }
                 }
             }
         }
@@ -291,11 +297,17 @@ class MapViewModel @Inject constructor(
             update { it.copy(error = "중간 지점이 계산된 후에 주변 장소를 불러올 수 있습니다.") }
             return
         }
-        loadNearbyPlacesInternal(center, radiusMeters)
+        val radius = if (radiusMeters != 1500) {
+            radiusMeters.toDouble()
+        } else {
+            (_state.value?.maxDistanceKm ?: 5.0) * 1000.0
+        }
+        loadNearbyPlacesInternal(center, radius)
     }
 
-    private fun loadNearbyPlacesInternal(center: LatLngData, radiusMeters: Int) {
+    private fun loadNearbyPlacesInternal(center: LatLngData, radiusMeters: Double) {
         viewModelScope.launch(Dispatchers.IO) {
+            val radius = radiusMeters.roundToInt().coerceAtLeast(500)
             update {
                 it.copy(
                     isNearbyLoading = true,
@@ -305,23 +317,32 @@ class MapViewModel @Inject constructor(
                     isDistanceLoading = false
                 )
             }
-            runCatching { repo.fetchNearbyPlaces(center, radiusMeters) }
+            runCatching { repo.fetchNearbyPlaces(center, radius) }
                 .onSuccess { places ->
-                    if (places.isNotEmpty()) {
-                        Log.d("MapViewModel", "주변 장소 ${places.size}건 로드 성공")
+                    val sorted = places.sortedBy { it.distanceMeters }
+                    val limited = sorted.take(20)
+                    if (limited.isNotEmpty()) {
+                        Log.d("MapViewModel", "주변 장소 ${limited.size}건 로드 성공 (원본 ${places.size}건)")
                         update {
                             it.copy(
-                                nearbyPlaces = places,
+                                nearbyPlaces = limited,
                                 isNearbyLoading = false,
                                 selectedPlace = it.selectedPlace?.takeIf { selected ->
-                                    places.any { place -> place.placeId == selected.placeId }
+                                    limited.any { place -> place.placeId == selected.placeId }
                                 },
                                 isDistanceLoading = false
                             )
                         }
                     } else {
                         Log.w("MapViewModel", "주변 장소 응답이 0건입니다.")
-                        update { it.copy(error = "주변 장소 응답이 없습니다.", isNearbyLoading = false, isDistanceLoading = false) }
+                        update {
+                            it.copy(
+                                nearbyPlaces = emptyList(),
+                                error = "주변 장소 응답이 없습니다.",
+                                isNearbyLoading = false,
+                                isDistanceLoading = false
+                            )
+                        }
                     }
                 }
                 .onFailure { e ->
@@ -357,6 +378,38 @@ class MapViewModel @Inject constructor(
             return
         }
         computeDistancesByMode(members, place.latLng)
+    }
+
+    fun applyTransportFilter(
+        transportMode: TransportMode,
+        maxDistanceKm: Double
+    ) {
+        val currentMembers = _state.value?.members ?: emptyList()
+        val adjustedMembers = currentMembers.map { it.copy(transportMode = transportMode) }
+        val center = repo.computeWeightedCenter(adjustedMembers)
+        update {
+            it.copy(
+                members = adjustedMembers,
+                transportFilterMode = transportMode,
+                maxDistanceKm = maxDistanceKm,
+                weightedCenter = center,
+                nearbyPlaces = emptyList(),
+                selectedPlace = null,
+                distanceByMember = emptyList(),
+                isDistanceLoading = false
+            )
+        }
+
+        val groupId = _state.value?.groupId
+        if (center != null && !groupId.isNullOrBlank()) {
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching { repo.saveComputedCenter(groupId, center) }
+                    .onFailure { saveError ->
+                        Log.e("MapViewModel", "필터 적용 중 중간 지점 저장 실패: ${saveError.message}", saveError)
+                        update { it.copy(error = saveError.message) }
+                    }
+            }
+        }
     }
 
     /*

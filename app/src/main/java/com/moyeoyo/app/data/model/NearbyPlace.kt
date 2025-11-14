@@ -9,6 +9,7 @@ data class NearbyPlace(
     val address: String?,
     val latLng: LatLngData,
     val categories: List<String>,
-    val rating: Double?
+    val rating: Double?,
+    val distanceMeters: Double = 0.0
 )
 

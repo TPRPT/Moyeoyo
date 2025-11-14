@@ -30,6 +30,8 @@ data class MapState(
     val distanceByMember: List<DistanceResult> = emptyList(), // 멤버별 소요시간
     val isDistanceLoading: Boolean = false,
     val selectedPlace: NearbyPlace? = null,                // 선택된 약속 장소
+    val transportFilterMode: TransportMode? = null,
+    val maxDistanceKm: Double = 5.0,
 
     // 주변 추천 장소
     val nearbyPlaces: List<NearbyPlace> = emptyList(),

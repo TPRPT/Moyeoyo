@@ -26,6 +26,7 @@
         <activity android:name=".ui.auth.LoginActivity" />
         <activity android:name=".ui.auth.ProfileSetupActivity" />
         <activity android:name=".ui.auth.ConfirmLocationActivity" />
+        <activity android:name=".ui.location.LocationInputActivity" />
 
         <activity android:name=".ui.friends.AddFriendActivity" />
 

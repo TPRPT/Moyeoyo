@@ -35,4 +35,28 @@
     <string name="select_first_place_button_label">첫 장소 선택 (테스트)</string>
     <string name="select_first_place_toast">%1$s 가 임시 선택되었습니다.</string>
     <string name="select_first_place_empty">먼저 주변 장소를 불러와주세요.</string>
+    <string name="filter_sheet_title">필터 설정</string>
+    <string name="filter_sheet_subtitle">원하는 조건으로 장소를 필터링하세요</string>
+    <string name="filter_max_distance_label">최대 거리</string>
+    <string name="filter_apply">필터 적용</string>
+    <string name="member_travel_time_title">멤버별 이동 소요 시간</string>
+    <string name="member_travel_time_subtitle">선택된 약속 장소까지 예상 이동 시간</string>
+
+    <!-- 위치 입력 화면 -->
+    <string name="back">뒤로가기</string>
+    <string name="location_input_title">위치 입력</string>
+    <string name="location_input_subtitle">모임 장소를 선택해주세요</string>
+    <string name="use_current_location">현재 위치 사용</string>
+    <string name="frequently_used_places">자주 사용하는 위치</string>
+    <string name="home">집</string>
+    <string name="work">회사</string>
+    <string name="home_not_set">집 주소가 설정되지 않았습니다</string>
+    <string name="work_not_set">회사 주소가 설정되지 않았습니다</string>
+    <string name="search_address">주소 검색</string>
+    <string name="search_address_hint">주소, 건물명, 지하철역 검색</string>
+    <string name="save_location">위치 저장하기</string>
+    <string name="location_input_info">💡 모든 멤버의 위치가 입력되면 최적의 중간 지점을 계산합니다</string>
+    <string name="location_input_waiting">⏳ 다른 그룹원이 아직 위치를 입력하지 않았습니다. 모든 멤버가 위치를 입력하면 중간 지점을 계산할 수 있습니다.</string>
+    <string name="location_input_ready">✅ 모든 멤버의 위치가 입력되었습니다! 중간 지점을 계산할 수 있습니다.</string>
+    <string name="btn_go_to_midpoint">중간값 계산하기</string>
 </resources>

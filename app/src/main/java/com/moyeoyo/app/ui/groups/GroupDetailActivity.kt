@@ -19,7 +19,7 @@ import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.ui.vote.ConfirmActivity
 import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
 import com.moyeoyo.app.MainActivity
-import com.moyeoyo.app.map.MidpointActivity
+import com.moyeoyo.app.ui.location.LocationInputActivity
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
@@ -67,8 +67,8 @@ class GroupDetailActivity : AppCompatActivity() {
 
         // 중간값 계산 버튼 리스너
         binding.btnCalculateMidpoint.setOnClickListener {
-            // MidpointActivity로 이동하여 중간값 계산 화면 표시
-            val intent = Intent(this, MidpointActivity::class.java).apply {
+            // LocationInputActivity로 이동하여 위치 선택 화면 표시
+            val intent = Intent(this, LocationInputActivity::class.java).apply {
                 putExtra("groupId", groupId)
             }
             startActivity(intent)
