@@ -43,7 +43,7 @@ class ShareMeetingFragment : Fragment(R.layout.fragment_share_meeting) {
         binding.tvMeetingLocation.text = meetingPlace
         binding.tvMemberCount.text = "${memberCount}명"
 
-        binding.btnBack.setOnClickListener {
+        binding.toolbarShare.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
 

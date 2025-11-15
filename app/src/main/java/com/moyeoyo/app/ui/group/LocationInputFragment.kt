@@ -52,7 +52,7 @@ class LocationInputFragment : Fragment(R.layout.fragment_location_input) {
         tvSelectedAddress = view.findViewById(R.id.tv_selected_address)
 
         // 🔙 뒤로가기
-        view.findViewById<View>(R.id.btn_back)?.setOnClickListener {
+        view.findViewById<View>(R.id.toolbarLocation)?.setOnClickListener {
             findNavController().navigateUp()
         }
 

@@ -53,7 +53,7 @@ class CreateGroupFragment : Fragment() {
         /** -------------------------------
          * 1. 뒤로가기 버튼
          * ------------------------------- */
-        binding.backButton.setOnClickListener {
+        binding.toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
 

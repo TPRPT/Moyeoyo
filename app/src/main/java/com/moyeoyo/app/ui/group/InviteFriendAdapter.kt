@@ -7,6 +7,7 @@ import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.moyeoyo.app.R
 import com.moyeoyo.app.model.Friend
 
@@ -29,13 +30,31 @@ class InviteFriendAdapter(
     override fun getItemCount() = friendList.size
 
     inner class InviteFriendViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+
         private val checkbox: CheckBox = itemView.findViewById(R.id.inviteCheckBox)
+        private val ivProfile: ImageView = itemView.findViewById(R.id.ivProfile)
         private val tvInitial: TextView = itemView.findViewById(R.id.inviteInitial)
         private val tvName: TextView = itemView.findViewById(R.id.inviteName)
         private val tvEmail: TextView = itemView.findViewById(R.id.inviteEmail)
 
         fun bind(friend: Friend) {
-            tvInitial.text = friend.name.firstOrNull()?.toString() ?: "?"
+
+            // 🔥 프로필 적용
+            if (!friend.profileImageUrl.isNullOrEmpty()) {
+                ivProfile.visibility = View.VISIBLE
+                tvInitial.visibility = View.GONE
+
+                Glide.with(itemView)
+                    .load(friend.profileImageUrl)
+                    .circleCrop()
+                    .into(ivProfile)
+
+            } else {
+                ivProfile.visibility = View.GONE
+                tvInitial.visibility = View.VISIBLE
+                tvInitial.text = friend.name.firstOrNull()?.toString() ?: "?"
+            }
+
             tvName.text = friend.name
             tvEmail.text = friend.email
 
@@ -44,7 +63,6 @@ class InviteFriendAdapter(
             checkbox.setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked) selectedFriends.add(friend.uid)
                 else selectedFriends.remove(friend.uid)
-
                 onSelectionChanged()
             }
         }

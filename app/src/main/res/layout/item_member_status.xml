@@ -8,17 +8,31 @@
     android:layout_marginBottom="8dp"
     android:background="@drawable/bg_card">
 
-    <!-- ✅ 왼쪽 원형 이니셜 -->
-    <TextView
-        android:id="@+id/tvMemberInitial"
+    <!-- 프로필(이미지 + 이니셜) -->
+    <FrameLayout
+        android:id="@+id/profileContainer"
         android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:gravity="center"
-        android:text="김"
-        android:textColor="@color/black"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:background="@drawable/bg_circle_gray" />
+        android:layout_height="40dp">
+
+        <ImageView
+            android:id="@+id/ivProfile"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:clipToOutline="true"
+            android:background="@drawable/bg_circle_gray"/>
+
+        <TextView
+            android:id="@+id/tvMemberInitial"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="김"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:background="@drawable/bg_circle_gray"/>
+    </FrameLayout>
 
     <!-- ✅ 가운데: 이름 + 지역 -->
     <LinearLayout

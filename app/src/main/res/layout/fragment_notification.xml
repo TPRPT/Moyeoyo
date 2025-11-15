@@ -1,152 +1,178 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="20dp"
     android:background="@color/white">
 
-    <!-- 상단 툴바 (뒤로가기 전용) -->
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
+    <!-- 상단 APP BAR -->
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@null"
-        app:navigationIcon="@drawable/ic_chevron_left_24"
-        android:contentInsetStartWithNavigation="0dp"
-        android:paddingBottom="4dp" />
+        android:background="@color/white">
 
-    <!-- ✅ 툴바 밑에 타이틀 따로 표시 -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/tvPageTitle"
-        android:text="알림"
-        android:textStyle="bold"
-        android:textColor="@color/black"
-        android:textSize="22sp"
-        android:layout_marginTop="4dp" />
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_chevron_left_24"
+            app:title=""
+            android:background="@color/white"
+            app:contentInsetStartWithNavigation="0dp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="최근 알림을 확인하세요"
-        android:textColor="@color/gray_700"
-        android:textSize="14sp" />
+    </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- 구분선 -->
-    <View
-        android:layout_marginTop="12dp"
+    <!-- 전체 스크롤 영역 -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/gray_light" />
-
-    <!-- 알림 허용 스위치 박스 -->
-    <LinearLayout
-        android:layout_marginTop="16dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="14dp"
-        android:background="@drawable/bg_card"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:src="@drawable/ic_bell_24"
-            android:layout_width="24dp"
-            android:layout_height="24dp" />
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="40dp">
 
         <LinearLayout
             android:orientation="vertical"
-            android:layout_marginStart="10dp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1">
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <!-- Title -->
             <TextView
+                android:id="@+id/tvPageTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="알림 허용"
-                android:textSize="15sp"
+                android:text="알림"
+                android:textStyle="bold"
                 android:textColor="@color/black"
-                android:textStyle="bold" />
+                android:textSize="22sp"
+                android:layout_marginTop="16dp"
+                android:paddingBottom="4dp" />
+
+            <!-- Subtitle -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="푸시 알림을 받으려면 켜주세요"
-                android:textSize="13sp"
-                android:textColor="@color/gray_700" />
+                android:text="최근 알림을 확인하세요"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                android:paddingBottom="12dp" />
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/light_gray"
+                android:layout_marginBottom="20dp" />
+
+            <!-- 알림 허용 스위치 박스 -->
+            <LinearLayout
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="14dp"
+                android:background="@drawable/bg_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_bell_24" />
+
+                <LinearLayout
+                    android:orientation="vertical"
+                    android:layout_marginStart="10dp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="알림 허용"
+                        android:textSize="15sp"
+                        android:textColor="@color/black"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="푸시 알림을 받으려면 켜주세요"
+                        android:textSize="13sp"
+                        android:textColor="@color/gray_700" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/switchNotification"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <!-- 최근 알림 제목 -->
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_marginTop="22dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="최근 알림"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="@color/black" />
+
+                <TextView
+                    android:id="@+id/tvNotificationCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="3개"
+                    android:layout_marginStart="8dp"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"
+                    android:background="@drawable/bg_blue_round"
+                    android:textColor="@color/white"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- 알림 리스트 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerNotifications"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:layout_marginTop="10dp" />
+
+            <!-- 하단 안내문 -->
+            <LinearLayout
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:background="@drawable/bg_blue_box"
+                android:gravity="center_vertical"
+                android:layout_marginTop="20dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@drawable/ic_lightbulb_24" />
+
+                <TextView
+                    android:layout_marginStart="8dp"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="중요한 약속 알림(확정, D-1, 변경)은 자동으로 전송됩니다"
+                    android:textColor="@color/black"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="2dp" />
+            </LinearLayout>
+
         </LinearLayout>
 
-        <Switch
-            android:id="@+id/switchNotification"
-            android:checked="false"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
-    <!-- 최근 알림 타이틀 -->
-    <LinearLayout
-        android:layout_marginTop="22dp"
-        android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="최근 알림"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:textColor="@color/black" />
-
-        <TextView
-            android:id="@+id/tvNotificationCount"
-            android:text="3개"
-            android:layout_marginStart="8dp"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="2dp"
-            android:background="@drawable/bg_blue_round"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-    </LinearLayout>
-
-    <!-- 알림 리스트 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerNotifications"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="10dp" />
-
-    <!-- 하단 안내문 -->
-    <LinearLayout
-        android:layout_marginTop="12dp"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:background="@drawable/bg_blue_box"
-        android:gravity="center_vertical"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:src="@drawable/ic_lightbulb_24" />
-
-        <TextView
-            android:layout_marginStart="8dp"
-            android:text="중요한 약속 알림(확정, D-1, 변경)은 자동으로 전송됩니다"
-            android:textColor="@color/black"
-            android:textSize="13sp"
-            android:lineSpacingExtra="2dp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1" />
-    </LinearLayout>
-
-</LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

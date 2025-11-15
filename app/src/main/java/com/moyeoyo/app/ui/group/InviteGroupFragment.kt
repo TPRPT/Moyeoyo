@@ -67,8 +67,8 @@ class InviteGroupFragment : Fragment() {
         /** -------------------------
          * 뒤로가기 → 메인으로 이동
          * ------------------------- */
-        binding.backButtonInvite.setOnClickListener {
-            findNavController().navigate(R.id.action_inviteGroupFragment_to_mainFragment)
+        binding.toolbarInvite.setNavigationOnClickListener {
+            findNavController().navigateUp()
         }
 
         /** -------------------------

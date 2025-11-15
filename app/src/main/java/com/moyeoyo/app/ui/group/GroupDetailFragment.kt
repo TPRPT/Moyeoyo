@@ -24,6 +24,8 @@ import com.moyeoyo.app.data.repository.GroupRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.navigation.NavOptions
+
 
 /**
  * 그룹 상세 화면
@@ -226,7 +228,13 @@ class GroupDetailFragment : Fragment() {
             val success = groupRepository.deleteGroup(groupId ?: return@launch)
             if (success) {
                 Toast.makeText(requireContext(), "그룹이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
-                findNavController().popBackStack()
+                findNavController().navigate(
+                    R.id.mainFragment,
+                    null,
+                    NavOptions.Builder()
+                        .setPopUpTo(R.id.mainFragment, inclusive = false)
+                        .build()
+                )
             } else {
                 Toast.makeText(requireContext(), "삭제 실패", Toast.LENGTH_SHORT).show()
             }

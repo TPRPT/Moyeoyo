@@ -136,7 +136,7 @@
             android:textColorHint="#999" />
 
         <!-- 저장 버튼 -->
-        <Button
+        <android.widget.Button
             android:id="@+id/btn_save_profile"
             android:layout_width="match_parent"
             android:layout_height="56dp"

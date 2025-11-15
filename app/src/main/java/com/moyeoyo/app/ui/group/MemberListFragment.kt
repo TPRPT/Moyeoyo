@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -17,6 +18,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.R
 import kotlinx.coroutines.launch
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CircleCrop
+
 
 class MemberListFragment : Fragment() {
 
@@ -92,28 +96,51 @@ class MemberListFragment : Fragment() {
 
                     memberList.clear()
 
-                    // ➤ 멤버 UID들
+                    // ➤ 멤버 UID 리스트
                     val memberUids = snapshot.get("memberUids") as? List<String> ?: emptyList()
 
-                    // ➤ 투표 완료 멤버 UID들
+                    // ➤ 투표 완료 UID 리스트
                     val votedUids = snapshot.get("votedMembers") as? List<String> ?: emptyList()
 
-                    // ➤ 표시 이름/투표 여부 저장
+                    // ➤ 각 멤버의 실제 정보 Firestore에서 가져오기
                     memberUids.forEach { uid ->
-                        val isMe = uid == auth.currentUser?.uid
-                        val name = if (isMe) "나" else "멤버"
-                        val voted = votedUids.contains(uid)
 
-                        memberList.add(Member(name, "주소 미정", voted))
+                        firestore.collection("users")
+                            .document(uid)
+                            .get()
+                            .addOnSuccessListener { userDoc ->
+
+                                val isMe = uid == auth.currentUser?.uid
+
+                                val name = if (isMe)
+                                    "나"
+                                else
+                                    userDoc.getString("name") ?: "이름 없음"
+
+                                val region = userDoc.getString("region") ?: "주소 미정"
+                                val profileUrl = userDoc.getString("profileImageUrl") // ★ 핵심!
+                                val voted = votedUids.contains(uid)
+
+                                // ➤ Member 데이터 모델 새 구조로 추가
+                                memberList.add(
+                                    Member(
+                                        name = name,
+                                        region = region,
+                                        voted = voted,
+                                        profileImageUrl = profileUrl
+                                    )
+                                )
+
+                                recyclerView.adapter?.notifyDataSetChanged()
+                            }
                     }
 
-                    recyclerView.adapter?.notifyDataSetChanged()
-
-                    // ➤ 투표 진행율 업데이트
+                    // ➤ 바깥쪽 progress 표시만 먼저 업데이트
                     updateVoteProgress(memberUids.size, votedUids.size)
                 }
         }
     }
+
 
     /**
      * 투표 현황 계산 및 표시
@@ -135,7 +162,8 @@ class MemberListFragment : Fragment() {
     data class Member(
         val name: String,
         val region: String,
-        val voted: Boolean
+        val voted: Boolean,
+        val profileImageUrl: String? = null
     )
 
     inner class MemberAdapter(private val members: List<Member>) :
@@ -146,6 +174,7 @@ class MemberListFragment : Fragment() {
             val tvName: TextView = view.findViewById(R.id.tvMemberName)
             val tvRegion: TextView = view.findViewById(R.id.tvMemberRegion)
             val tvStatus: TextView = view.findViewById(R.id.tvVoteStatusBadge)
+            val ivProfile: ImageView = view.findViewById(R.id.ivProfile)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MemberViewHolder {
@@ -157,10 +186,27 @@ class MemberListFragment : Fragment() {
         override fun onBindViewHolder(holder: MemberViewHolder, position: Int) {
             val member = members[position]
 
-            holder.tvInitial.text = member.name.first().toString()
+            val profileUrl = member.profileImageUrl   // 🔥 이 필드 추가해야 함
+            val initial = member.name.first().toString()
+
+            if (!profileUrl.isNullOrEmpty()) {
+                holder.ivProfile.visibility = View.VISIBLE
+                holder.tvInitial.visibility = View.GONE
+
+                Glide.with(holder.itemView)
+                    .load(profileUrl)
+                    .transform(CircleCrop())
+                    .into(holder.ivProfile)
+            } else {
+                holder.ivProfile.visibility = View.GONE
+                holder.tvInitial.visibility = View.VISIBLE
+                holder.tvInitial.text = initial
+            }
+
             holder.tvName.text = member.name
             holder.tvRegion.text = member.region
 
+            // 투표 상태 UI
             if (member.voted) {
                 holder.tvStatus.text = "투표 완료"
                 holder.tvStatus.setBackgroundResource(R.drawable.bg_badge_green)

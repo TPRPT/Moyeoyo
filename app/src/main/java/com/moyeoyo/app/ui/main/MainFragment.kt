@@ -50,10 +50,6 @@ class MainFragment : Fragment(R.layout.fragment_main) {
                     findNavController().navigate(R.id.action_mainFragment_to_notificationFragment)
                     true
                 }
-                R.id.action_settings -> {
-                    Toast.makeText(requireContext(), "설정 클릭됨", Toast.LENGTH_SHORT).show()
-                    true
-                }
                 else -> false
             }
         }

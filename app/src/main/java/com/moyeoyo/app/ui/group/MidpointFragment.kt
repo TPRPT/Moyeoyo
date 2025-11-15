@@ -18,7 +18,7 @@ class MidpointFragment : Fragment(R.layout.fragment_midpoint) {
         super.onViewCreated(view, savedInstanceState)
 
         // 🔙 뒤로가기 버튼
-        view.findViewById<View>(R.id.btnBack).setOnClickListener {
+        view.findViewById<View>(R.id.toolbarMidpoint).setOnClickListener {
             findNavController().navigateUp()
         }
 

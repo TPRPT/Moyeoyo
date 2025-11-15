@@ -8,9 +8,4 @@
         android:title="공유"
         app:showAsAction="ifRoom"/>
 
-    <item
-        android:id="@+id/action_more"
-        android:icon="@drawable/ic_more_vert_24"
-        android:title="더보기"
-        app:showAsAction="ifRoom"/>
 </menu>

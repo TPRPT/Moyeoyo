@@ -6,12 +6,30 @@
     android:layout_height="match_parent"
     android:background="@color/white">
 
-    <!-- 스크롤 가능한 메인 콘텐츠 -->
-    <ScrollView
+    <!-- 상단 APP BAR -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbarLocation"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_chevron_left_24"
+            app:title=""
+            android:background="@color/white"
+            app:contentInsetStartWithNavigation="0dp"/>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- 스크롤 가능한 전체 영역 -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/locationScroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingHorizontal="20dp"
-        android:paddingTop="16dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
         android:paddingBottom="140dp"
         android:fillViewport="true">
 
@@ -20,36 +38,29 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- 뒤로가기 버튼 -->
-            <ImageView
-                android:id="@+id/btn_back"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/ic_chevron_left_24"
-                android:contentDescription="@string/back"
-                app:tint="@color/black" />
-
-            <!-- 제목 -->
+            <!-- Title -->
             <TextView
-                android:id="@+id/tvTitle"
-                android:layout_width="wrap_content"
+                android:id="@+id/pageTitle"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/location_input_title"
-                android:textSize="20sp"
-                android:textStyle="bold"
                 android:textColor="@color/black"
-                android:layout_marginTop="12dp" />
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp" />
 
+            <!-- Subtitle -->
             <TextView
-                android:layout_width="wrap_content"
+                android:id="@+id/pageSubtitle"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/location_input_subtitle"
-                android:textColor="@color/text_secondary"
                 android:textSize="14sp"
-                android:layout_marginTop="6dp"
-                android:layout_marginBottom="12dp" />
+                android:textColor="@color/text_secondary"
+                android:paddingBottom="12dp" />
 
-            <!-- 구분선 -->
+            <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
@@ -207,7 +218,7 @@
                 android:background="@drawable/bg_light_blue_outline_button"
                 android:padding="12dp" />
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- 하단 고정 버튼 영역 -->
     <LinearLayout
