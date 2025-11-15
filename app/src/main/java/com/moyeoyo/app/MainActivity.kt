@@ -43,7 +43,11 @@ class MainActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
 
+<<<<<<< HEAD
         // === 1. 로그인 체크 ===
+=======
+
+>>>>>>> 212a9e87 (Chore: develop 머지 및 충돌 해결)
         val user = auth.currentUser
         if (user == null) {
             startActivity(Intent(this, LoginActivity::class.java))

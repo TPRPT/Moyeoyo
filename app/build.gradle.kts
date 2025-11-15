@@ -41,6 +41,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+
         // 환경 변수에서 통합 API 키를 읽어서 BuildConfig 및 리소스로 설정
         // 모든 Google Maps 관련 API (Maps SDK, Places SDK, Distance Matrix, Roads API)에 동일한 키 사용
         buildConfigField("String", "MAPS_API_KEY", "\"$googleMapsApiKey\"")

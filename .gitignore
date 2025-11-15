@@ -128,3 +128,6 @@ replay_pid*
 # Kotlin
 # =================
 .kotlin/
+
+functions/node_modules/
+functions/.env

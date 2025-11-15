@@ -76,6 +76,10 @@
             </intent-filter>
         </service>
 
+        <!-- 맵 SDK 키 (정확하게 잘 추가되었습니다) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" />
     </application>
 
 </manifest>

@@ -5,17 +5,19 @@
     <color name="gray_100">#F3F4F6</color>
     <color name="gray_300">#D1D5DB</color>
     <color name="gray_500">#6B7280</color>
-    <color name="gray_600">#757575</color> <!-- 최신 디자인이 이 값 -->
-    <color name="gray_700">#616161</color> <!-- 최신 디자인이 이 값 -->
+    <color name="gray_600">#757575</color>
+    <color name="gray_700">#616161</color>
     <color name="gray_light">#F4F4F4</color>
     <color name="light_gray">#E0E0E0</color>
     <color name="light_gray_bg">#F5F5F5</color>
+
+    <!-- Line / Divider -->
     <color name="divider">#E9E9EF</color>
     <color name="divider_gray">#E9E9EF</color>
 
     <!-- Text Colors -->
     <color name="text_primary">#161718</color>
-    <color name="text_secondary">#6D6E73</color> <!-- 최신 디자인 유지 -->
+    <color name="text_secondary">#6D6E73</color>
 
     <!-- Blues -->
     <color name="blue_500">#3B82F6</color>
@@ -45,7 +47,7 @@
     <!-- Kakao -->
     <color name="kakao_yellow">#FEE500</color>
 
-    <!-- Badge / Misc -->
+    <!-- Badges -->
     <color name="badge_blue_text">#2F6FED</color>
     <color name="badge_blue_bg">#E8F0FF</color>
     <color name="badge_green_text">#0F9D58</color>
@@ -53,7 +55,7 @@
     <color name="badge_gray_text">#6D6E73</color>
     <color name="badge_orange_text">#E07A27</color>
 
-    <!-- Others -->
+    <!-- General UI -->
     <color name="color_primary">#6C5CE7</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#161718</color>

@@ -62,5 +62,4 @@
 
     <string name="default_notification_channel_id" translatable="false">moyeoyo_alerts</string>
     <string name="default_notification_channel_name">모여요 핵심 알림</string>
-
 </resources>
