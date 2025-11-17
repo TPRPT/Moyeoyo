@@ -33,7 +33,8 @@
         <!-- ✅ 앱 진입점: MainActivity (NavHostFragment 포함) -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
 
             <!-- 기본 실행 인텐트 -->
             <intent-filter>
@@ -52,6 +53,20 @@
                     android:pathPrefix="/join" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".widget.NextMeetingWidgetProvider"
+            android:exported="false">
+
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/next_meeting_widget_info" />
+        </receiver>
+
 
     </application>
 </manifest>

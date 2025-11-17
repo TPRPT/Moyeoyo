@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/widget_root"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/bg_widget_next_meeting"
+    android:gravity="center_vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 상단 타이틀 행 -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:src="@drawable/ic_event_24"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            app:tint="@color/brand_blue" />
+
+        <TextView
+            android:id="@+id/tvWidgetTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="다가오는 모임"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="center_vertical"
+            android:textColor="@color/badge_blue_text"
+            android:layout_marginStart="6dp"/>
+    </LinearLayout>
+
+    <!-- 그룹 이름 -->
+    <TextView
+        android:id="@+id/tvWidgetGroupName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="대학 동창 모임"
+        android:textSize="15sp"
+        android:textColor="@android:color/black"
+        android:layout_marginTop="8dp"/>
+
+    <!-- 날짜 -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp">
+
+        <ImageView
+            android:id="@+id/iconDate"
+            android:src="@drawable/ic_event_24"
+            android:layout_width="18dp"
+            android:layout_height="18dp" />
+
+        <TextView
+            android:id="@+id/tvWidgetDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="2025년 11월 23일 토요일"
+            android:layout_marginStart="6dp"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"/>
+    </LinearLayout>
+
+    <!-- 시간 -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp">
+
+        <ImageView
+            android:id="@+id/iconTime"
+            android:src="@drawable/ic_time_24"
+            android:layout_width="18dp"
+            android:layout_height="18dp" />
+
+        <TextView
+            android:id="@+id/tvWidgetTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="오후 6:00"
+            android:layout_marginStart="6dp"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"/>
+    </LinearLayout>
+
+    <!-- 장소 -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp">
+
+        <ImageView
+            android:id="@+id/iconPlace"
+            android:src="@drawable/ic_place_24"
+            android:layout_width="18dp"
+            android:layout_height="18dp" />
+
+        <TextView
+            android:id="@+id/tvWidgetPlace"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="강남역 스타벅스"
+            android:layout_marginStart="6dp"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"/>
+    </LinearLayout>
+
+</LinearLayout>
