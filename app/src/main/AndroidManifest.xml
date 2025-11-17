@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- ✅ 필수 권한 -->
+    <!-- 필수 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -20,17 +20,17 @@
         android:theme="@style/Theme.Moyeoyo"
         tools:targetApi="33">
 
-        <!-- ✅ Google Maps / Places API Key -->
+        <!-- Google Maps / Places API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${GOOGLE_MAPS_API_KEY}" />
 
-        <!-- ✅ Google Play Services Version -->
+        <!-- Google Play Services Version -->
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
 
-        <!-- ✅ 앱 진입점: MainActivity (NavHostFragment 포함) -->
+        <!-- 앱 진입점: MainActivity (NavHostFragment 포함) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -42,7 +42,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- ✅ 그룹 초대 링크 (딥링크 처리) -->
+            <!-- 그룹 초대 링크 (딥링크 처리) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
