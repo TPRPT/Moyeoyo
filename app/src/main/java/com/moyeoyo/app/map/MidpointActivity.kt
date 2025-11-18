@@ -30,6 +30,7 @@ import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.databinding.ActivityMidpointBinding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.moyeoyo.app.ui.place.RecommendedPlaceActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +50,7 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
     private var pendingNearbyDialog = false
     private var googleMap: GoogleMap? = null
     private var isMapReady = false
+    private var pendingWinningPlace: com.moyeoyo.app.data.model.NearbyPlace? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +77,29 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         // Intent로 groupId가 전달된 경우 자동으로 데이터 로드
         if (intent.hasExtra("groupId")) {
             viewModel.loadGroupMembers(groupId)
+        }
+        
+        // Intent로 승리한 장소가 전달된 경우 selectedPlace로 설정
+        val selectedPlaceId = intent.getStringExtra("selectedPlaceId")
+        val selectedPlaceName = intent.getStringExtra("selectedPlaceName")
+        val selectedPlaceLat = intent.getDoubleExtra("selectedPlaceLat", 0.0)
+        val selectedPlaceLng = intent.getDoubleExtra("selectedPlaceLng", 0.0)
+        
+        if (selectedPlaceId != null && selectedPlaceName != null && 
+            selectedPlaceLat != 0.0 && selectedPlaceLng != 0.0) {
+            // NearbyPlace 생성 및 선택
+            val winningPlace = com.moyeoyo.app.data.model.NearbyPlace(
+                placeId = selectedPlaceId,
+                name = selectedPlaceName,
+                address = null,
+                latLng = com.moyeoyo.app.data.model.LatLngData(selectedPlaceLat, selectedPlaceLng),
+                categories = emptyList(),
+                rating = null,
+                distanceMeters = 0.0
+            )
+            
+            // 그룹 멤버 로드 후 승리한 장소 선택 (observe 함수 내에서 처리)
+            pendingWinningPlace = winningPlace
         }
     }
 
@@ -116,12 +141,27 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
             } else if (adapter.itemCount != 0) {
                 adapter.submitList(emptyList())
             }
+            
+            // 승리한 장소 선택 (멤버 로드 후 한 번만 실행)
+            pendingWinningPlace?.let { winningPlace ->
+                if (s.members.isNotEmpty()) {
+                    viewModel.selectNearbyPlace(winningPlace)
+                    pendingWinningPlace = null // 한 번만 실행되도록 null로 설정
+                }
+            }
 
-            // 주변 장소 다이얼로그 표시
+            // 주변 장소 필터링 화면으로 이동
             if (pendingNearbyDialog && !s.isNearbyLoading) {
-                if (s.nearbyPlaces.isNotEmpty()) {
+                if (s.weightedCenter != null) {
                     pendingNearbyDialog = false
-                    showNearbyPlacesDialog(s)
+                    // RecommendedPlaceActivity로 이동
+                    val groupId = intent.getStringExtra("groupId") ?: ""
+                    val intent = android.content.Intent(this, RecommendedPlaceActivity::class.java).apply {
+                        putExtra("groupId", groupId)
+                        putExtra("centerLat", s.weightedCenter.lat)
+                        putExtra("centerLng", s.weightedCenter.lng)
+                    }
+                    startActivity(intent)
                 } else if (s.error != null) {
                     pendingNearbyDialog = false
                     Toast.makeText(this, s.error, Toast.LENGTH_SHORT).show()

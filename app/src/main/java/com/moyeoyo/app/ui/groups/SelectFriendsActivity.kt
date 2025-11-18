@@ -13,11 +13,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.FriendRepository
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class SelectFriendsActivity : AppCompatActivity() {
 
-    private val friendRepository = FriendRepository()
+    @Inject
+    lateinit var friendRepository: FriendRepository
     private val selectedUids = mutableSetOf<String>()
 
     companion object {

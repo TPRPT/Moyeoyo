@@ -32,8 +32,11 @@ import com.moyeoyo.app.ui.groups.CreateGroupActivity
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import kotlinx.coroutines.launch
 import android.app.ProgressDialog
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth
@@ -41,8 +44,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var progressDialog: ProgressDialog
     private lateinit var googleSignInClient: GoogleSignInClient
 
-    private val groupRepository = GroupRepository()
-    private val friendRepository = FriendRepository()
+    @Inject
+    lateinit var groupRepository: GroupRepository
+    
+    @Inject
+    lateinit var friendRepository: FriendRepository
 
     private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 

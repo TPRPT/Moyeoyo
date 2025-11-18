@@ -15,13 +15,17 @@ import androidx.appcompat.app.AlertDialog // AlertDialog 추가
 import androidx.lifecycle.lifecycleScope
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.FriendRepository
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // ⭐ NOTE: R.color.black, R.color.design_default_color_error 등은 프로젝트에 정의되어 있어야 합니다.
 
+@AndroidEntryPoint
 class AddFriendActivity : AppCompatActivity() {
 
-    private val friendRepository = FriendRepository()
+    @Inject
+    lateinit var friendRepository: FriendRepository
 
     private lateinit var editTextEmail: EditText
     private lateinit var btnSearchFriend: Button

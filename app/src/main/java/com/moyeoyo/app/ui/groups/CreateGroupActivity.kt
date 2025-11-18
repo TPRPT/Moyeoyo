@@ -13,12 +13,17 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.databinding.ActivityCreateGroupBinding
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class CreateGroupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCreateGroupBinding
-    private val groupRepository = GroupRepository()
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
 
     // 친구 선택 화면에서 돌아왔을 때 그룹 이름을 저장할 임시 변수
     private var pendingGroupName: String = ""

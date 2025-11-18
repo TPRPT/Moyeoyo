@@ -24,15 +24,20 @@ import com.google.android.material.snackbar.Snackbar
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.databinding.ActivityConfirmBinding
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
 import com.google.firebase.Timestamp
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class ConfirmActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityConfirmBinding
-    private val groupRepository = GroupRepository()
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
     private lateinit var groupId: String
     private lateinit var rootView: View
 

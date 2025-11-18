@@ -9,5 +9,6 @@ data class PlaceCandidate(
     val placeId: String = "",
     val name: String = "",
     val latLng: GeoPoint? = null,
-    val voterUids: List<String> = emptyList()
+    val voterUids: List<String> = emptyList(),
+    val firstRoundScore: Int = 0 // 1차 순위 투표에서 받은 총점 (동점 처리용)
 )
