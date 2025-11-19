@@ -55,6 +55,10 @@
     <color name="badge_gray_text">#6D6E73</color>
     <color name="badge_orange_text">#E07A27</color>
 
+    <!-- Header gradient (다음 모임 카드 배경) -->
+    <color name="header_start">#3D6AFD</color>
+    <color name="header_end">#5E82FF</color>
+
     <!-- General UI -->
     <color name="color_primary">#6C5CE7</color>
     <color name="white">#FFFFFF</color>

@@ -59,6 +59,11 @@
                     android:scheme="https"
                     android:host="moyeoyo-57ac0.web.app"
                     android:pathPrefix="/join" />
+
+                <data
+                    android:scheme="https"
+                    android:host="moyeoyo-57ac0.web.app"
+                    android:pathPrefix="/friend" />
             </intent-filter>
 
         </activity>

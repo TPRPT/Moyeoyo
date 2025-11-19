@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Moyeoyo 그룹 초대</title>
+
+    <!-- AdSense -->
+    <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6485508614211221"
+            crossorigin="anonymous"></script>
+
+    <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          text-align: center;
+          padding: 30px 20px;
+          background-color: #f4f4f4;
+          color: #333;
+          line-height: 1.6;
+        }
+        h1 {
+          color: #0284c7;
+          font-size: 26px;
+          margin-bottom: 10px;
+        }
+        .card {
+          background: #fff;
+          padding: 24px;
+          border-radius: 14px;
+          box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+          max-width: 440px;
+          margin: 0 auto;
+        }
+        .desc {
+          font-size: 15px;
+          color: #555;
+          margin-bottom: 20px;
+        }
+        .btn {
+          background-color: #0284c7;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: bold;
+          font-size: 16px;
+          display: inline-block;
+          margin-top: 16px;
+        }
+        .ad-container {
+          width: 100%;
+          margin: 24px 0;
+          display: flex;
+          justify-content: center;
+        }
+        .footer-text {
+          font-size: 12px;
+          color: #777;
+          margin-top: 28px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="card">
+    <h1>Moyeoyo 그룹 초대</h1>
+
+    <p class="desc">
+        친구가 공유한 모임 초대 링크입니다.<br>
+        앱을 열어 모임 참여를 완료해주세요!
+    </p>
+
+    <!-- 광고 -->
+    <div class="ad-container">
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-6485508614211221"
+             data-ad-slot="6019267996"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+    </div>
+
+    <script>
+        (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
+
+    <a id="openAppButton" class="btn" href="#">앱으로 이동하기</a>
+
+    <p class="footer-text">
+        이 페이지는 Moyeoyo의 공식 모임 초대 페이지입니다.<br>
+        광고는 서비스 운영을 위해 제공됩니다.
+    </p>
+</div>
+
+<script>
+    const APP_PACKAGE = "com.moyeoyo.app";
+    const HOST = "moyeoyo-57ac0.web.app";
+
+    function getParam(name) {
+      return new URL(location.href).searchParams.get(name);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const groupId = getParam("groupId");
+      const btn = document.getElementById("openAppButton");
+
+      if (!groupId) {
+        btn.style.display = "none";
+        document.querySelector("h1").textContent = "유효하지 않은 초대 링크";
+        document.querySelector(".desc").textContent = "Group ID 정보가 누락되었습니다.";
+        return;
+      }
+
+      // 버튼 눌렀을 때만 앱 실행
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+
+        const deepLink = `android-app://${APP_PACKAGE}/https/${HOST}/join?groupId=${groupId}`;
+        window.location.href = deepLink;
+      });
+    });
+</script>
+
+</body>
+</html>

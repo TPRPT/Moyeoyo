@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Moyeoyo 그룹 초대</title>
+  <title>Moyeoyo</title>
 
-  <!-- ★ AdSense Script (Publisher ID 포함) -->
+  <!-- ★ AdSense Script -->
   <script async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6485508614211221"
           crossorigin="anonymous"></script>
@@ -20,42 +20,47 @@
       color: #333;
       line-height: 1.6;
     }
+
     h1 {
-      color: #039be5;
-      font-size: 26px;
-      margin-bottom: 10px;
+      color: #0284c7;
+      font-size: 28px;
+      margin-bottom: 12px;
     }
+
     .card {
       background: #fff;
-      padding: 24px;
+      padding: 26px;
       border-radius: 14px;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.08);
-      max-width: 440px;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+      max-width: 460px;
       margin: 0 auto;
     }
+
     .desc {
-      font-size: 15px;
+      font-size: 16px;
       color: #555;
       margin-bottom: 20px;
     }
-    #openAppButton {
-      display: none;
-      background-color: #039be5;
+
+    .btn {
+      background-color: #0284c7;
       color: white;
       padding: 12px 24px;
       border-radius: 8px;
       text-decoration: none;
-      font-weight: bold;
       font-size: 16px;
-      margin-top: 20px;
+      font-weight: bold;
       display: inline-block;
+      margin-top: 16px;
     }
+
     .ad-container {
       width: 100%;
       margin: 24px 0;
       display: flex;
       justify-content: center;
     }
+
     .footer-text {
       font-size: 12px;
       color: #777;
@@ -67,14 +72,14 @@
 <body>
 
 <div class="card">
-  <h1>Moyeoyo 초대 페이지</h1>
+  <h1>Moyeoyo</h1>
 
   <p class="desc">
-    친구 또는 지인으로부터 받은 초대 링크입니다.<br>
-    앱을 통해 그룹 참여를 완료할 수 있어요.
+    친구들과 모임을 만들고 약속 장소를 빠르게 조율해보세요.<br>
+    초대 링크를 받았다면 앱을 실행해 참여하거나 친구를 추가할 수 있습니다.
   </p>
 
-  <!-- ★ AdSense 광고 영역 (네 광고 단위 그대로 적용됨) -->
+  <!-- 광고 -->
   <div class="ad-container">
     <ins class="adsbygoogle"
          style="display:block"
@@ -88,59 +93,19 @@
     (adsbygoogle = window.adsbygoogle || []).push({});
   </script>
 
-  <p class="desc">앱이 자동으로 열리지 않는 경우 아래 버튼을 눌러 주세요.</p>
+  <!-- 기본 앱 이동 버튼 -->
+  <a class="btn" href="javascript:void(0)">앱 실행 (App Link)</a>
 
-  <a id="openAppButton" href="#">앱으로 이동하기</a>
+  <!-- 출시 후 Google Play 버튼 추가 가능 -->
+  <!--
+  <a class="btn" href="https://play.google.com/store/apps/details?id=com.moyeoyo.app">Google Play에서 다운로드</a>
+  -->
 
   <p class="footer-text">
-    이 페이지는 Moyeoyo의 공식 초대 안내 페이지입니다.<br>
-    이용자의 개인정보는 앱 실행을 위한 최소한의 정보만 처리되며,<br>
+    이 페이지는 Moyeoyo의 공식 랜딩 페이지입니다.<br>
     광고는 서비스 운영을 위해 제공됩니다.
   </p>
 </div>
-
-<script>
-  const APP_PACKAGE = "com.moyeoyo.app";
-  const HOSTING_DOMAIN = "moyeoyo-57ac0.web.app";
-  const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=" + APP_PACKAGE;
-
-  function getParameterByName(name, url = window.location.href) {
-      name = name.replace(/[\[\]]/g, '\\$&');
-      var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-          results = regex.exec(url);
-      if (!results) return null;
-      if (!results[2]) return '';
-      return decodeURIComponent(results[2].replace(/\+/g, ' '));
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const groupId = getParameterByName("groupId");
-    const btn = document.getElementById("openAppButton");
-
-    if (!groupId) {
-      document.querySelector("h1").textContent = "유효하지 않은 링크입니다.";
-      document.querySelector(".desc").textContent = "groupId 정보가 누락되었습니다.";
-      return;
-    }
-
-    const deepLink = `android-app://${APP_PACKAGE}/https/${HOSTING_DOMAIN}/join?groupId=${groupId}`;
-
-    btn.style.display = "inline-block";
-    btn.href = deepLink;
-
-    // 앱 미설치 fallback (현재는 비활성화)
-    /*
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.location.href = deepLink;
-
-      setTimeout(() => {
-        window.location.href = PLAY_STORE_URL;
-      }, 1200);
-    });
-    */
-  });
-</script>
 
 </body>
 </html>
