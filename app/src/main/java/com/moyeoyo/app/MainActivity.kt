@@ -1,6 +1,6 @@
 package com.moyeoyo.app
 
-import android.Manifest
+import com.moyeoyo.app.DeepLinkHandler
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -82,19 +82,23 @@ class MainActivity : AppCompatActivity() {
         // FCM 토큰 저장
         saveFCMToken()
 
+        // 메인 프래그먼트 로드
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(R.id.fragment_container, MainFragment())
                 .commit()
         }
 
+        // 딥링크 처리
         deeplinkHandler.handle(intent)
+        DeepLinkHandler(this).handle(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         deeplinkHandler.handle(intent)
+        DeepLinkHandler(this).handle(intent)
     }
 
     private fun saveFCMToken() {
