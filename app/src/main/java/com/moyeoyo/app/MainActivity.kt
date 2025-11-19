@@ -1,5 +1,6 @@
 package com.moyeoyo.app
 
+import com.moyeoyo.app.DeepLinkHandler
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -63,12 +64,14 @@ class MainActivity : AppCompatActivity() {
 
         // 딥링크 처리
         deeplinkHandler.handle(intent)
+        DeepLinkHandler(this).handle(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         deeplinkHandler.handle(intent)
+        DeepLinkHandler(this).handle(intent)
     }
 
     private fun saveFCMToken() {

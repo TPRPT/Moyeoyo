@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -13,8 +14,10 @@ import android.widget.EditText
 import android.widget.ImageView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
@@ -37,9 +40,9 @@ import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.common.GooglePlayServicesRepairableException
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException
+import java.io.File
 import java.io.IOException
 import java.util.Locale
-
 
 class ProfileSetupActivity : AppCompatActivity() {
 
@@ -53,7 +56,11 @@ class ProfileSetupActivity : AppCompatActivity() {
     private lateinit var rootView: View
     private var isSettingHomeLocation: Boolean = true // 현재 위치를 Home/Work 중 어디에 설정할지 결정
 
+    // 프로필 이미지 Uri (갤러리/카메라 공통)
     private var imageUri: Uri? = null
+
+    // 카메라로 찍을 사진이 저장될 Uri
+    private var cameraImageUri: Uri? = null
 
     private lateinit var imgProfile: ImageView
     private lateinit var btnChangePhoto: ImageView
@@ -62,27 +69,24 @@ class ProfileSetupActivity : AppCompatActivity() {
     private lateinit var inputWork: EditText
     private lateinit var btnSave: Button
 
-    // 현재 위치 버튼 (XML에 추가되었다고 가정)
+    // 현재 위치 버튼
     private lateinit var btnSetCurrentHomeLocation: Button
     private lateinit var btnSetCurrentWorkLocation: Button
-
 
     // 위치 데이터를 저장할 Map 변수 (LatLng 객체를 포함하여 임시 저장)
     private var homeLocationData: Map<String, Any>? = null
     private var workLocationData: Map<String, Any>? = null
 
-    // ⭐ [NEW] ConfirmLocationActivity 결과를 받는 런처
+    // ⭐ ConfirmLocationActivity 결과를 받는 런처
     private val confirmLocationLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == ConfirmLocationActivity.RESULT_CODE_LOCATION_CONFIRMED) {
             handleConfirmedLocation(result.data)
         } else {
-            // 사용자가 지도 화면에서 취소하거나 뒤로가기를 눌렀을 경우
             Snackbar.make(rootView, "위치 설정을 취소했습니다.", Snackbar.LENGTH_SHORT).show()
         }
     }
-
 
     // ⭐ 위치 권한 요청 런처
     private val locationPermissionLauncher = registerForActivityResult(
@@ -96,31 +100,38 @@ class ProfileSetupActivity : AppCompatActivity() {
         }
     }
 
-
-    // 갤러리 런처 (타입 명시)
-    private val galleryLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            imageUri = result.data?.data
-            Glide.with(this).load(imageUri).circleCrop().into(imgProfile)
+    // 갤러리 런처
+    private val galleryLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                imageUri = result.data?.data
+                Glide.with(this).load(imageUri).circleCrop().into(imgProfile)
+            }
         }
-    }
 
-    // Home 주소 검색 런처 (타입 명시)
-    private val homeAddressLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        handlePlaceResult(result, isHome = true)
-    }
+    // 카메라 런처
+    private val cameraLauncher: ActivityResultLauncher<Uri> =
+        registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success && cameraImageUri != null) {
+                imageUri = cameraImageUri
+                Glide.with(this)
+                    .load(cameraImageUri)
+                    .circleCrop()
+                    .into(imgProfile)
+            }
+        }
 
-    // Work 주소 검색 런처 (타입 명시)
-    private val workAddressLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        handlePlaceResult(result, isHome = false)
-    }
+    // Home 주소 검색 런처
+    private val homeAddressLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            handlePlaceResult(result, isHome = true)
+        }
 
+    // Work 주소 검색 런처
+    private val workAddressLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            handlePlaceResult(result, isHome = false)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -133,10 +144,11 @@ class ProfileSetupActivity : AppCompatActivity() {
         storage = FirebaseStorage.getInstance()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        // Google Places SDK 초기화 (변경 없음)
+        // Google Places SDK 초기화
         if (!Places.isInitialized()) {
             try {
-                val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+                val appInfo =
+                    packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
                 val apiKey = appInfo.metaData.getString("com.google.android.geo.API_KEY")
 
                 if (!apiKey.isNullOrEmpty()) {
@@ -155,18 +167,15 @@ class ProfileSetupActivity : AppCompatActivity() {
             setCancelable(false)
         }
 
-        // View 연결 및 리스너 설정
+        // View 연결
         imgProfile = findViewById(R.id.profile_image)
         btnChangePhoto = findViewById(R.id.btn_change_photo)
         inputNickname = findViewById(R.id.input_nickname)
         btnSave = findViewById(R.id.btn_save_profile)
 
-        // 버튼 연결
-        btnSetCurrentHomeLocation = findViewById<Button>(R.id.btn_set_current_home)
-        btnSetCurrentWorkLocation = findViewById<Button>(R.id.btn_set_current_work)
+        btnSetCurrentHomeLocation = findViewById(R.id.btn_set_current_home)
+        btnSetCurrentWorkLocation = findViewById(R.id.btn_set_current_work)
 
-
-        // inputHome / inputWork 클릭 시 주소 검색 시작 (직접 입력 방지)
         inputHome = findViewById<EditText>(R.id.input_home).apply {
             setOnClickListener { startPlaceAutocomplete(isHome = true) }
             isFocusable = false
@@ -178,7 +187,7 @@ class ProfileSetupActivity : AppCompatActivity() {
             keyListener = null
         }
 
-        // ⭐ [NEW] 현재 위치 버튼 리스너
+        // 현재 위치 버튼 리스너
         btnSetCurrentHomeLocation.setOnClickListener {
             isSettingHomeLocation = true
             requestLocationPermission()
@@ -188,15 +197,9 @@ class ProfileSetupActivity : AppCompatActivity() {
             requestLocationPermission()
         }
 
-
-        // 갤러리 열기 함수
-        val openGallery = {
-            val intent = Intent(Intent.ACTION_PICK).apply { type = "image/*" }
-            galleryLauncher.launch(intent)
-        }
-
-        imgProfile.setOnClickListener { openGallery() }
-        btnChangePhoto.setOnClickListener { openGallery() }
+        // 프로필 이미지 클릭 → 다이얼로그(사진 찍기 / 갤러리)
+        imgProfile.setOnClickListener { showImagePickerDialog() }
+        btnChangePhoto.setOnClickListener { showImagePickerDialog() }
 
         // 저장 버튼
         btnSave.setOnClickListener { saveProfile() }
@@ -204,15 +207,14 @@ class ProfileSetupActivity : AppCompatActivity() {
         loadCurrentUserData()
     }
 
-    // =========================================================================
-    // ⭐ [MODIFIED] 현재 위치 기반 로직 (지도 확인 화면으로 이동) ⭐
-    // =========================================================================
+    // ===================== 위치 관련 =====================
 
-    /**
-     * 위치 권한을 요청합니다.
-     */
     private fun requestLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             getCurrentLocation()
         } else {
             progressDialog.setMessage("위치 권한 요청 중...")
@@ -221,23 +223,21 @@ class ProfileSetupActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 현재 디바이스의 위치를 가져와 ConfirmLocationActivity로 전달합니다.
-     */
     private fun getCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             return
         }
 
         progressDialog.setMessage("현재 위치 찾는 중...")
         progressDialog.show()
 
-        // 버튼 비활성화 (중복 요청 방지)
         btnSetCurrentHomeLocation.isEnabled = false
         btnSetCurrentWorkLocation.isEnabled = false
 
-        // ⭐ 실시간 위치 가져오기 (lastLocation 대신 getCurrentLocation 사용)
-        // lastLocation은 캐시된 위치를 반환하여 정확하지 않을 수 있습니다.
         val cts = CancellationTokenSource()
         try {
             fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
@@ -248,14 +248,21 @@ class ProfileSetupActivity : AppCompatActivity() {
 
                     if (location != null) {
                         val latLng = LatLng(location.latitude, location.longitude)
-                        Log.d("LOCATION", "현재 위치 획득: lat=${location.latitude}, lng=${location.longitude}")
+                        Log.d(
+                            "LOCATION",
+                            "현재 위치 획득: lat=${location.latitude}, lng=${location.longitude}"
+                        )
 
-                        // ConfirmLocationActivity로 이동하여 지도에서 위치를 확인하도록 함
-                        val intent = ConfirmLocationActivity.newIntent(this, latLng, isSettingHomeLocation)
+                        val intent =
+                            ConfirmLocationActivity.newIntent(this, latLng, isSettingHomeLocation)
                         confirmLocationLauncher.launch(intent)
 
                     } else {
-                        Snackbar.make(rootView, "위치 정보를 가져올 수 없습니다. GPS를 켜고 잠시 후 다시 시도해주세요.", Snackbar.LENGTH_LONG).show()
+                        Snackbar.make(
+                            rootView,
+                            "위치 정보를 가져올 수 없습니다. GPS를 켜고 잠시 후 다시 시도해주세요.",
+                            Snackbar.LENGTH_LONG
+                        ).show()
                         Log.w("LOCATION", "getCurrentLocation returned null - GPS may be disabled")
                     }
                 }
@@ -263,7 +270,8 @@ class ProfileSetupActivity : AppCompatActivity() {
                     progressDialog.dismiss()
                     btnSetCurrentHomeLocation.isEnabled = true
                     btnSetCurrentWorkLocation.isEnabled = true
-                    Snackbar.make(rootView, "위치 가져오기 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(rootView, "위치 가져오기 실패: ${e.message}", Snackbar.LENGTH_LONG)
+                        .show()
                     Log.e("LOCATION", "getCurrentLocation failed", e)
                 }
         } catch (e: SecurityException) {
@@ -276,28 +284,24 @@ class ProfileSetupActivity : AppCompatActivity() {
             progressDialog.dismiss()
             btnSetCurrentHomeLocation.isEnabled = true
             btnSetCurrentWorkLocation.isEnabled = true
-            Snackbar.make(rootView, "위치 가져오기 중 오류 발생: ${e.message}", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(rootView, "위치 가져오기 중 오류 발생: ${e.message}", Snackbar.LENGTH_LONG)
+                .show()
             Log.e("LOCATION", "Exception", e)
         }
     }
 
-
-    /**
-     * ⭐ [NEW] ConfirmLocationActivity로부터 최종 확인된 위치 데이터를 받아서 처리합니다.
-     */
     private fun handleConfirmedLocation(data: Intent?) {
         data?.extras?.let { extras ->
             @Suppress("UNCHECKED_CAST")
-            val locationMap = extras.getSerializable(ConfirmLocationActivity.EXTRA_LOCATION_DATA) as? Map<String, Any>
+            val locationMap =
+                extras.getSerializable(ConfirmLocationActivity.EXTRA_LOCATION_DATA) as? Map<String, Any>
             val isHome = extras.getBoolean(ConfirmLocationActivity.EXTRA_IS_HOME, true)
 
             if (locationMap != null) {
-                // ConfirmLocationActivity에서 Geocoding을 통해 얻은 주소로 UI 업데이트
                 val address = locationMap["address"] as? String ?: "주소 확인됨"
                 val targetInput = if (isHome) inputHome else inputWork
                 targetInput.setText(address)
 
-                // 최종 데이터를 내부 Map 변수에 저장 (저장 시 Firestore 포맷으로 변환됨)
                 if (isHome) {
                     homeLocationData = locationMap
                 } else {
@@ -310,18 +314,11 @@ class ProfileSetupActivity : AppCompatActivity() {
         }
     }
 
+    // ===================== 프로필 데이터 로드 =====================
 
-    // =========================================================================
-    // 기존 로직 (DB 구조 변경 반영)
-    // =========================================================================
-
-    /**
-     * 💡 [수정] 현재 로그인된 유저의 Firestore 데이터를 불러와 UI에 채웁니다. (GeoPoint 읽기)
-     */
     private fun loadCurrentUserData() {
         val uid = auth.currentUser?.uid ?: return
 
-        // 로딩 시작
         progressDialog.setMessage("프로필 정보 불러오는 중...")
         progressDialog.show()
 
@@ -332,15 +329,13 @@ class ProfileSetupActivity : AppCompatActivity() {
                     val nickname = doc.getString("nickname")
                     val photoUrl = doc.getString("photoUrl")
 
-                    // ⭐ [GeoPoint Read] GeoPoint와 주소 데이터를 로드
                     val homeMap = doc.get("homeLocation") as? Map<*, *>
                     val workMap = doc.get("workLocation") as? Map<*, *>
 
-                    val homeAddress = homeMap?.get("addressName") as? String // ⭐ addressName 사용
+                    val homeAddress = homeMap?.get("addressName") as? String
                     val workAddress = workMap?.get("addressName") as? String
 
-                    // ⭐ GeoPoint를 읽어와 LatLng으로 변환
-                    val homeGeoPoint = homeMap?.get("latLng") as? GeoPoint // ⭐ latLng 키에서 GeoPoint 읽기
+                    val homeGeoPoint = homeMap?.get("latLng") as? GeoPoint
                     val workGeoPoint = workMap?.get("latLng") as? GeoPoint
 
                     val homeLat = homeGeoPoint?.latitude
@@ -351,18 +346,15 @@ class ProfileSetupActivity : AppCompatActivity() {
                     val homePlaceId = homeMap?.get("placeId") as? String
                     val workPlaceId = workMap?.get("placeId") as? String
 
-
-                    // UI 채우기
                     if (!nickname.isNullOrEmpty()) {
                         inputNickname.setText(nickname)
                     }
                     if (!homeAddress.isNullOrEmpty() && homeLat != null && homeLng != null) {
                         inputHome.setText(homeAddress)
-                        // LocationData Map을 LatLng 객체를 포함하여 재구성
                         homeLocationData = mapOf(
                             "name" to (homeMap?.get("name") ?: "집"),
                             "address" to homeAddress,
-                            "latLng" to LatLng(homeLat, homeLng), // LatLng 객체 임시 저장
+                            "latLng" to LatLng(homeLat, homeLng),
                             "placeId" to (homePlaceId ?: "")
                         )
                     }
@@ -371,80 +363,86 @@ class ProfileSetupActivity : AppCompatActivity() {
                         workLocationData = mapOf(
                             "name" to (workMap?.get("name") ?: "직장"),
                             "address" to workAddress,
-                            "latLng" to LatLng(workLat, workLng), // LatLng 객체 임시 저장
+                            "latLng" to LatLng(workLat, workLng),
                             "placeId" to (workPlaceId ?: "")
                         )
                     }
 
-                    // 사진 로드
                     if (!photoUrl.isNullOrEmpty()) {
                         Glide.with(this).load(photoUrl).circleCrop().into(imgProfile)
                     }
 
-                    // 버튼 텍스트 변경 (선택 사항)
                     btnSave.text = "프로필 수정 완료"
 
                 } else {
                     Log.w("PROFILE", "Firestore에 사용자 문서가 존재하지 않음: $uid")
-                    // 신규 유저는 초기 설정 그대로 진행
                 }
             }
             .addOnFailureListener { e ->
                 progressDialog.dismiss()
                 Log.e("PROFILE", "프로필 정보 로드 실패", e)
-                Snackbar.make(findViewById(android.R.id.content), "프로필 로드 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+                Snackbar.make(
+                    findViewById(android.R.id.content),
+                    "프로필 로드 실패: ${e.message}",
+                    Snackbar.LENGTH_LONG
+                ).show()
             }
     }
 
+    // ===================== Place 자동완성 =====================
 
-    /**
-     * Place Autocomplete Intent를 실행합니다. (변경 없음)
-     */
     private fun startPlaceAutocomplete(isHome: Boolean) {
         try {
-            // 원하는 필드 지정 (위경도, 장소 이름, 주소, Place ID)
             val fields = listOf(
                 Place.Field.LAT_LNG,
                 Place.Field.NAME,
                 Place.Field.ADDRESS,
-                Place.Field.ID // ⭐ Place ID 추가
+                Place.Field.ID
             )
 
-            // Intent 빌드
             val intent = Autocomplete.IntentBuilder(
                 AutocompleteActivityMode.OVERLAY,
                 fields
-            )
-                .build(this)
+            ).build(this)
 
-            // 런처 실행
             if (isHome) {
                 homeAddressLauncher.launch(intent)
             } else {
                 workAddressLauncher.launch(intent)
             }
-            // 🚨 Google Play Services 관련 예외 처리 강화
         } catch (e: GooglePlayServicesRepairableException) {
-            Snackbar.make(findViewById(R.id.btn_save_profile), "Google Play 서비스 오류 (수리 필요): ${e.message}", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(
+                findViewById(R.id.btn_save_profile),
+                "Google Play 서비스 오류 (수리 필요): ${e.message}",
+                Snackbar.LENGTH_LONG
+            ).show()
             Log.e("PLACE_API", "Repairable Exception", e)
         } catch (e: GooglePlayServicesNotAvailableException) {
-            Snackbar.make(findViewById(R.id.btn_save_profile), "Google Play 서비스 사용 불가: ${e.message}", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(
+                findViewById(R.id.btn_save_profile),
+                "Google Play 서비스 사용 불가: ${e.message}",
+                Snackbar.LENGTH_LONG
+            ).show()
             Log.e("PLACE_API", "Not Available Exception", e)
         } catch (e: Exception) {
-            Snackbar.make(findViewById(R.id.btn_save_profile), "주소 검색 시작 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
-            Log.e("PLACE_API", "Generic Intent Launch Failed. CHECK API KEY/MANIFEST!", e)
+            Snackbar.make(
+                findViewById(R.id.btn_save_profile),
+                "주소 검색 시작 실패: ${e.message}",
+                Snackbar.LENGTH_LONG
+            ).show()
+            Log.e(
+                "PLACE_API",
+                "Generic Intent Launch Failed. CHECK API KEY/MANIFEST!",
+                e
+            )
         }
     }
 
-    /**
-     * Place Autocomplete 결과를 처리하고 UI와 내부 변수를 업데이트합니다.
-     */
     private fun handlePlaceResult(
         result: androidx.activity.result.ActivityResult,
         isHome: Boolean
     ) {
         if (result.resultCode == Activity.RESULT_OK) {
-            // 결과 성공 처리
             val place = Autocomplete.getPlaceFromIntent(result.data!!)
 
             val addressText = place.name ?: place.address ?: "선택된 장소"
@@ -453,12 +451,11 @@ class ProfileSetupActivity : AppCompatActivity() {
 
             val latLng = place.latLng
 
-            // ⭐ LocationMap에 Place ID를 포함
             val locationMap = hashMapOf<String, Any>(
                 "name" to (place.name ?: (if (isHome) "집" else "직장")),
-                "address" to (place.address ?: ""), // 임시 주소 (addressName 필드로 변환 예정)
+                "address" to (place.address ?: ""),
                 "latLng" to (latLng as Any),
-                "placeId" to (place.id ?: "") // ⭐ Place ID
+                "placeId" to (place.id ?: "")
             )
 
             if (isHome) {
@@ -470,19 +467,21 @@ class ProfileSetupActivity : AppCompatActivity() {
         } else if (result.resultCode == Activity.RESULT_CANCELED) {
             Log.d("PLACE", "사용자가 검색 취소")
         } else {
-            // Autocomplete Activity 내부 오류 상세 진단
             val status = Autocomplete.getStatusFromIntent(result.data!!)
             val errorMsg = status.statusMessage ?: "알 수 없는 오류"
 
             Log.e("PLACE", "Autocomplete failed: $errorMsg. Status Code: ${status.statusCode}")
-            Snackbar.make(findViewById(android.R.id.content), "주소 검색 오류: ${errorMsg} (코드: ${status.statusCode})", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(
+                findViewById(android.R.id.content),
+                "주소 검색 오류: ${errorMsg} (코드: ${status.statusCode})",
+                Snackbar.LENGTH_LONG
+            ).show()
         }
     }
 
+    // ===================== 프로필 저장 =====================
 
     private fun saveProfile() {
-        // ... (유효성 검사 로직 유지)
-
         val nickname = inputNickname.text.toString().trim()
 
         if (nickname.isEmpty()) {
@@ -502,8 +501,6 @@ class ProfileSetupActivity : AppCompatActivity() {
 
         progressDialog.show()
 
-        // ... (이미지 업로드 로직 유지)
-
         if (imageUri != null) {
             val ref = storage.reference.child("profile_images/${user.uid}.jpg")
             ref.putFile(imageUri!!)
@@ -514,20 +511,27 @@ class ProfileSetupActivity : AppCompatActivity() {
                     ref.downloadUrl
                 }
                 .addOnSuccessListener { downloadUrl ->
-                    saveUserToFirestore(user.uid, nickname, homeLocationData, workLocationData, downloadUrl.toString())
+                    saveUserToFirestore(
+                        user.uid,
+                        nickname,
+                        homeLocationData,
+                        workLocationData,
+                        downloadUrl.toString()
+                    )
                 }
                 .addOnFailureListener {
                     progressDialog.dismiss()
-                    Snackbar.make(btnSave, "이미지 업로드 실패: ${it.message}", Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(
+                        btnSave,
+                        "이미지 업로드 실패: ${it.message}",
+                        Snackbar.LENGTH_LONG
+                    ).show()
                 }
         } else {
             saveUserToFirestore(user.uid, nickname, homeLocationData, workLocationData, null)
         }
     }
 
-    /**
-     * ⭐ [GeoPoint Write] Firestore에 GeoPoint를 포함하는 Map을 생성합니다.
-     */
     private fun saveUserToFirestore(
         uid: String,
         nickname: String,
@@ -535,28 +539,25 @@ class ProfileSetupActivity : AppCompatActivity() {
         workLocation: Map<String, Any>?,
         imageUrl: String?
     ) {
-        // ⭐ [NEW] GeoPoint를 포함하는 Map을 생성하는 함수
         fun createFirestoreLocationMap(locationMap: Map<String, Any>?): Map<String, Any>? {
             if (locationMap == null || !locationMap.containsKey("latLng")) {
                 return null
             }
 
-            // LatLng 객체 추출 (Autocomplete/현재 위치 결과에서 넘어옴)
             val latLngAny = locationMap["latLng"]
             val latLng = if (latLngAny is LatLng) latLngAny else null
 
-            // Firestore에 저장할 GeoPoint 객체 생성
             val geoPoint = if (latLng != null) {
-                com.google.firebase.firestore.GeoPoint(latLng.latitude, latLng.longitude) // Full import to resolve potential conflict
+                com.google.firebase.firestore.GeoPoint(latLng.latitude, latLng.longitude)
             } else {
-                return null // 유효한 LatLng이 없으면 저장하지 않음
+                return null
             }
 
             return hashMapOf(
-                "addressName" to (locationMap["address"] as? String ?: ""), // 주소 이름 (메인 표시용)
-                "name" to (locationMap["name"] as? String ?: ""),           // POI 이름
-                "placeId" to (locationMap["placeId"] as? String ?: ""),     // Place ID
-                "latLng" to geoPoint // ⭐ 핵심 변경: GeoPoint 객체 저장
+                "addressName" to (locationMap["address"] as? String ?: ""),
+                "name" to (locationMap["name"] as? String ?: ""),
+                "placeId" to (locationMap["placeId"] as? String ?: ""),
+                "latLng" to geoPoint
             )
         }
 
@@ -568,21 +569,22 @@ class ProfileSetupActivity : AppCompatActivity() {
             "photoUrl" to (imageUrl ?: "")
         )
 
-        // Map이 null이 아니면 추가
         if (firestoreHomeLocation != null) {
-            userData["homeLocation"] = firestoreHomeLocation // homeLocation은 필수
+            userData["homeLocation"] = firestoreHomeLocation
         }
         if (firestoreWorkLocation != null) {
-            userData["workLocation"] = firestoreWorkLocation // workLocation은 선택
+            userData["workLocation"] = firestoreWorkLocation
         }
 
-
         firestore.collection("users").document(uid)
-            // 💡 [중요] 기존 데이터를 유지하면서 업데이트: SetOptions.merge() 사용
             .set(userData, SetOptions.merge())
             .addOnSuccessListener {
                 progressDialog.dismiss()
-                Snackbar.make(findViewById(R.id.btn_save_profile), "프로필이 수정되었습니다 🎉", Snackbar.LENGTH_SHORT).show()
+                Snackbar.make(
+                    findViewById(R.id.btn_save_profile),
+                    "프로필이 수정되었습니다 🎉",
+                    Snackbar.LENGTH_SHORT
+                ).show()
 
                 findViewById<Button>(R.id.btn_save_profile).postDelayed({
                     startActivity(Intent(this, MainActivity::class.java))
@@ -591,8 +593,90 @@ class ProfileSetupActivity : AppCompatActivity() {
             }
             .addOnFailureListener {
                 progressDialog.dismiss()
-                Snackbar.make(findViewById(R.id.btn_save_profile), "수정 실패: ${it.message}", Snackbar.LENGTH_LONG).show()
+                Snackbar.make(
+                    findViewById(R.id.btn_save_profile),
+                    "수정 실패: ${it.message}",
+                    Snackbar.LENGTH_LONG
+                ).show()
                 Log.e("PROFILE", "Firestore 수정 실패", it)
             }
+    }
+
+    // ===================== 카메라 관련 =====================
+
+    private fun showImagePickerDialog() {
+        val options = arrayOf("사진 찍기", "갤러리에서 선택", "취소")
+
+        AlertDialog.Builder(this)
+            .setTitle("프로필 이미지 선택")
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> openCameraWithPermission()
+                    1 -> openGallery()
+                    2 -> dialog.dismiss()
+                }
+            }
+            .show()
+    }
+
+    private fun openGallery() {
+        val intent = Intent(Intent.ACTION_PICK).apply { type = "image/*" }
+        galleryLauncher.launch(intent)
+    }
+
+    private fun openCameraWithPermission() {
+        val permission = android.Manifest.permission.CAMERA
+        when {
+            checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED -> {
+                openCamera()
+            }
+            shouldShowRequestPermissionRationale(permission) -> {
+                AlertDialog.Builder(this)
+                    .setTitle("카메라 권한 필요")
+                    .setMessage("프로필 사진을 찍기 위해 카메라 권한이 필요합니다.")
+                    .setPositiveButton("허용") { _, _ ->
+                        requestPermissions(arrayOf(permission), 2001)
+                    }
+                    .setNegativeButton("취소", null)
+                    .show()
+            }
+            else -> {
+                requestPermissions(arrayOf(permission), 2001)
+            }
+        }
+    }
+
+    private fun openCamera() {
+        val uri = createImageUri()
+        cameraImageUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    private fun createImageUri(): Uri {
+        val image = File(
+            getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+            "profile_${System.currentTimeMillis()}.jpg"
+        )
+        return FileProvider.getUriForFile(
+            this,
+            "${packageName}.provider",
+            image
+        )
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == 2001) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                openCamera()
+            } else {
+                Snackbar.make(rootView, "카메라 권한이 필요합니다.", Snackbar.LENGTH_SHORT).show()
+            }
+        }
     }
 }
