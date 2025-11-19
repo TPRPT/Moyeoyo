@@ -5,9 +5,14 @@ admin.initializeApp();
 
 /**
  * friendRequests/{requestId} 문서가 생성될 때 실행됨
+ * → FCM 발송
+ * → Firestore /users/{receiverUid}/notifications 에 저장
  */
 export const onFriendRequestCreated = onDocumentCreated(
-  "friendRequests/{requestId}",
+  {
+      region: "asia-east1",
+      document: "friendRequests/{requestId}"
+  },
   async (event) => {
     const snap = event.data;
     if (!snap) return;
@@ -18,7 +23,7 @@ export const onFriendRequestCreated = onDocumentCreated(
 
     console.log("🔥 Friend request generated:", senderUid, "→", receiverUid);
 
-    // receiver UID로 FCM token 조회
+    // 1) 수신자 FCM Token 조회
     const receiverDoc = await admin
       .firestore()
       .collection("users")
@@ -29,29 +34,43 @@ export const onFriendRequestCreated = onDocumentCreated(
 
     if (!receiverToken) {
       console.log("❌ No FCM token for receiver:", receiverUid);
-      return;
+    } else {
+      // 2) FCM 전송
+      await admin.messaging().send({
+        token: receiverToken,
+        notification: {
+          title: "새 친구 요청",
+          body: "친구 요청이 도착했습니다!",
+        },
+        data: {
+          senderUid,
+          receiverUid,
+          type: "friend_request",
+        },
+      });
+
+      console.log("📨 FCM notification sent");
     }
 
-    // FCM 발송
-    await admin.messaging().send({
-      notification: {
+    // 3) Firestore 알림 저장 (앱에서 읽는 경로!)
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(receiverUid)
+      .collection("notifications")
+      .add({
+        senderUid,
+        receiverUid,
         title: "새 친구 요청",
-        body: "친구 요청이 도착했습니다!"
-      },
-      token: receiverToken
-    });
+        message: "친구 요청이 도착했습니다!",
+        type: "friend_request",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-    console.log("📨 FCM notification sent");
-
-    // Firestore notifications 컬렉션에 저장
-    await admin.firestore().collection("notifications").add({
-      senderUid: senderUid,
-      receiverUid: receiverUid,
-      title: "새 친구 요청",
-      message: "친구 요청이 도착했습니다!",
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    console.log("📝 Firestore notification saved");
+    console.log(
+      "📝 Firestore notification saved → /users/" +
+        receiverUid +
+        "/notifications"
+    );
   }
 );
