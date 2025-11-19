@@ -10,7 +10,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.moyeoyo.app.MainActivity // 알림 클릭 시 이동할 Activity
+import com.moyeoyo.app.MainActivity
 import com.moyeoyo.app.R // 리소스 ID 사용
 
 // ⭐ NEW IMPORTS: Repository 및 코루틴 사용을 위해 추가

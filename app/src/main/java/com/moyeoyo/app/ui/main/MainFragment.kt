@@ -35,19 +35,18 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainFragment : Fragment(R.layout.activity_main) {
 
-    private lateinit var auth: FirebaseAuth
-    private lateinit var firestore: FirebaseFirestore
-    private lateinit var progressDialog: ProgressDialog
+    @Inject lateinit var friendRepository: FriendRepository
 
     private val groupRepository = GroupRepository(
         db = FirebaseFirestore.getInstance(),
         auth = FirebaseAuth.getInstance()
     )
 
-    // ⭐ DI 주입으로 변경됨
-    @Inject lateinit var friendRepository: FriendRepository
+    private lateinit var auth: FirebaseAuth
+    private lateinit var firestore: FirebaseFirestore
+    private lateinit var progressDialog: ProgressDialog
 
-    // ─ UI Variables ─
+    // UI
     private lateinit var profileImage: ImageView
     private lateinit var textNickname: TextView
     private lateinit var textEmail: TextView
@@ -56,7 +55,6 @@ class MainFragment : Fragment(R.layout.activity_main) {
     private lateinit var btnAddFriend: Button
     private lateinit var btnNotifications: ImageButton
     private lateinit var notificationBadge: TextView
-
     private lateinit var profileCardArea: LinearLayout
     private lateinit var groupListContainer: LinearLayout
     private lateinit var textNoGroups: TextView
@@ -122,12 +120,8 @@ class MainFragment : Fragment(R.layout.activity_main) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val pendingRequests = friendRepository.getPendingRequests()
-
-                if (pendingRequests.isNotEmpty()) {
-                    notificationBadge.visibility = View.VISIBLE
-                } else {
-                    notificationBadge.visibility = View.GONE
-                }
+                notificationBadge.visibility =
+                    if (pendingRequests.isNotEmpty()) View.VISIBLE else View.GONE
             } catch (e: Exception) {
                 Log.e("MAIN", "Error checking pending requests: ${e.message}")
                 notificationBadge.visibility = View.GONE
@@ -196,11 +190,9 @@ class MainFragment : Fragment(R.layout.activity_main) {
         groups.forEach { group ->
             val groupView = inflater.inflate(R.layout.item_group_card, groupListContainer, false)
 
-            val groupNameText = groupView.findViewById<TextView>(R.id.group_card_name)
-            val memberCountText = groupView.findViewById<TextView>(R.id.group_card_members)
-
-            groupNameText.text = group.groupName
-            memberCountText.text = "${group.memberUids.size}명 참여 중"
+            groupView.findViewById<TextView>(R.id.group_card_name).text = group.groupName
+            groupView.findViewById<TextView>(R.id.group_card_members).text =
+                "${group.memberUids.size}명 참여 중"
 
             groupView.setOnClickListener {
                 startActivity(
