@@ -6,10 +6,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class FriendRepository(
-    private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+@Singleton
+class FriendRepository @Inject constructor(
+    private val db: FirebaseFirestore,
+    private val auth: FirebaseAuth
 ) {
     private val usersCollection = db.collection("users")
     private val friendRequestsCollection = db.collection("friendRequests")

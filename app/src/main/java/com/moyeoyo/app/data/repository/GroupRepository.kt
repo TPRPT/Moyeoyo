@@ -10,13 +10,16 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FieldPath
 import com.moyeoyo.app.data.model.Group
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * 모임(Group) 데이터의 CRUD를 처리하는 Repository.
  */
-class GroupRepository(
-    private val db: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+@Singleton
+class GroupRepository @Inject constructor(
+    private val db: FirebaseFirestore,
+    private val auth: FirebaseAuth
 ) {
     private val groupsCollection = db.collection("groups")
     private val usersCollection = db.collection("users")

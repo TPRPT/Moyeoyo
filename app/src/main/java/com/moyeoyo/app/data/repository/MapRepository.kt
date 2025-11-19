@@ -579,7 +579,8 @@ class MapRepository @Inject constructor(
         val data = mutableMapOf<String, Any>(
             "placeId" to candidate.placeId,
             "name" to candidate.name,
-            "voterUids" to candidate.voterUids
+            "voterUids" to candidate.voterUids,
+            "firstRoundScore" to candidate.firstRoundScore
         )
         candidate.latLng?.let { data["latLng"] = it }
         val ref = firestore.collection("groups")

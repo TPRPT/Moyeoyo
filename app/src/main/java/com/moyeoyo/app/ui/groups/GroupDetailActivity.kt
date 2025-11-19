@@ -20,18 +20,26 @@ import com.moyeoyo.app.ui.vote.ConfirmActivity
 import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
 import com.moyeoyo.app.MainActivity
 import com.moyeoyo.app.ui.location.LocationInputActivity
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat // ⭐ NEW: 시간 포맷팅을 위한 import
 import java.util.Locale
 import java.util.TimeZone
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class GroupDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityGroupDetailBinding
-    private val groupRepository = GroupRepository()
-    private val friendRepository = FriendRepository()
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
+    
+    @Inject
+    lateinit var friendRepository: FriendRepository
+    
     private val auth = FirebaseAuth.getInstance()
 
     private lateinit var groupId: String

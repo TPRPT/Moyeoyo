@@ -37,6 +37,9 @@
 
         <activity android:name=".ui.vote.ConfirmActivity" />
 
+        <activity android:name=".ui.place.RecommendedPlaceActivity" />
+        <activity android:name=".ui.place.FinalVoteActivity" />
+
         <activity android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
