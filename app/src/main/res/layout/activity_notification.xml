@@ -7,21 +7,20 @@
     android:padding="20dp"
     android:background="@color/white">
 
-    <!-- 상단 툴바 (뒤로가기 전용) -->
+    <!-- 상단 툴바 -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="?attr/actionBarSize"
         android:background="@null"
         app:navigationIcon="@drawable/ic_chevron_left_24"
-        android:contentInsetStartWithNavigation="0dp"
-        android:paddingBottom="4dp" />
+        android:contentInsetStartWithNavigation="0dp" />
 
-    <!-- ✅ 툴바 밑에 타이틀 따로 표시 -->
+    <!-- 타이틀 -->
     <TextView
+        android:id="@+id/tvPageTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/tvPageTitle"
         android:text="알림"
         android:textStyle="bold"
         android:textColor="@color/black"
@@ -43,7 +42,7 @@
         android:layout_height="1dp"
         android:background="@color/gray_light" />
 
-    <!-- 알림 허용 스위치 박스 -->
+    <!-- 알림 허용 상자 -->
     <LinearLayout
         android:layout_marginTop="16dp"
         android:orientation="horizontal"
@@ -64,19 +63,21 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1">
+
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
                 android:text="알림 허용"
                 android:textSize="15sp"
                 android:textColor="@color/black"
-                android:textStyle="bold" />
-            <TextView
+                android:textStyle="bold"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
                 android:text="푸시 알림을 받으려면 켜주세요"
                 android:textSize="13sp"
-                android:textColor="@color/gray_700" />
+                android:textColor="@color/gray_700"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
         </LinearLayout>
 
         <Switch
@@ -95,16 +96,16 @@
         android:gravity="center_vertical">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             android:text="최근 알림"
             android:textStyle="bold"
             android:textSize="16sp"
-            android:textColor="@color/black" />
+            android:textColor="@color/black"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
 
         <TextView
             android:id="@+id/tvNotificationCount"
-            android:text="3개"
+            android:text="0개"
             android:layout_marginStart="8dp"
             android:paddingHorizontal="8dp"
             android:paddingVertical="2dp"
@@ -115,7 +116,19 @@
             android:layout_height="wrap_content" />
     </LinearLayout>
 
-    <!-- 알림 리스트 -->
+    <!-- 알림 없음 표시 -->
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="알림이 없습니다."
+        android:textColor="@color/gray_600"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:padding="20dp"
+        android:visibility="gone" />
+
+    <!-- RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerNotifications"
         android:layout_width="match_parent"
@@ -123,7 +136,7 @@
         android:layout_weight="1"
         android:layout_marginTop="10dp" />
 
-    <!-- 하단 안내문 -->
+    <!-- 하단 안내 -->
     <LinearLayout
         android:layout_marginTop="12dp"
         android:orientation="horizontal"
@@ -140,10 +153,9 @@
 
         <TextView
             android:layout_marginStart="8dp"
-            android:text="중요한 약속 알림(확정, D-1, 변경)은 자동으로 전송됩니다"
+            android:text="중요한 약속 알림은 자동 전송됩니다."
             android:textColor="@color/black"
             android:textSize="13sp"
-            android:lineSpacingExtra="2dp"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1" />

@@ -4,26 +4,24 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.moyeoyo.app.data.repository.NotificationRepository
 
 @Singleton
 class FriendRepository @Inject constructor(
     private val db: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val notificationRepository: NotificationRepository   // ⭐ DI로 주입
 ) {
     private val usersCollection = db.collection("users")
     private val friendRequestsCollection = db.collection("friendRequests")
     private val TAG = "FriendRepository"
 
-    // ⭐ NEW — 알림 전송용 Repository
-    private val notificationRepository = NotificationRepository(db, auth)
-
-    // ============================================================
-    // 🔍 이메일 기반 사용자 검색 (상태 포함)
-    // ============================================================
+    // ===========================
+    // 이메일 검색
+    // ===========================
     suspend fun findUserWithStatus(email: String): Pair<String?, String> {
         val currentUid = auth.currentUser?.uid ?: return Pair(null, "NO_AUTH")
 
@@ -55,9 +53,9 @@ class FriendRepository @Inject constructor(
         return uid
     }
 
-    // ============================================================
-    // 🔍 UID → 닉네임 조회
-    // ============================================================
+    // ===========================
+    // 닉네임 조회
+    // ===========================
     suspend fun getUserNickname(uid: String): String? {
         return try {
             val doc = usersCollection.document(uid).get().await()
@@ -68,25 +66,26 @@ class FriendRepository @Inject constructor(
         }
     }
 
-    // ============================================================
-    // 📨 친구 요청 보내기
-    // ============================================================
+    // ===========================
+    // 친구 요청 보내기
+    // ===========================
     suspend fun sendFriendRequest(receiverUid: String): Boolean {
         val senderUid = auth.currentUser?.uid ?: return false
         if (senderUid == receiverUid) return false
 
         return try {
-            val request = hashMapOf(
+            val request = mapOf(
                 "senderUid" to senderUid,
                 "receiverUid" to receiverUid,
-                "timestamp" to com.google.firebase.Timestamp.now()
+                "timestamp" to Timestamp.now()
             )
+
             val requestId = "${senderUid}_${receiverUid}"
 
             friendRequestsCollection.document(requestId).set(request).await()
 
-            // ⭐ NEW — Cloud Functions 기반 알림 요청
-            notificationRepository.requestFriendNotification(receiverUid, senderUid)
+            // ⭐ 수정: 함수 이름 변경됨!!
+            notificationRepository.sendFriendRequestNotification(receiverUid, senderUid)
 
             true
         } catch (e: Exception) {
@@ -95,9 +94,9 @@ class FriendRepository @Inject constructor(
         }
     }
 
-    // ============================================================
-    // 📨 친구 요청 목록 조회
-    // ============================================================
+    // ===========================
+    // 친구 요청 목록
+    // ===========================
     suspend fun getPendingRequests(): List<String> {
         val uid = auth.currentUser?.uid ?: return emptyList()
 
@@ -114,9 +113,9 @@ class FriendRepository @Inject constructor(
         }
     }
 
-    // ============================================================
-    // 🟢 친구 요청 수락
-    // ============================================================
+    // ===========================
+    // 친구 요청 수락
+    // ===========================
     suspend fun acceptFriendRequest(senderUid: String): Boolean {
         val receiverUid = auth.currentUser?.uid ?: return false
         val requestId = "${senderUid}_${receiverUid}"
@@ -125,11 +124,16 @@ class FriendRepository @Inject constructor(
             db.runTransaction { t ->
                 t.delete(friendRequestsCollection.document(requestId))
 
-                val senderRef = usersCollection.document(senderUid)
-                val receiverRef = usersCollection.document(receiverUid)
-
-                t.update(senderRef, "friends", FieldValue.arrayUnion(receiverUid))
-                t.update(receiverRef, "friends", FieldValue.arrayUnion(senderUid))
+                t.update(
+                    usersCollection.document(senderUid),
+                    "friends",
+                    FieldValue.arrayUnion(receiverUid)
+                )
+                t.update(
+                    usersCollection.document(receiverUid),
+                    "friends",
+                    FieldValue.arrayUnion(senderUid)
+                )
             }.await()
 
             true
@@ -139,9 +143,9 @@ class FriendRepository @Inject constructor(
         }
     }
 
-    // ============================================================
-    // 📜 내 친구 목록 조회
-    // ============================================================
+    // ===========================
+    // 친구 목록 조회
+    // ===========================
     suspend fun getFriendUids(): List<String> {
         val uid = auth.currentUser?.uid ?: return emptyList()
 
@@ -154,19 +158,24 @@ class FriendRepository @Inject constructor(
         }
     }
 
-    // ============================================================
-    // ❌ 친구 삭제
-    // ============================================================
+    // ===========================
+    // 친구 삭제
+    // ===========================
     suspend fun removeFriend(friendUid: String): Boolean {
         val myUid = auth.currentUser?.uid ?: return false
 
         return try {
             db.runTransaction { t ->
-                val myRef = usersCollection.document(myUid)
-                val friendRef = usersCollection.document(friendUid)
-
-                t.update(myRef, "friends", FieldValue.arrayRemove(friendUid))
-                t.update(friendRef, "friends", FieldValue.arrayRemove(myUid))
+                t.update(
+                    usersCollection.document(myUid),
+                    "friends",
+                    FieldValue.arrayRemove(friendUid)
+                )
+                t.update(
+                    usersCollection.document(friendUid),
+                    "friends",
+                    FieldValue.arrayRemove(myUid)
+                )
             }.await()
 
             true
@@ -176,23 +185,27 @@ class FriendRepository @Inject constructor(
         }
     }
 
-    // ============================================================
-    // ⭐ NEW — "친구 초대 링크" 전용 친구 자동 추가 기능
-    // ============================================================
+    // ===========================
+    // 초대 링크 자동 친구 추가
+    // ===========================
     suspend fun acceptFriendByInvite(inviterUid: String): Boolean {
         val myUid = auth.currentUser?.uid ?: return false
         if (myUid == inviterUid) return false
 
         return try {
             db.runTransaction { t ->
-                val myRef = usersCollection.document(myUid)
-                val inviterRef = usersCollection.document(inviterUid)
-
-                t.update(myRef, "friends", FieldValue.arrayUnion(inviterUid))
-                t.update(inviterRef, "friends", FieldValue.arrayUnion(myUid))
+                t.update(
+                    usersCollection.document(myUid),
+                    "friends",
+                    FieldValue.arrayUnion(inviterUid)
+                )
+                t.update(
+                    usersCollection.document(inviterUid),
+                    "friends",
+                    FieldValue.arrayUnion(myUid)
+                )
             }.await()
 
-            Log.d(TAG, "Friends linked via invitation: $myUid ↔ $inviterUid")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Invite friend add failed: ${e.message}")

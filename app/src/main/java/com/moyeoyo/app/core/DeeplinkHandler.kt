@@ -1,4 +1,4 @@
-package com.moyeoyo.app.core.deeplink
+package com.moyeoyo.app.core
 
 import android.content.Context
 import android.content.Intent
@@ -7,28 +7,21 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.LifecycleCoroutineScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class DeeplinkHandler(
+class DeeplinkHandler constructor(
     private val context: Context,
-    private val lifecycleScope: LifecycleCoroutineScope
+    private val lifecycleScope: LifecycleCoroutineScope,
+    private val auth: FirebaseAuth,
+    private val groupRepository: GroupRepository,
+    private val friendRepository: FriendRepository,
 ) {
-
-    private val auth = FirebaseAuth.getInstance()
-    private val db = FirebaseFirestore.getInstance()
-
-    private val groupRepository = GroupRepository(db, auth)
-    private val friendRepository = FriendRepository(db, auth)
-
     private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 
-    /**
-     * MainActivity에서 넘겨준 Intent를 실제로 처리하는 함수
-     */
     fun handle(intent: Intent?) {
         val user = auth.currentUser ?: return
         val data: Uri = intent?.data ?: return
@@ -47,9 +40,7 @@ class DeeplinkHandler(
         }
     }
 
-    // ==========================================================
-    // 🔵 그룹 초대 처리
-    // ==========================================================
+    // 그룹 초대 처리
     private fun handleGroupInvite(groupId: String) {
         Toast.makeText(context, "그룹 초대 링크 확인 중...", Toast.LENGTH_SHORT).show()
 
@@ -66,11 +57,7 @@ class DeeplinkHandler(
                     .setNegativeButton("취소", null)
                     .show()
             } else {
-                Toast.makeText(
-                    context,
-                    "초대된 그룹 정보를 찾을 수 없습니다.",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, "초대된 그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -82,56 +69,34 @@ class DeeplinkHandler(
             val success = groupRepository.joinGroup(groupId)
 
             if (success) {
-                Toast.makeText(
-                    context,
-                    "그룹 참여 성공!",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, "그룹 참여 성공!", Toast.LENGTH_LONG).show()
 
                 val intent = Intent(context, GroupDetailActivity::class.java)
                 intent.putExtra("GROUP_ID", groupId)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
             } else {
-                Toast.makeText(
-                    context,
-                    "그룹 참여 실패",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, "그룹 참여 실패", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    // ==========================================================
-    // 🟢 친구 초대 처리
-    // ==========================================================
+    // 친구 초대 처리
     private fun handleFriendInvite(inviterUid: String) {
         lifecycleScope.launch {
             val myUid = auth.currentUser?.uid ?: return@launch
 
             if (myUid == inviterUid) {
-                Toast.makeText(
-                    context,
-                    "자기 자신과 친구를 맺을 수 없습니다.",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, "자기 자신과 친구가 될 수 없습니다.", Toast.LENGTH_LONG).show()
                 return@launch
             }
 
             val success = friendRepository.acceptFriendByInvite(inviterUid)
 
             if (success) {
-                Toast.makeText(
-                    context,
-                    "친구가 추가되었습니다!",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, "친구가 추가되었습니다!", Toast.LENGTH_LONG).show()
             } else {
-                Toast.makeText(
-                    context,
-                    "이미 친구이거나 오류가 발생했습니다.",
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(context, "이미 친구이거나 오류가 발생했습니다.", Toast.LENGTH_LONG).show()
             }
         }
     }

@@ -1,100 +1,57 @@
-import * as functions from "firebase-functions/v1";
-import * as logger from "firebase-functions/logger";
-
 import * as admin from "firebase-admin";
-import {DocumentSnapshot} from "firebase-functions/v1/firestore";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
 admin.initializeApp();
-const db = admin.firestore();
-
 
 /**
- * 요청을 보낸 사용자(senderUid)의 닉네임을 Firestore에서 가져옵니다.
- * @param {string} senderUid 요청을 보낸 사용자 UID
+ * friendRequests/{requestId} 문서가 생성될 때 실행됨
  */
-async function getSenderNickname(
-  senderUid: string,
-): Promise<string> {
-  try {
-    const senderDoc = await db.collection("users").doc(senderUid).get();
-    return senderDoc.data()?.nickname || "알 수 없는 사용자";
-  } catch (error) {
-    logger.error("Error fetching sender nickname:", error);
-    return "알 수 없는 사용자";
-  }
-}
+export const onFriendRequestCreated = onDocumentCreated(
+  "friendRequests/{requestId}",
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
 
-/**
- * Firestore의 'notifications' 컬렉션에 친구 요청 문서가 생성되면 푸시 알림을 발송합니다.
- */
-export const sendNotificationOnFriendRequest = functions
-  .runWith({maxInstances: 5})
-  .firestore
-  .document("notifications/{notificationId}")
-  .onCreate(async (snapshot: DocumentSnapshot) => {
-    const data = snapshot.data();
+    const requestData = snap.data();
+    const senderUid = requestData.senderUid;
+    const receiverUid = requestData.receiverUid;
 
-    if (!data) {
-      logger.warn("Snapshot data is null or undefined. Exiting.");
-      return null;
+    console.log("🔥 Friend request generated:", senderUid, "→", receiverUid);
+
+    // receiver UID로 FCM token 조회
+    const receiverDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(receiverUid)
+      .get();
+
+    const receiverToken = receiverDoc.get("fcmToken");
+
+    if (!receiverToken) {
+      console.log("❌ No FCM token for receiver:", receiverUid);
+      return;
     }
 
-    const receiverUid = data.receiverUid;
-    const type = data.type;
-
-    if (type !== "friend_request") {
-      logger.info("Not a friend request notification. Exiting.", {type: type});
-      return null;
-    }
-
-    const userDoc = await db.collection("users").doc(receiverUid).get();
-    const fcmToken = userDoc.data()?.fcmToken;
-    const senderNickname = await getSenderNickname(data.senderUid);
-
-    if (!fcmToken) {
-      logger.warn(
-        `FCM token not found for user: ${receiverUid}. ` +
-                "Cannot send push notification."
-      );
-      return null;
-    }
-
-    const payload: admin.messaging.MessagingPayload = {
+    // FCM 발송
+    await admin.messaging().send({
       notification: {
-        title: "새로운 친구 요청 도착 🎉",
-        body: `${senderNickname} 님이 친구 요청을 보냈습니다.`,
-        sound: "default",
+        title: "새 친구 요청",
+        body: "친구 요청이 도착했습니다!"
       },
-      data: {
-        targetScreen: "NotificationActivity",
-        notificationType: type,
-        senderUid: data.senderUid,
-      },
-    };
+      token: receiverToken
+    });
 
-    try {
-      const response = await admin.messaging()
-        .sendToDevice(fcmToken, payload);
+    console.log("📨 FCM notification sent");
 
-      logger.info(
-        "Successfully sent message:",
-        {
-          successCount: response.successCount,
-          failureCount: response.failureCount,
-        }
-      );
+    // Firestore notifications 컬렉션에 저장
+    await admin.firestore().collection("notifications").add({
+      senderUid: senderUid,
+      receiverUid: receiverUid,
+      title: "새 친구 요청",
+      message: "친구 요청이 도착했습니다!",
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
 
-      await snapshot.ref.update({
-        isSent: true,
-        messageId: response.results[0].messageId,
-      });
-
-      return null;
-    } catch (error) {
-      const errorMessage = (error as Error).toString();
-      logger.error("Error sending message:", errorMessage);
-
-      await snapshot.ref.update({isSent: false, error: errorMessage});
-      return null;
-    }
-  });
+    console.log("📝 Firestore notification saved");
+  }
+);
