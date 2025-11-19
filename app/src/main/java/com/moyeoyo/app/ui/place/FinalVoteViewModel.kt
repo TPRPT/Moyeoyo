@@ -6,16 +6,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import android.location.Location
+import com.google.firebase.firestore.GeoPoint
+import com.moyeoyo.app.data.model.FinalCandidateData
 import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.PlaceCandidate
 import com.moyeoyo.app.data.model.RankedPlace
 import com.moyeoyo.app.data.model.TransportMode
+import com.moyeoyo.app.data.model.Vote
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.MapRepository
 import com.moyeoyo.app.ui.place.FinalCandidate
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -99,23 +104,30 @@ class FinalVoteViewModel @Inject constructor(
 
     /**
      * 투표 상태 확인 및 승리한 장소 확인
+     * ⭐ 새로운 구조: vote 문서의 finalVotedUsers 배열을 확인하여 정확한 상태 판단
      */
     fun loadVoteStatus(groupId: String) {
         viewModelScope.launch {
             try {
-                val candidates = mapRepository.getPlaceCandidates(groupId)
                 val group = groupRepository.getGroupById(groupId)
-                
-                // 그룹 멤버 수 확인
                 val totalMembers = group?.memberUids?.size ?: 0
                 
-                // 각 후보의 투표 수 계산
-                val completedVotes = candidates.sumOf { it.voterUids.size }
+                // ⭐ vote 문서의 finalVotedUsers 배열 확인 (Single Source of Truth)
+                val allFinalVoted = groupRepository.checkAllUsersFinalVoted(groupId)
                 
+                // UI 표시용 투표 상태 (placeCandidates에서 집계)
+                val candidates = mapRepository.getPlaceCandidates(groupId)
+                val completedVotes = candidates.sumOf { it.voterUids.size }
                 _voteStatus.value = VoteStatus(completedVotes, totalMembers)
                 
-                // 모든 멤버가 투표했고, 후보가 있으면 승리한 장소 확인
-                if (totalMembers > 0 && completedVotes >= totalMembers && candidates.isNotEmpty()) {
+                android.util.Log.d("FinalVoteViewModel", 
+                    "🔍 투표 상태 확인 - groupId: $groupId, totalMembers: $totalMembers, completedVotes: $completedVotes, allFinalVoted: $allFinalVoted")
+                
+                // 모든 멤버가 최종 투표를 완료했고, 후보가 있으면 승리한 장소 확인
+                if (allFinalVoted && candidates.isNotEmpty()) {
+                    android.util.Log.d("FinalVoteViewModel", 
+                        "🏆 모든 사용자 최종 투표 완료! 승리한 장소 결정 시작")
+                    
                     // 각 후보의 최종 투표 수 계산
                     val voteCounts = candidates.map { it to it.voterUids.size }
                     val maxVotes = voteCounts.maxOfOrNull { it.second } ?: 0
@@ -132,7 +144,13 @@ class FinalVoteViewModel @Inject constructor(
                     }
                     
                     winningCandidate?.let { candidate ->
-                        // PlaceCandidate를 NearbyPlace로 변환
+                        // ⭐ vote 문서에 승리한 장소 저장 및 상태를 FINISHED로 변경
+                        groupRepository.setWinningPlace(groupId, candidate.placeId, candidate.name)
+                        
+                        android.util.Log.d("FinalVoteViewModel", 
+                            "✅ 승리한 장소 결정: ${candidate.name} (placeId: ${candidate.placeId})")
+                        
+                        // PlaceCandidate를 NearbyPlace로 변환하여 UI에 표시
                         val latLng = candidate.latLng?.let { 
                             LatLngData(it.latitude, it.longitude) 
                         } ?: LatLngData(0.0, 0.0)
@@ -149,15 +167,104 @@ class FinalVoteViewModel @Inject constructor(
                         
                         _winningPlace.value = winningPlace
                     }
+                } else {
+                    android.util.Log.d("FinalVoteViewModel", 
+                        "⏸️ 아직 모든 사용자가 최종 투표를 완료하지 않음 - completedVotes: $completedVotes, totalMembers: $totalMembers")
                 }
             } catch (e: Exception) {
+                android.util.Log.e("FinalVoteViewModel", 
+                    "❌ 투표 상태 확인 실패: ${e.message}", e)
                 _error.value = "투표 상태를 불러오는데 실패했습니다: ${e.message}"
             }
         }
     }
 
     /**
+     * vote 문서 실시간 리스너 시작
+     * ⭐ 새로운 구조: vote 문서를 관찰하여 finalCandidates를 가져오고 상태 변경 감지
+     */
+    fun startListeningToVoteStatus(groupId: String) {
+        viewModelScope.launch {
+            // 현재 사용자의 입력 위치 가져오기 (거리 계산용)
+            val inputLocations = mapRepository.getInputLocations(groupId)
+            val currentUserId = mapRepository.currentUserId()
+            userInputLocation = inputLocations.find { it.uid == currentUserId }
+            
+            android.util.Log.d("FinalVoteViewModel", 
+                "📍 현재 사용자 입력 위치: ${if (userInputLocation != null) "있음" else "없음"}")
+            
+            // vote 문서 실시간 리스너 시작
+            groupRepository.listenToVoteStatus(groupId)
+                .onEach { vote ->
+                    if (vote != null) {
+                        android.util.Log.d("FinalVoteViewModel", 
+                            "🔍 vote 문서 업데이트 - status: ${vote.status}, finalCandidates: ${vote.finalCandidates.size}개")
+                        
+                        when (vote.status) {
+                            "FINAL_VOTING" -> {
+                                // finalCandidates를 FinalCandidate로 변환
+                                val candidates = vote.finalCandidates.map { candidateData ->
+                                    val nearbyPlace = NearbyPlace(
+                                        placeId = candidateData.placeId,
+                                        name = candidateData.name,
+                                        address = candidateData.address,
+                                        latLng = LatLngData(
+                                            candidateData.latLng.latitude,
+                                            candidateData.latLng.longitude
+                                        ),
+                                        categories = candidateData.categories,
+                                        rating = candidateData.rating,
+                                        distanceMeters = userInputLocation?.let { inputLoc ->
+                                            calculateDistanceMeters(
+                                                inputLoc.latLng,
+                                                LatLngData(
+                                                    candidateData.latLng.latitude,
+                                                    candidateData.latLng.longitude
+                                                )
+                                            )
+                                        } ?: 0.0
+                                    )
+                                    
+                                    FinalCandidate(
+                                        place = nearbyPlace,
+                                        totalScore = candidateData.totalScore,
+                                        isSelected = false
+                                    )
+                                }
+                                
+                                android.util.Log.d("FinalVoteViewModel", 
+                                    "✅ finalCandidates 변환 완료 - 후보 수: ${candidates.size}")
+                                
+                                _finalCandidates.value = candidates
+                            }
+                            "FINISHED" -> {
+                                // 투표 완료 상태 - 승리한 장소 표시
+                                vote.winningPlaceId?.let { placeId ->
+                                    vote.winningPlaceName?.let { placeName ->
+                                        // 승리한 장소로 NearbyPlace 생성 (정확한 정보는 vote 문서에서 가져올 수 있음)
+                                        val winningPlace = NearbyPlace(
+                                            placeId = placeId,
+                                            name = placeName,
+                                            address = null,
+                                            latLng = LatLngData(0.0, 0.0), // 필요시 vote 문서에 좌표 추가 가능
+                                            categories = emptyList(),
+                                            rating = null,
+                                            distanceMeters = 0.0
+                                        )
+                                        _winningPlace.value = winningPlace
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .launchIn(viewModelScope)
+        }
+    }
+
+    /**
      * 모든 사용자의 순위 지정 불러와서 점수 합산하여 상위 3개 후보 생성 및 저장
+     * ⭐ 새로운 구조: vote 문서의 finalCandidates 업데이트 후, vote 문서 리스너가 자동으로 UI 업데이트
      */
     fun loadAllUserRankingsAndCreateCandidates(groupId: String) {
         viewModelScope.launch {
@@ -165,13 +272,10 @@ class FinalVoteViewModel @Inject constructor(
                 android.util.Log.d("FinalVoteViewModel", 
                     "📥 모든 사용자 순위 불러오기 시작 - groupId: $groupId")
                 
-                // 현재 사용자의 입력 위치 가져오기 (거리 및 대중교통 시간 계산용)
+                // 현재 사용자의 입력 위치 가져오기 (거리 계산용)
                 val inputLocations = mapRepository.getInputLocations(groupId)
                 val currentUserId = mapRepository.currentUserId()
                 userInputLocation = inputLocations.find { it.uid == currentUserId }
-                
-                android.util.Log.d("FinalVoteViewModel", 
-                    "📍 현재 사용자 입력 위치: ${if (userInputLocation != null) "있음" else "없음"}")
                 
                 // Firestore에서 모든 사용자의 순위 지정 불러오기 (서버에서 직접 가져오기)
                 val allUserRankings = mapRepository.getAllUserRankings(groupId)
@@ -187,7 +291,7 @@ class FinalVoteViewModel @Inject constructor(
                 
                 if (allRankedPlaces.isEmpty()) {
                     android.util.Log.e("FinalVoteViewModel", 
-                        "❌ 순위 지정 데이터가 비어있습니다 - allUserRankings: $allUserRankings")
+                        "❌ 순위 지정 데이터가 비어있습니다")
                     _error.value = "순위 지정 데이터를 불러올 수 없습니다. 모든 사용자가 순위를 확정했는지 확인해주세요."
                     return@launch
                 }
@@ -210,55 +314,51 @@ class FinalVoteViewModel @Inject constructor(
                 android.util.Log.d("FinalVoteViewModel", 
                     "🏆 상위 3개 선택 완료 - 장소 수: ${top3.size}")
                 
-                // FinalCandidate 리스트 생성 (거리 정보만 현재 사용자 기준으로 재계산)
-                val candidates = top3.mapNotNull { (placeId, totalScore) ->
+                // FinalCandidateData 리스트 생성 (vote 문서에 저장할 데이터)
+                val finalCandidateDataList = top3.mapNotNull { (placeId, totalScore) ->
                     allRankedPlaces.firstOrNull { it.place.placeId == placeId }?.let { rankedPlace ->
-                        // 현재 사용자의 입력 위치를 기준으로 거리만 재계산 (평점, 카테고리는 저장된 데이터 사용)
-                        val updatedPlace = userInputLocation?.let { inputLoc ->
-                            val distanceMeters = calculateDistanceMeters(
-                                inputLoc.latLng,
-                                rankedPlace.place.latLng
-                            )
-                            rankedPlace.place.copy(distanceMeters = distanceMeters)
-                        } ?: rankedPlace.place
-                        
-                        android.util.Log.d("FinalVoteViewModel", 
-                            "✅ 후보 생성 - placeId: $placeId, 이름: ${updatedPlace.name}, 총점: $totalScore, 평점: ${updatedPlace.rating}, 거리: ${updatedPlace.distanceMeters}m")
-                        FinalCandidate(
-                            place = updatedPlace,
+                        FinalCandidateData(
+                            placeId = rankedPlace.place.placeId,
+                            name = rankedPlace.place.name,
+                            latLng = GeoPoint(
+                                rankedPlace.place.latLng.lat,
+                                rankedPlace.place.latLng.lng
+                            ),
                             totalScore = totalScore,
-                            isSelected = false
+                            categories = rankedPlace.place.categories,
+                            rating = rankedPlace.place.rating,
+                            address = rankedPlace.place.address
                         )
                     }
                 }
                 
                 android.util.Log.d("FinalVoteViewModel", 
-                    "✅ FinalCandidate 리스트 생성 완료 - 후보 수: ${candidates.size}")
+                    "✅ FinalCandidateData 리스트 생성 완료 - 후보 수: ${finalCandidateDataList.size}")
                 
-                if (candidates.isEmpty()) {
+                if (finalCandidateDataList.isEmpty()) {
                     android.util.Log.e("FinalVoteViewModel", 
-                        "❌ FinalCandidate 리스트가 비어있습니다")
+                        "❌ FinalCandidateData 리스트가 비어있습니다")
                     _error.value = "최종 후보를 생성할 수 없습니다."
                     return@launch
                 }
                 
-                // ⚠️ 중요: LiveData 업데이트는 메인 스레드에서 수행
-                // 코루틴이 다른 디스패처에서 실행될 수 있으므로 Main으로 전환
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.util.Log.d("FinalVoteViewModel", 
-                        "📤 _finalCandidates LiveData 업데이트 중 - 후보 수: ${candidates.size}")
-                    _finalCandidates.value = candidates
-                    android.util.Log.d("FinalVoteViewModel", 
-                        "✅ _finalCandidates LiveData 업데이트 완료")
-                }
+                // ⭐ vote 문서의 finalCandidates 업데이트 및 상태를 FINAL_VOTING으로 변경
+                android.util.Log.d("FinalVoteViewModel", 
+                    "💾 vote 문서에 finalCandidates 업데이트 및 상태 변경 시작 - 후보 수: ${finalCandidateDataList.size}")
                 
-                // 상위 3개 후보를 RankedPlace로 변환하여 Firestore에 저장
+                groupRepository.updateFinalCandidates(groupId, finalCandidateDataList)
+                
+                android.util.Log.d("FinalVoteViewModel", 
+                    "✅ vote 문서 업데이트 완료 - status: FINAL_VOTING")
+                
+                // 상위 3개 후보를 RankedPlace로 변환하여 Firestore에 저장 (placeCandidates 컬렉션)
+                // ⚠️ 참고: 이건 기존 로직 유지 (finalVote에서 투표 수 집계용)
                 val top3RankedPlaces = top3.mapNotNull { (placeId, totalScore) ->
                     allRankedPlaces.firstOrNull { it.place.placeId == placeId }
                 }
                 
                 android.util.Log.d("FinalVoteViewModel", 
-                    "💾 Firestore에 후보 저장 시작 - 후보 수: ${top3RankedPlaces.size}")
+                    "💾 placeCandidates 컬렉션에 후보 저장 시작 - 후보 수: ${top3RankedPlaces.size}")
                 
                 // Firestore에 후보 저장 (완료 후 투표 상태 확인)
                 savePlaceCandidates(groupId, top3RankedPlaces)
@@ -338,7 +438,14 @@ class FinalVoteViewModel @Inject constructor(
                 val candidate = candidates.firstOrNull { it.placeId == placeId }
                 
                 if (candidate != null) {
+                    // 1. placeCandidates 컬렉션에 투표 기록 (기존 로직 유지)
                     mapRepository.votePlaceCandidate(groupId, candidate.id, uid)
+                    
+                    // 2. ⭐ vote 문서의 finalVotedUsers 배열에 현재 사용자 추가 (새로운 구조)
+                    groupRepository.addUserToFinalVotedList(groupId, uid)
+                    
+                    android.util.Log.d("FinalVoteViewModel", 
+                        "✅ 최종 투표 완료 - placeId: $placeId, uid: $uid")
                     
                     // 투표 후 상태 다시 확인 (승리한 장소 확인을 위해)
                     loadVoteStatus(groupId)
@@ -348,6 +455,8 @@ class FinalVoteViewModel @Inject constructor(
                     _error.value = "후보를 찾을 수 없습니다."
                 }
             } catch (e: Exception) {
+                android.util.Log.e("FinalVoteViewModel", 
+                    "❌ 최종 투표 실패: ${e.message}", e)
                 _error.value = "투표에 실패했습니다: ${e.message}"
             }
         }

@@ -42,7 +42,10 @@ class FinalVoteActivity : AppCompatActivity() {
         setupRecyclerView()
         observeViewModel()
 
-        // Firestore에서 모든 사용자의 순위 지정 불러와서 점수 합산
+        // ⭐ vote 문서 실시간 리스너 시작 (finalCandidates 자동 업데이트)
+        viewModel.startListeningToVoteStatus(groupId)
+
+        // Firestore에서 모든 사용자의 순위 지정 불러와서 점수 합산하여 vote 문서 업데이트
         viewModel.loadAllUserRankingsAndCreateCandidates(groupId)
     }
 
