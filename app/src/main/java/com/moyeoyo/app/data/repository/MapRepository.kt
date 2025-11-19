@@ -591,6 +591,175 @@ class MapRepository @Inject constructor(
         return ref.id
     }
 
+    /**
+     * 기존 장소 후보 모두 삭제 (새로운 투표 세션 시작 전)
+     */
+    suspend fun clearPlaceCandidates(groupId: String) {
+        val candidatesRef = firestore.collection("groups")
+            .document(groupId)
+            .collection("placeCandidates")
+        
+        // 배치로 삭제
+        var batch = firestore.batch()
+        var count = 0
+        val batchSize = 500
+        
+        candidatesRef.get().await().documents.forEach { doc ->
+            if (count < batchSize) {
+                batch.delete(doc.reference)
+                count++
+            } else {
+                batch.commit().await()
+                batch = firestore.batch()
+                batch.delete(doc.reference)
+                count = 1
+            }
+        }
+        
+        if (count > 0) {
+            batch.commit().await()
+        }
+    }
+
+    // =========================
+    // Firestore: userRankings (사용자별 순위 지정)
+    // =========================
+
+    /**
+     * 사용자별 순위 지정 저장 (groups/{groupId}/userRankings/{uid})
+     * @param rankedPlaces 사용자가 선택한 3개 장소의 순위 리스트
+     */
+    suspend fun saveUserRankings(groupId: String, rankedPlaces: List<com.moyeoyo.app.data.model.RankedPlace>) {
+        val uid = currentUid() ?: throw IllegalStateException("사용자가 로그인되어 있지 않습니다.")
+        
+        val data = mutableMapOf<String, Any>(
+            "uid" to uid,
+            "timestamp" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+            "rankedPlaces" to rankedPlaces.map { rankedPlace ->
+                val placeMap = mutableMapOf<String, Any>(
+                    "placeId" to rankedPlace.place.placeId,
+                    "name" to rankedPlace.place.name,
+                    "latLng" to com.google.firebase.firestore.GeoPoint(
+                        rankedPlace.place.latLng.lat,
+                        rankedPlace.place.latLng.lng
+                    ),
+                    "rank" to rankedPlace.rank,
+                    "score" to rankedPlace.score,
+                    "categories" to (rankedPlace.place.categories ?: emptyList()),
+                    "distanceMeters" to rankedPlace.place.distanceMeters
+                )
+                // 평점과 주소는 null일 수 있으므로 조건부로 추가
+                rankedPlace.place.rating?.let { placeMap["rating"] = it }
+                rankedPlace.place.address?.let { placeMap["address"] = it }
+                placeMap
+            }
+        )
+        
+        firestore.collection("groups")
+            .document(groupId)
+            .collection("userRankings")
+            .document(uid)
+            .set(data)
+            .await()
+    }
+
+    /**
+     * 특정 사용자의 순위 지정 조회
+     */
+    suspend fun getUserRankings(
+        groupId: String, 
+        uid: String,
+        source: com.google.firebase.firestore.Source = com.google.firebase.firestore.Source.DEFAULT
+    ): List<com.moyeoyo.app.data.model.RankedPlace> {
+        val doc = firestore.collection("groups")
+            .document(groupId)
+            .collection("userRankings")
+            .document(uid)
+            .get(source)
+            .await()
+        
+        if (!doc.exists()) return emptyList()
+        
+        val data = doc.data ?: return emptyList()
+        @Suppress("UNCHECKED_CAST")
+        val rankedPlacesList = data["rankedPlaces"] as? List<Map<String, Any>> ?: return emptyList()
+        
+        return rankedPlacesList.mapNotNull { placeMap ->
+            val placeId = placeMap["placeId"] as? String ?: return@mapNotNull null
+            val name = placeMap["name"] as? String ?: return@mapNotNull null
+            val rank = (placeMap["rank"] as? Number)?.toInt() ?: return@mapNotNull null
+            val score = (placeMap["score"] as? Number)?.toInt() ?: return@mapNotNull null
+            
+            val latLng = when (val geo = placeMap["latLng"]) {
+                is GeoPoint -> LatLngData(geo.latitude, geo.longitude)
+                is Map<*, *> -> {
+                    val lat = (geo["lat"] as? Number)?.toDouble() ?: (geo["latitude"] as? Number)?.toDouble()
+                    val lng = (geo["lng"] as? Number)?.toDouble() ?: (geo["longitude"] as? Number)?.toDouble()
+                    if (lat != null && lng != null) LatLngData(lat, lng) else return@mapNotNull null
+                }
+                else -> return@mapNotNull null
+            }
+            
+            // 저장된 평점, 카테고리, 주소, 거리 정보 불러오기
+            @Suppress("UNCHECKED_CAST")
+            val categories = (placeMap["categories"] as? List<String>) ?: emptyList()
+            val rating = (placeMap["rating"] as? Number)?.toDouble()
+            val address = placeMap["address"] as? String
+            val distanceMeters = (placeMap["distanceMeters"] as? Number)?.toDouble() ?: 0.0
+            
+            val place = NearbyPlace(
+                placeId = placeId,
+                name = name,
+                address = address,
+                latLng = latLng,
+                categories = categories,
+                rating = rating,
+                distanceMeters = distanceMeters
+            )
+            
+            com.moyeoyo.app.data.model.RankedPlace(place, rank, score)
+        }
+    }
+
+    /**
+     * 모든 사용자의 순위 지정 조회
+     * Source.SERVER를 사용하여 서버에서 직접 가져오기 (캐시 무시)
+     */
+    suspend fun getAllUserRankings(groupId: String): Map<String, List<com.moyeoyo.app.data.model.RankedPlace>> {
+        val snap = firestore.collection("groups")
+            .document(groupId)
+            .collection("userRankings")
+            .get(com.google.firebase.firestore.Source.SERVER)
+            .await()
+        
+        android.util.Log.d("MapRepository", 
+            "📥 모든 사용자 순위 조회 - groupId: $groupId, 문서 수: ${snap.documents.size}")
+        
+        return snap.documents.associate { doc ->
+            val uid = doc.id
+            // Source.SERVER를 사용하여 서버에서 직접 가져오기 (캐시 무시)
+            val rankedPlaces = getUserRankings(groupId, uid, com.google.firebase.firestore.Source.SERVER)
+            android.util.Log.d("MapRepository", 
+                "  - 사용자 $uid: ${rankedPlaces.size}개 순위 지정")
+            uid to rankedPlaces
+        }
+    }
+
+    /**
+     * 순위 지정 완료한 사용자 수 확인
+     */
+    suspend fun getCompletedRankingCount(groupId: String): Int {
+        // Source.SERVER를 사용하여 서버에서 직접 가져오기 (캐시 무시)
+        val snap = firestore.collection("groups")
+            .document(groupId)
+            .collection("userRankings")
+            .get(com.google.firebase.firestore.Source.SERVER)
+            .await()
+        val count = snap.documents.size
+        android.util.Log.d("MapRepository", "✅ 완료된 순위 지정 수: $count, groupId: $groupId")
+        return count
+    }
+
     suspend fun votePlaceCandidate(groupId: String, candidateId: String, uid: String) {
         firestore.collection("groups")
             .document(groupId)

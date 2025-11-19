@@ -23,6 +23,26 @@ class FinalCandidateAdapter(
     private val onCandidateClick: (FinalCandidate) -> Unit
 ) : ListAdapter<FinalCandidate, FinalCandidateAdapter.CandidateViewHolder>(CandidateDiffCallback()) {
 
+    private var transitTimes: Map<String, Int> = emptyMap() // placeId -> 대중교통 소요시간 (초)
+
+    /**
+     * 소요시간 업데이트 (스크롤 위치 유지)
+     */
+    fun updateTransitTimes(newTransitTimes: Map<String, Int>) {
+        val oldTransitTimes = transitTimes
+        transitTimes = newTransitTimes
+        
+        // 변경된 아이템만 찾아서 업데이트
+        for (i in 0 until itemCount) {
+            val candidate = getItem(i)
+            val oldTime = oldTransitTimes[candidate.place.placeId]
+            val newTime = newTransitTimes[candidate.place.placeId]
+            if (oldTime != newTime) {
+                notifyItemChanged(i)
+            }
+        }
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CandidateViewHolder {
         val binding = ItemFinalCandidateBinding.inflate(
             LayoutInflater.from(parent.context),
@@ -53,9 +73,21 @@ class FinalCandidateAdapter(
                 binding.tvRating.text = "★ -"
             }
 
-            // 거리 표시
+            // 거리 및 대중교통 시간 표시
             val distanceKm = candidate.place.distanceMeters / 1000.0
-            binding.tvDistance.text = String.format(Locale.getDefault(), "%.1fkm", distanceKm)
+            val transitTimeSeconds = transitTimes[candidate.place.placeId]
+            
+            if (transitTimeSeconds != null) {
+                val transitTimeMinutes = (transitTimeSeconds / 60.0).toInt().coerceAtLeast(1)
+                binding.tvDistance.text = String.format(
+                    Locale.getDefault(), 
+                    "평균 %.1fkm · 대중교통 %d분", 
+                    distanceKm, 
+                    transitTimeMinutes
+                )
+            } else {
+                binding.tvDistance.text = String.format(Locale.getDefault(), "%.1fkm", distanceKm)
+            }
 
             // 선택된 표시
             binding.tvSelected.visibility = if (candidate.isSelected) View.VISIBLE else View.GONE
