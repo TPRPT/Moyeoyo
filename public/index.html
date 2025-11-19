@@ -1,43 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>Moyeoyo 그룹 초대</title>
 
-  <style media="screen">
+  <!-- ★ AdSense Script (Publisher ID 포함) -->
+  <script async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6485508614211221"
+          crossorigin="anonymous"></script>
+
+  <style>
     body {
-      font-family: Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       text-align: center;
-      padding-top: 50px;
+      padding: 30px 20px;
       background-color: #f4f4f4;
+      color: #333;
+      line-height: 1.6;
     }
-    h1 { color: #039be5; font-size: 24px; }
-    p { color: rgba(0,0,0,0.7); font-size: 16px; }
+    h1 {
+      color: #039be5;
+      font-size: 26px;
+      margin-bottom: 10px;
+    }
+    .card {
+      background: #fff;
+      padding: 24px;
+      border-radius: 14px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+      max-width: 440px;
+      margin: 0 auto;
+    }
+    .desc {
+      font-size: 15px;
+      color: #555;
+      margin-bottom: 20px;
+    }
     #openAppButton {
       display: none;
       background-color: #039be5;
       color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
+      padding: 12px 24px;
+      border-radius: 8px;
       text-decoration: none;
       font-weight: bold;
+      font-size: 16px;
       margin-top: 20px;
+      display: inline-block;
+    }
+    .ad-container {
+      width: 100%;
+      margin: 24px 0;
+      display: flex;
+      justify-content: center;
+    }
+    .footer-text {
+      font-size: 12px;
+      color: #777;
+      margin-top: 28px;
     }
   </style>
 </head>
+
 <body>
-<h1>Moyeoyo 앱 실행 중...</h1>
-<p>그룹 초대를 처리하고 있습니다. 잠시만 기다려 주세요.</p>
-<a id="openAppButton" href="#">앱으로 이동</a>
+
+<div class="card">
+  <h1>Moyeoyo 초대 페이지</h1>
+
+  <p class="desc">
+    친구 또는 지인으로부터 받은 초대 링크입니다.<br>
+    앱을 통해 그룹 참여를 완료할 수 있어요.
+  </p>
+
+  <!-- ★ AdSense 광고 영역 (네 광고 단위 그대로 적용됨) -->
+  <div class="ad-container">
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-6485508614211221"
+         data-ad-slot="6019267996"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+  </div>
+
+  <script>
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  </script>
+
+  <p class="desc">앱이 자동으로 열리지 않는 경우 아래 버튼을 눌러 주세요.</p>
+
+  <a id="openAppButton" href="#">앱으로 이동하기</a>
+
+  <p class="footer-text">
+    이 페이지는 Moyeoyo의 공식 초대 안내 페이지입니다.<br>
+    이용자의 개인정보는 앱 실행을 위한 최소한의 정보만 처리되며,<br>
+    광고는 서비스 운영을 위해 제공됩니다.
+  </p>
+</div>
 
 <script>
   const APP_PACKAGE = "com.moyeoyo.app";
   const HOSTING_DOMAIN = "moyeoyo-57ac0.web.app";
+  const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=" + APP_PACKAGE;
 
-  /**
-   * URL에서 쿼리 파라미터(groupId)를 추출합니다.
-   */
   function getParameterByName(name, url = window.location.href) {
       name = name.replace(/[\[\]]/g, '\\$&');
       var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
@@ -47,32 +113,34 @@
       return decodeURIComponent(results[2].replace(/\+/g, ' '));
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
-      var groupId = getParameterByName('groupId');
-      var openAppButton = document.getElementById('openAppButton');
+  document.addEventListener('DOMContentLoaded', () => {
+    const groupId = getParameterByName("groupId");
+    const btn = document.getElementById("openAppButton");
 
-      if (groupId) {
-          // ⭐ 핵심 수정: 앱 강제 실행을 위한 android-app:// URI 생성
-          // 이 URI는 App Link 인증이 완료된 상태에서 앱을 열도록 강력하게 지시합니다.
-          var deepLinkUri = 'android-app://' + APP_PACKAGE + '/https/' + HOSTING_DOMAIN + '/join?groupId=' + groupId;
+    if (!groupId) {
+      document.querySelector("h1").textContent = "유효하지 않은 링크입니다.";
+      document.querySelector(".desc").textContent = "groupId 정보가 누락되었습니다.";
+      return;
+    }
 
-          // 1. 브라우저 히스토리 조작 없이 즉시 앱 실행을 시도합니다.
-          window.location.replace(deepLinkUri);
+    const deepLink = `android-app://${APP_PACKAGE}/https/${HOSTING_DOMAIN}/join?groupId=${groupId}`;
 
-          // 2. 1초 후에도 앱이 열리지 않으면 수동 버튼을 활성화합니다.
-          setTimeout(function() {
-              openAppButton.style.display = 'block';
-              // 수동 버튼도 android-app:// URI를 사용하도록 설정
-              openAppButton.href = deepLinkUri;
-              document.querySelector('h1').textContent = "앱이 자동으로 열리지 않습니다.";
-              document.querySelector('p').textContent = "아래 버튼을 눌러 수동으로 앱을 열어 주세요.";
-          }, 1000);
+    btn.style.display = "inline-block";
+    btn.href = deepLink;
 
-      } else {
-          document.querySelector('h1').textContent = "유효하지 않은 초대 링크입니다.";
-          document.querySelector('p').textContent = "링크에 그룹 ID 정보가 누락되었습니다.";
-      }
+    // 앱 미설치 fallback (현재는 비활성화)
+    /*
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.location.href = deepLink;
+
+      setTimeout(() => {
+        window.location.href = PLAY_STORE_URL;
+      }, 1200);
+    });
+    */
   });
 </script>
+
 </body>
 </html>

@@ -38,8 +38,15 @@ class MainFragment : Fragment(R.layout.activity_main) { // ⭐ activity_main.xml
     private lateinit var firestore: FirebaseFirestore
     private lateinit var progressDialog: ProgressDialog
 
-    private val groupRepository = GroupRepository()
-    private val friendRepository = FriendRepository()
+    private val groupRepository = GroupRepository(
+        db = FirebaseFirestore.getInstance(),
+        auth = FirebaseAuth.getInstance()
+    )
+
+    private val friendRepository = FriendRepository(
+        db = FirebaseFirestore.getInstance(),
+        auth = FirebaseAuth.getInstance()
+    )
 
     // View 변수 선언 (Activity에서 이동)
     private lateinit var profileImage: ImageView
