@@ -40,6 +40,8 @@
         <activity android:name=".ui.place.RecommendedPlaceActivity" />
         <activity android:name=".ui.place.FinalVoteActivity" />
 
+        <activity android:name=".ui.notification.NotificationActivity" />
+
         <activity android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
@@ -57,9 +59,27 @@
                     android:scheme="https"
                     android:host="moyeoyo-57ac0.web.app"
                     android:pathPrefix="/join" />
+
+                <data
+                    android:scheme="https"
+                    android:host="moyeoyo-57ac0.web.app"
+                    android:pathPrefix="/friend" />
             </intent-filter>
 
         </activity>
+
+        <!-- 맵 SDK 키 (정확하게 잘 추가되었습니다) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" />
+
+        <service
+            android:name=".services.FirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <!-- 맵 SDK 키 (정확하게 잘 추가되었습니다) -->
         <meta-data

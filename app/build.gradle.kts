@@ -41,6 +41,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+
         // 환경 변수에서 통합 API 키를 읽어서 BuildConfig 및 리소스로 설정
         // 모든 Google Maps 관련 API (Maps SDK, Places SDK, Distance Matrix, Roads API)에 동일한 키 사용
         buildConfigField("String", "MAPS_API_KEY", "\"$googleMapsApiKey\"")
@@ -97,6 +98,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
     implementation("androidx.activity:activity-ktx:1.9.2")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("com.google.firebase:firebase-functions:21.0.0")
 
     implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
     implementation("com.google.firebase:firebase-analytics:23.0.0")
@@ -106,6 +108,7 @@ dependencies {
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("com.google.firebase:firebase-dynamic-links:22.1.0")
+    implementation("com.google.firebase:firebase-messaging:25.0.1")
 
     // Distance Matrix 호출용 (OkHttp)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

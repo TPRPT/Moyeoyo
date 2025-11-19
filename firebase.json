@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "public": "public",
     "ignore": [
@@ -8,8 +11,12 @@
     ],
     "rewrites": [
       {
-        "source": "/join/**",
-        "destination": "/index.html"
+        "source": "/join{,/**}",
+        "destination": "/group.html"
+      },
+      {
+        "source": "/friend{,/**}",
+        "destination": "/friend.html"
       },
       {
         "source": "**",

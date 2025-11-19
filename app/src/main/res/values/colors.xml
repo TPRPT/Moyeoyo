@@ -1,23 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
 
-    <color name="gray_600">#4B5563</color>
-    <color name="gray_500">#6B7280</color>
+    <!-- Gray Scale -->
     <color name="gray_100">#F3F4F6</color>
     <color name="gray_300">#D1D5DB</color>
-    <color name="gray_700">#374151</color>
-    <color name="blue_500">#3B82F6</color>
-    <color name="blue_900">#1E3A8A</color>
-    <color name="blue_800">#1E40AF</color>
-    <color name="kakao_yellow">#FEE500</color>
-    <color name="text_secondary">#6B7280</color>
-    <color name="light_gray">#E5E7EB</color>
-    <color name="brand_blue">#3B82F6</color>
-    <color name="brand_green">#10B981</color>
-    <color name="green_700">#047857</color>
-    <color name="badge_blue_text">#1E40AF</color>
+    <color name="gray_500">#6B7280</color>
+    <color name="gray_600">#757575</color>
+    <color name="gray_700">#616161</color>
+    <color name="gray_light">#F4F4F4</color>
+    <color name="light_gray">#E0E0E0</color>
+    <color name="light_gray_bg">#F5F5F5</color>
 
+    <!-- Line / Divider -->
+    <color name="divider">#E9E9EF</color>
+    <color name="divider_gray">#E9E9EF</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#161718</color>
+    <color name="text_secondary">#6D6E73</color>
+
+    <!-- Blues -->
+    <color name="blue_500">#3B82F6</color>
+    <color name="blue_800">#1E40AF</color>
+    <color name="blue_900">#1E3A8A</color>
+    <color name="brand_blue">#2F6FED</color>
+    <color name="blue">#66A9FF</color>
+    <color name="blue_light">#E8F1FF</color>
+    <color name="light_blue">#F5F5F5</color>
+    <color name="background_light_blue">#F2F6FF</color>
+
+    <!-- Greens -->
+    <color name="brand_green">#0F9D58</color>
+    <color name="green_700">#2E7D32</color>
+    <color name="light_green">#E6F4EA</color>
+    <color name="green_light">#E5F7E9</color>
+
+    <!-- Oranges -->
+    <color name="brand_orange">#E07A27</color>
+    <color name="orange_light">#FFF1E5</color>
+    <color name="background_light_orange">#FFF8F2</color>
+
+    <!-- Purple -->
+    <color name="brand_purple">#6B4DE6</color>
+    <color name="brand_purple_dark">#4C2ED9</color>
+
+    <!-- Kakao -->
+    <color name="kakao_yellow">#FEE500</color>
+
+    <!-- Badges -->
+    <color name="badge_blue_text">#2F6FED</color>
+    <color name="badge_blue_bg">#E8F0FF</color>
+    <color name="badge_green_text">#0F9D58</color>
+    <color name="badge_green_bg">#E6F4EA</color>
+    <color name="badge_gray_text">#6D6E73</color>
+    <color name="badge_orange_text">#E07A27</color>
+
+    <!-- Header gradient (다음 모임 카드 배경) -->
+    <color name="header_start">#3D6AFD</color>
+    <color name="header_end">#5E82FF</color>
+
+    <!-- General UI -->
     <color name="color_primary">#6C5CE7</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#161718</color>
+    <color name="surface_bg">#F7F7FB</color>
+    <color name="bg_surface">#F9F6FF</color>
+    <color name="shadow_hint">#14000000</color>
+    <color name="vote_done_bg">#E6F4EA</color>
+    <color name="vote_done_text">#0F9D58</color>
+    <color name="button_gray_inactive">#7C7C85</color>
+    <color name="button_black_active">#1A1A1F</color>
+
 </resources>

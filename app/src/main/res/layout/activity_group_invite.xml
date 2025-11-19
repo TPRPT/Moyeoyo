@@ -1,63 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground">
+    android:background="@color/white">
 
-    <LinearLayout
-        android:id="@+id/header_layout_invite"
+    <!-- 상단 APP BAR -->
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="24dp"
-        android:paddingTop="32dp"
-        android:paddingEnd="24dp"
-        android:paddingBottom="16dp"
-        android:background="@android:color/white"
-        android:elevation="0dp"
-        app:layout_constraintTop_toTopOf="parent">
+        android:background="@color/white">
 
-        <ImageButton
-            android:id="@+id/back_button_invite"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_arrow_back"
-            android:background="@android:color/transparent"
-            android:padding="8dp"
-            android:layout_marginBottom="16dp"
-            android:contentDescription="뒤로가기" />
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbarInvite"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_chevron_left_24"
+            app:title=""
+            android:background="@color/white"
+            app:contentInsetStartWithNavigation="0dp" />
+    </com.google.android.material.appbar.AppBarLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="그룹이 생성되었습니다!"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="@color/black"
-            android:layout_marginBottom="4dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="친구들을 초대하세요"
-            android:textColor="@color/gray_600"
-            android:textSize="16sp" />
-    </LinearLayout>
-
-    <ScrollView
+    <!-- 전체 스크롤 영역 -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/header_layout_invite"
-        app:layout_constraintBottom_toTopOf="@id/bottom_complete_layout">
+        android:layout_height="match_parent"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="100dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp">
+            android:orientation="vertical">
 
+            <!-- Title -->
+            <TextView
+                android:id="@+id/pageTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="그룹이 생성되었습니다!"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp"/>
+
+            <!-- Subtitle -->
+            <TextView
+                android:id="@+id/pageSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="친구들을 그룹에 초대해보세요"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:paddingBottom="12dp"/>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/light_gray"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- 성공 카드 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -72,46 +80,46 @@
                     android:src="@drawable/ic_check_circle_green"
                     android:background="@drawable/bg_circle_green_light"
                     android:padding="16dp"
-                    android:layout_marginBottom="8dp"
-                    android:contentDescription="성공 아이콘" />
+                    android:layout_marginBottom="8dp"/>
 
                 <TextView
-                    android:id="@+id/created_group_name_text"
+                    android:id="@+id/createdGroupNameText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:text="[그룹 이름]"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="@color/black"
-                    android:text="[그룹 이름]"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="4dp"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="그룹이 만들어졌어요"
-                    android:textColor="@color/gray_500"
-                    android:textSize="14sp" />
+                    android:textColor="@color/gray_600"
+                    android:textSize="14sp"/>
             </LinearLayout>
 
+            <!-- 초대 링크 텍스트 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="초대 링크"
-                android:drawableStart="@drawable/ic_link"
+                android:drawableStart="@drawable/ic_link_24"
                 android:drawablePadding="8dp"
-                android:gravity="center_vertical"
                 android:textStyle="bold"
                 android:textColor="@color/black"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="12dp"/>
 
+            <!-- 초대 링크 + 아이콘 -->
             <LinearLayout
+                android:orientation="horizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
                 android:layout_marginBottom="8dp">
 
                 <EditText
-                    android:id="@+id/invite_link_edit_text"
+                    android:id="@+id/inviteLinkEditText"
                     android:layout_width="0dp"
                     android:layout_height="56dp"
                     android:layout_weight="1"
@@ -119,72 +127,101 @@
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
                     android:textSize="14sp"
-                    android:text="https://meetapp.kr/invite/abc123"
-                    android:textColor="@color/black"
-                    android:focusable="false"             android:clickable="true"              android:cursorVisible="false"         />
-
-                <Button
-                    android:id="@+id/copy_link_button_icon"
-                    android:layout_width="56dp"
-                    android:layout_height="56dp"
-                    android:layout_marginStart="8dp"
-                    android:backgroundTint="@color/gray_100"
-                    android:textColor="@color/black"
-                    android:drawableStart="@drawable/ic_copy"
-                    android:contentDescription="링크 복사 아이콘"
-                    android:padding="0dp" />
+                    android:focusable="false"
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:textColor="@color/black"/>
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="이 링크를 친구들에게 공유하여 그룹에 초대하세요"
-                android:textColor="@color/gray_500"
                 android:textSize="14sp"
-                android:layout_marginBottom="32dp"/>
+                android:textColor="@color/gray_600"
+                android:layout_marginBottom="24dp"/>
 
+            <!-- 초대한 친구 리스트 -->
+            <LinearLayout
+                android:id="@+id/invitedFriendsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_light_gray_outline"
+                android:visibility="gone"
+                android:layout_marginBottom="24dp">
 
-            <Button
-                android:id="@+id/copy_link_button_full"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="초대한 친구"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:id="@+id/invitedFriendsList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"/>
+            </LinearLayout>
+
+            <!-- 버튼: 링크 복사 -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/copyLinkButtonFull"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="링크 복사하기"
-                android:backgroundTint="@color/gray_100"
                 android:textColor="@color/black"
-                android:drawableStart="@drawable/ic_copy"
+                android:textSize="14sp"
+                android:background="@drawable/bg_round_button"
+                app:backgroundTint="@color/light_gray"
+                app:icon="@drawable/ic_copy"
+                app:iconGravity="start"
+                app:iconPadding="12dp"
                 android:paddingStart="24dp"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="8dp"/>
 
-            <Button
-                android:id="@+id/share_kakao_button"
+            <!-- 버튼: 카카오 공유 -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/shareKakaoButton"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="카카오톡으로 공유"
-                android:backgroundTint="@color/kakao_yellow"
                 android:textColor="@color/black"
-                android:drawableStart="@drawable/ic_kakaotalk"
+                android:textSize="14sp"
+                android:background="@drawable/bg_round_button"
+                app:backgroundTint="@color/quantum_yellow700"
+                app:icon="@drawable/ic_kakao_24"
+                app:iconGravity="start"
+                app:iconPadding="12dp"
                 android:paddingStart="24dp"
-                android:layout_marginBottom="32dp" />
-
+                android:layout_marginBottom="32dp"/>
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
+    <!-- 하단 고정 버튼 -->
     <LinearLayout
-        android:id="@+id/bottom_complete_layout"
+        android:id="@+id/bottomCompleteLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
-        android:padding="24dp"
+        android:background="@color/white"
+        android:padding="20dp"
         android:elevation="8dp"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:layout_gravity="bottom">
 
-        <Button
-            android:id="@+id/go_to_group_button"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/goToGroupButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:text="그룹으로 이동"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:background="@drawable/bg_round_button"
+            app:backgroundTint="@color/brand_blue"/>
     </LinearLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
