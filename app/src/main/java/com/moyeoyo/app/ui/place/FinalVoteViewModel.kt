@@ -103,8 +103,8 @@ class FinalVoteViewModel @Inject constructor(
     }
 
     /**
-     * 투표 상태 확인 및 승리한 장소 확인
-     * ⭐ 새로운 구조: vote 문서의 finalVotedUsers 배열을 확인하여 정확한 상태 판단
+     * 투표 상태 확인 (UI 표시용)
+     * ⚠️ 승리한 장소 결정은 submitVote에서 처리하므로 여기서는 상태만 업데이트
      */
     fun loadVoteStatus(groupId: String) {
         viewModelScope.launch {
@@ -112,22 +112,53 @@ class FinalVoteViewModel @Inject constructor(
                 val group = groupRepository.getGroupById(groupId)
                 val totalMembers = group?.memberUids?.size ?: 0
                 
-                // ⭐ vote 문서의 finalVotedUsers 배열 확인 (Single Source of Truth)
-                val allFinalVoted = groupRepository.checkAllUsersFinalVoted(groupId)
-                
                 // UI 표시용 투표 상태 (placeCandidates에서 집계)
                 val candidates = mapRepository.getPlaceCandidates(groupId)
                 val completedVotes = candidates.sumOf { it.voterUids.size }
                 _voteStatus.value = VoteStatus(completedVotes, totalMembers)
                 
                 android.util.Log.d("FinalVoteViewModel", 
-                    "🔍 투표 상태 확인 - groupId: $groupId, totalMembers: $totalMembers, completedVotes: $completedVotes, allFinalVoted: $allFinalVoted")
-                
-                // 모든 멤버가 최종 투표를 완료했고, 후보가 있으면 승리한 장소 확인
-                if (allFinalVoted && candidates.isNotEmpty()) {
-                    android.util.Log.d("FinalVoteViewModel", 
-                        "🏆 모든 사용자 최종 투표 완료! 승리한 장소 결정 시작")
-                    
+                    "🔍 투표 상태 확인 (UI 업데이트) - groupId: $groupId, totalMembers: $totalMembers, completedVotes: $completedVotes")
+            } catch (e: Exception) {
+                android.util.Log.e("FinalVoteViewModel", 
+                    "❌ 투표 상태 확인 실패: ${e.message}", e)
+                _error.value = "투표 상태를 불러오는데 실패했습니다: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * 승리한 장소 결정 (내 투표 후에만 호출)
+     * ⭐ 핵심: 내가 투표한 후에만 이 함수를 호출하여 승리한 장소를 결정
+     */
+    private suspend fun determineWinner(groupId: String) {
+        try {
+            val group = groupRepository.getGroupById(groupId)
+            val totalMembers = group?.memberUids?.size ?: 0
+            
+            // ⭐ vote 문서의 finalVotedUsers 배열 확인 (Single Source of Truth)
+            val allFinalVoted = groupRepository.checkAllUsersFinalVoted(groupId)
+            
+            android.util.Log.d("FinalVoteViewModel", 
+                "🔍 승리 장소 결정 확인 - groupId: $groupId, totalMembers: $totalMembers, allFinalVoted: $allFinalVoted")
+            
+            // 모든 멤버가 최종 투표를 완료했고, 후보가 있으면 승리한 장소 확인
+            if (!allFinalVoted) {
+                android.util.Log.d("FinalVoteViewModel", 
+                    "⏸️ 아직 모든 사용자가 최종 투표를 완료하지 않음 - 승리 장소 결정 대기")
+                return
+            }
+            
+            val candidates = mapRepository.getPlaceCandidates(groupId)
+            if (candidates.isEmpty()) {
+                android.util.Log.e("FinalVoteViewModel", 
+                    "❌ 후보 목록이 비어있습니다.")
+                return
+            }
+            
+            android.util.Log.d("FinalVoteViewModel", 
+                "🏆 모든 사용자 최종 투표 완료! 승리한 장소 결정 시작")
+            
                     // 각 후보의 최종 투표 수 계산
                     val voteCounts = candidates.map { it to it.voterUids.size }
                     val maxVotes = voteCounts.maxOfOrNull { it.second } ?: 0
@@ -144,13 +175,13 @@ class FinalVoteViewModel @Inject constructor(
                     }
                     
                     winningCandidate?.let { candidate ->
-                        // ⭐ vote 문서에 승리한 장소 저장 및 상태를 FINISHED로 변경
-                        groupRepository.setWinningPlace(groupId, candidate.placeId, candidate.name)
-                        
-                        android.util.Log.d("FinalVoteViewModel", 
-                            "✅ 승리한 장소 결정: ${candidate.name} (placeId: ${candidate.placeId})")
-                        
-                        // PlaceCandidate를 NearbyPlace로 변환하여 UI에 표시
+                // ⭐ vote 문서에 승리한 장소 저장 및 상태를 FINISHED로 변경
+                groupRepository.setWinningPlace(groupId, candidate.placeId, candidate.name)
+                
+                android.util.Log.d("FinalVoteViewModel", 
+                    "✅ 승리한 장소 결정: ${candidate.name} (placeId: ${candidate.placeId})")
+                
+                // PlaceCandidate를 NearbyPlace로 변환하여 UI에 표시
                         val latLng = candidate.latLng?.let { 
                             LatLngData(it.latitude, it.longitude) 
                         } ?: LatLngData(0.0, 0.0)
@@ -162,20 +193,21 @@ class FinalVoteViewModel @Inject constructor(
                             latLng = latLng,
                             categories = emptyList(),
                             rating = null,
-                            distanceMeters = 0.0
+                    distanceMeters = userInputLocation?.let { inputLoc ->
+                        calculateDistanceMeters(
+                            inputLoc.latLng,
+                            latLng
                         )
-                        
-                        _winningPlace.value = winningPlace
-                    }
-                } else {
-                    android.util.Log.d("FinalVoteViewModel", 
-                        "⏸️ 아직 모든 사용자가 최종 투표를 완료하지 않음 - completedVotes: $completedVotes, totalMembers: $totalMembers")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("FinalVoteViewModel", 
-                    "❌ 투표 상태 확인 실패: ${e.message}", e)
-                _error.value = "투표 상태를 불러오는데 실패했습니다: ${e.message}"
+                    } ?: 0.0
+                )
+                
+                _winningPlace.value = winningPlace
+                // ⚠️ 대중교통 시간 계산은 MidpointActivity에서 자동으로 처리됨 (selectNearbyPlace 호출 시)
             }
+        } catch (e: Exception) {
+            android.util.Log.e("FinalVoteViewModel", 
+                "❌ 승리 장소 결정 실패: ${e.message}", e)
+            _error.value = "승리 장소를 결정하는데 실패했습니다: ${e.message}"
         }
     }
 
@@ -241,17 +273,36 @@ class FinalVoteViewModel @Inject constructor(
                                 // 투표 완료 상태 - 승리한 장소 표시
                                 vote.winningPlaceId?.let { placeId ->
                                     vote.winningPlaceName?.let { placeName ->
-                                        // 승리한 장소로 NearbyPlace 생성 (정확한 정보는 vote 문서에서 가져올 수 있음)
+                                        // ⭐ finalCandidates에서 승리 장소를 찾아서 좌표 정보 가져오기
+                                        val winningCandidateData = vote.finalCandidates.firstOrNull { 
+                                            it.placeId == placeId 
+                                        }
+                                        
+                                        val latLng = winningCandidateData?.latLng?.let {
+                                            LatLngData(it.latitude, it.longitude)
+                                        } ?: LatLngData(0.0, 0.0)
+                                        
                                         val winningPlace = NearbyPlace(
                                             placeId = placeId,
                                             name = placeName,
-                                            address = null,
-                                            latLng = LatLngData(0.0, 0.0), // 필요시 vote 문서에 좌표 추가 가능
-                                            categories = emptyList(),
-                                            rating = null,
-                                            distanceMeters = 0.0
-                                        )
-                                        _winningPlace.value = winningPlace
+                                            address = winningCandidateData?.address,
+                                            latLng = latLng,
+                                            categories = winningCandidateData?.categories ?: emptyList(),
+                                            rating = winningCandidateData?.rating,
+                                            distanceMeters = userInputLocation?.let { inputLoc ->
+                                                if (latLng.lat != 0.0 && latLng.lng != 0.0) {
+                                                    calculateDistanceMeters(
+                                                        inputLoc.latLng,
+                                                        latLng
+                                                    )
+                                                } else {
+                                                    0.0
+                                                }
+                                            } ?: 0.0
+                        )
+                        
+                        _winningPlace.value = winningPlace
+                        // ⚠️ 대중교통 시간 계산은 MidpointActivity에서 자동으로 처리됨 (selectNearbyPlace 호출 시)
                                     }
                                 }
                             }
@@ -415,7 +466,7 @@ class FinalVoteViewModel @Inject constructor(
             }
         }
     }
-
+    
     /**
      * 두 좌표 사이의 거리 계산 (미터 단위)
      */
@@ -427,6 +478,7 @@ class FinalVoteViewModel @Inject constructor(
 
     /**
      * 최종 투표 제출
+     * ⭐ 핵심: 내 투표 후에만 모든 사용자 완료 여부를 확인하고 승리 장소 결정
      */
     fun submitVote(groupId: String, placeId: String) {
         val uid = auth.currentUser?.uid ?: return
@@ -447,8 +499,18 @@ class FinalVoteViewModel @Inject constructor(
                     android.util.Log.d("FinalVoteViewModel", 
                         "✅ 최종 투표 완료 - placeId: $placeId, uid: $uid")
                     
-                    // 투표 후 상태 다시 확인 (승리한 장소 확인을 위해)
+                    // 3. UI 표시용 투표 상태 업데이트
                     loadVoteStatus(groupId)
+                    
+                    // 4. ⭐ 내 투표 완료 후 충분한 지연을 두고 모든 사용자 완료 여부 확인 (Firestore 서버 동기화 시간 확보)
+                    kotlinx.coroutines.delay(1500)
+                    
+                    // 5. ⭐ 핵심: 내 투표 후에만 모든 사용자가 투표했는지 확인하고 승리 장소 결정
+                    // ⚠️ Firestore 동기화를 위한 지연 시간 필요 (다른 사용자의 투표가 반영되기 전)
+                    android.util.Log.d("FinalVoteViewModel", 
+                        "🔍 내 투표 저장 완료 후 모든 사용자 투표 완료 여부 확인 시작 (동기화 대기)")
+                    kotlinx.coroutines.delay(1500) // Firestore 동기화 시간 확보
+                    determineWinner(groupId)
                     
                     _voteSuccess.value = true
                 } else {

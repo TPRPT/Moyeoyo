@@ -635,4 +635,30 @@ class GroupRepository @Inject constructor(
             throw e
         }
     }
+    
+    /**
+     * 투표 상태를 RANKING으로 초기화 (이전 테스트 데이터 정리용)
+     * ⚠️ 주의: 이 함수는 테스트 중에만 사용하거나, 새로운 투표 세션을 시작할 때 사용해야 합니다.
+     */
+    suspend fun resetVoteStatus(groupId: String) {
+        try {
+            val voteRef = groupsCollection.document(groupId)
+                .collection("vote")
+                .document("vote")
+            
+            voteRef.update(
+                "status", "RANKING",
+                "rankedUsers", emptyList<String>(),
+                "finalCandidates", emptyList<Map<String, Any>>(),
+                "finalVotedUsers", emptyList<String>(),
+                "winningPlaceId", null,
+                "winningPlaceName", null
+            ).await()
+            
+            Log.d(TAG, "Vote status reset to RANKING for group $groupId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to reset vote status: ${e.message}", e)
+            throw e
+        }
+    }
 }

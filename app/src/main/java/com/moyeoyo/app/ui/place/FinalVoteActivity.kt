@@ -30,6 +30,9 @@ class FinalVoteActivity : AppCompatActivity() {
     private val finalCandidates = mutableListOf<FinalCandidate>()
     private var selectedCandidate: FinalCandidate? = null
     private val auth = FirebaseAuth.getInstance()
+    
+    // ⭐ 다이얼로그 메모리 누수 방지를 위한 변수
+    private var winningPlaceDialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -155,10 +158,8 @@ class FinalVoteActivity : AppCompatActivity() {
         viewModel.voteSuccess.observe(this) { success ->
             if (success) {
                 android.util.Log.d("FinalVoteActivity", 
-                    "✅ 투표 완료 - 투표 상태 다시 확인 시작")
-                val groupId = intent.getStringExtra("groupId") ?: ""
-                // 투표 완료 후 상태 확인 (승리한 장소 확인을 위해)
-                viewModel.loadVoteStatus(groupId)
+                    "✅ 투표 완료 - 승리 장소 결정은 ViewModel에서 처리됨")
+                // ⚠️ loadVoteStatus 호출 제거 - submitVote에서 이미 처리됨
             }
         }
 
@@ -179,19 +180,30 @@ class FinalVoteActivity : AppCompatActivity() {
             }
         }
         
-        // 저장 완료 후 투표 상태 확인
+        // ⚠️ saveComplete observer에서 loadVoteStatus 호출 제거
+        // 이전 테스트의 finalVotedUsers가 남아있어서 잘못된 판단이 발생할 수 있음
+        // finalCandidates는 startListeningToVoteStatus에서 자동으로 업데이트됨
         viewModel.saveComplete.observe(this) { saved ->
             if (saved) {
-                val groupId = intent.getStringExtra("groupId") ?: ""
-                viewModel.loadVoteStatus(groupId)
+                android.util.Log.d("FinalVoteActivity", 
+                    "✅ 후보 저장 완료 - finalCandidates는 vote 문서 리스너에서 자동 업데이트됨")
             }
         }
     }
     
     private fun showWinningPlaceDialog(winningPlace: NearbyPlace) {
+        // ⭐ Activity가 종료 중이면 다이얼로그를 띄우지 않음 (메모리 누수 방지)
+        if (isFinishing || isDestroyed) {
+            return
+        }
+        
+        // ⭐ 기존 다이얼로그가 있으면 먼저 닫기
+        winningPlaceDialog?.dismiss()
+        
         val groupId = intent.getStringExtra("groupId") ?: ""
         
-        AlertDialog.Builder(this)
+        // ⭐ 다이얼로그를 변수에 저장하여 onDestroy에서 닫을 수 있도록 함
+        winningPlaceDialog = AlertDialog.Builder(this)
             .setTitle("최종 약속 장소 확정")
             .setMessage("최종 약속 장소는 \"${winningPlace.name}\"로 선정되었습니다.\n중간값 계산 화면으로 이동하여 소요시간을 확인하시겠습니까?")
             .setPositiveButton("확인") { _, _ ->
@@ -207,7 +219,16 @@ class FinalVoteActivity : AppCompatActivity() {
                 finish()
             }
             .setCancelable(false)
-            .show()
+            .create()
+        
+        winningPlaceDialog?.show()
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // ⭐ Activity가 파괴될 때 다이얼로그가 열려있다면 반드시 닫아줌 (메모리 누수 방지)
+        winningPlaceDialog?.dismiss()
+        winningPlaceDialog = null
     }
 
 }
