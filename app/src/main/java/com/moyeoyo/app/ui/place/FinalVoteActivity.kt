@@ -44,6 +44,26 @@ class FinalVoteActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         val groupId = intent.getStringExtra("groupId") ?: ""
+        
+        // ⭐ 최종 투표 화면 진입 시 그룹 상태를 FINAL_PLACE_VOTE로 변경
+        lifecycleScope.launch {
+            try {
+                val currentGroup = groupRepository.getGroupDetail(groupId)
+                if (currentGroup?.status == "PLACE_RANKING") {
+                    val success = groupRepository.updateGroupStatus(groupId, "FINAL_PLACE_VOTE")
+                    if (success) {
+                        android.util.Log.d("FinalVoteActivity", 
+                            "✅ 그룹 상태 변경: PLACE_RANKING → FINAL_PLACE_VOTE")
+                    } else {
+                        android.util.Log.e("FinalVoteActivity", 
+                            "❌ 그룹 상태 변경 실패")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("FinalVoteActivity", 
+                    "그룹 상태 변경 중 오류: ${e.message}")
+            }
+        }
 
         setupViews()
         setupRecyclerView()

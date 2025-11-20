@@ -516,6 +516,7 @@ class TimeVoteActivity : AppCompatActivity() {
                 
                 if (allVoted != null) {
                     dismissWaitingDialog()
+                    hideWaitingMessageOnScreen()
                     
                     if (allVoted.second.isEmpty()) {
                         // 모든 멤버가 투표했지만 겹치는 시간이 없음
@@ -568,10 +569,35 @@ class TimeVoteActivity : AppCompatActivity() {
         waitingDialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("시간 투표 대기 중")
             .setMessage("다른 멤버의 시간 투표를 기다리는 중입니다...")
-            .setCancelable(false)
+            .setPositiveButton("뒤로가기") { _, _ ->
+                // 뒤로가기 버튼 클릭 시 팝업 닫고 화면에 메시지 표시
+                dismissWaitingDialog()
+                showWaitingMessageOnScreen()
+            }
+            .setCancelable(true)
+            .setOnCancelListener {
+                // 취소 시에도 화면에 메시지 표시
+                showWaitingMessageOnScreen()
+            }
             .create()
         
         waitingDialog?.show()
+    }
+    
+    /**
+     * 화면에 대기 메시지 표시
+     */
+    private fun showWaitingMessageOnScreen() {
+        binding.tvWaitingMessage.visibility = View.VISIBLE
+        android.util.Log.d("TimeVoteActivity", "화면에 대기 메시지 표시")
+    }
+    
+    /**
+     * 화면의 대기 메시지 숨기기
+     */
+    private fun hideWaitingMessageOnScreen() {
+        binding.tvWaitingMessage.visibility = View.GONE
+        android.util.Log.d("TimeVoteActivity", "화면의 대기 메시지 숨김")
     }
     
     /**
@@ -854,8 +880,9 @@ class TimeVoteActivity : AppCompatActivity() {
             
             // 모든 멤버가 투표한 날짜가 있는 경우 처리
             if (dateWithAllVoted != null && !hasNavigatedToFinalVote) {
-                // 대기 중 메시지 닫기
+                // 대기 중 메시지 닫기 및 화면 메시지 숨기기
                 dismissWaitingDialog()
+                hideWaitingMessageOnScreen()
                 
                 if (overlappingTimes.isNotEmpty()) {
                     if (overlappingTimes.size == 1) {
@@ -870,7 +897,13 @@ class TimeVoteActivity : AppCompatActivity() {
                 } else if (hasAllVotedButNoOverlap) {
                     // 모든 멤버가 투표했지만 겹치는 시간이 없음
                     android.util.Log.d("TimeVoteActivity", "⚠️ 모든 멤버 투표 완료했지만 겹치는 시간이 없음")
+                    hideWaitingMessageOnScreen()
                     showNoOverlappingTimeDialog()
+                }
+            } else {
+                // 아직 모든 멤버가 투표하지 않음 - 화면에 대기 메시지 표시
+                if (waitingDialog?.isShowing != true) {
+                    showWaitingMessageOnScreen()
                 }
             }
         } catch (e: Exception) {

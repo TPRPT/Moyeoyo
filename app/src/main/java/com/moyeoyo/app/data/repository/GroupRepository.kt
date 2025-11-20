@@ -53,7 +53,7 @@ class GroupRepository @Inject constructor(
             groupName = groupName,
             hostUid = hostUid,
             memberUids = allMemberUids, // ⭐ 멤버 목록 포함
-            status = "VOTING"
+            status = "GROUP_CREATED"
         )
 
         return try {
@@ -316,15 +316,15 @@ class GroupRepository @Inject constructor(
             val updates = hashMapOf<String, Any>(
                 "confirmedPlace" to confirmedPlace,
                 "confirmedTime" to confirmedTime,
-                "status" to "CONFIRMED",
+                "status" to "FINALIZED",
                 "groupName" to newTitle // 사용자가 입력한 제목으로 그룹 이름 업데이트
             )
 
             groupRef.update(updates).await()
-            Log.d(TAG, "Group schedule confirmed for ID: $groupId")
+            Log.d(TAG, "✅ 그룹 일정 확정 및 상태 변경: groupId=$groupId, status=FINALIZED")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to confirm group schedule for ID $groupId: ${e.message}", e)
+            Log.e(TAG, "❌ 그룹 일정 확정 실패: ${e.message}", e)
             false
         }
     }
