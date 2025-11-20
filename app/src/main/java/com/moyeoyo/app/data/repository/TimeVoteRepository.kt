@@ -176,11 +176,25 @@ class TimeVoteRepository @Inject constructor(
                 .collection("timeVotes")
                 .document(date)
 
-            // 각 사용자의 최종 투표 시간을 Map으로 저장 (uid -> time)
-            finalVoteRef.update(
-                "finalVotes.$uid", time,
-                "finalVotedUsers", FieldValue.arrayUnion(uid),
-                "updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp()
+            // 기존 finalVotes 맵을 가져오기 (없으면 빈 맵)
+            val existingDoc = finalVoteRef.get().await()
+            @Suppress("UNCHECKED_CAST")
+            val existingFinalVotes = existingDoc.get("finalVotes") as? Map<String, String> ?: emptyMap()
+            
+            // 새로운 finalVotes 맵 생성 (기존 값 유지 + 새 값 추가)
+            val updatedFinalVotes = existingFinalVotes.toMutableMap().apply {
+                put(uid, time)
+            }
+
+            // ⭐ update() 대신 set(..., SetOptions.merge()) 사용
+            // 문서가 없으면 새로 만들고, 있으면 finalVotes와 finalVotedUsers 필드만 업데이트 (병합)
+            finalVoteRef.set(
+                mapOf(
+                    "finalVotes" to updatedFinalVotes,
+                    "finalVotedUsers" to FieldValue.arrayUnion(uid),
+                    "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
             ).await()
 
             Log.d(TAG, "✅ 최종 시간 투표 저장: groupId=$groupId, date=$date, time=$time, uid=$uid")

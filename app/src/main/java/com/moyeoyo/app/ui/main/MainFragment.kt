@@ -36,11 +36,7 @@ import javax.inject.Inject
 class MainFragment : Fragment(R.layout.activity_main) {
 
     @Inject lateinit var friendRepository: FriendRepository
-
-    private val groupRepository = GroupRepository(
-        db = FirebaseFirestore.getInstance(),
-        auth = FirebaseAuth.getInstance()
-    )
+    @Inject lateinit var groupRepository: GroupRepository
 
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore

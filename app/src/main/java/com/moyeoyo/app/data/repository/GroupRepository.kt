@@ -8,14 +8,7 @@ import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FieldPath
-import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.Source
 import com.moyeoyo.app.data.model.Group
-import com.moyeoyo.app.data.model.Vote
-import com.moyeoyo.app.data.model.FinalCandidateData
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,7 +19,8 @@ import javax.inject.Singleton
 @Singleton
 class GroupRepository @Inject constructor(
     private val db: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val voteRepository: VoteRepository
 ) {
     private val groupsCollection = db.collection("groups")
     private val usersCollection = db.collection("users")
@@ -77,15 +71,7 @@ class GroupRepository @Inject constructor(
                 )).await()
 
             // 2. vote 하위 문서 생성 (투표 상태 관리용)
-            groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-                .set(Vote(
-                    status = "RANKING",
-                    rankedUsers = emptyList(),
-                    finalCandidates = emptyList(),
-                    finalVotedUsers = emptyList()
-                )).await()
+            voteRepository.initializeVoteDocument(groupId)
 
             // 3. 모든 멤버의 users 문서에 groupId를 groups 배열에 추가 (일괄 쓰기 사용)
             val batch = db.batch()
@@ -224,6 +210,98 @@ class GroupRepository @Inject constructor(
     }
 
     /**
+     * 투표 시작 (호스트만 가능)
+     * 그룹 상태를 TIME_VOTE_REQUIRED로 변경
+     */
+    suspend fun startVoting(groupId: String): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        val groupRef = groupsCollection.document(groupId)
+
+        return try {
+            db.runTransaction { tx ->
+                val snapshot = tx.get(groupRef)
+                if (!snapshot.exists()) throw IllegalStateException("Group not found")
+
+                val hostUid = snapshot.getString("hostUid")
+                if (hostUid != uid) {
+                    throw IllegalStateException("Only host can start voting")
+                }
+
+                tx.update(groupRef, "status", "TIME_VOTE_REQUIRED")
+                null
+            }.await()
+
+            Log.d(TAG, "Voting STARTED for group: $groupId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "startVoting error: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * 그룹 상태 업데이트
+     */
+    suspend fun updateGroupStatus(groupId: String, status: String): Boolean {
+        return try {
+            groupsCollection.document(groupId)
+                .update("status", status)
+                .await()
+            
+            Log.d(TAG, "✅ 그룹 상태 업데이트: groupId=$groupId, status=$status")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 그룹 상태 업데이트 실패: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * 최종 시간 확정
+     */
+    suspend fun setFinalTime(groupId: String, date: String, time: String): Boolean {
+        return try {
+            // Timestamp 생성 (날짜 + 시간)
+            // time 형식: "HH:mm" 또는 "HH시"
+            val normalizedTime = time.replace("시", ":00").replace("분", "")
+            val dateTimeStr = "$date $normalizedTime"
+            
+            val dateTime = try {
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                    .parse(dateTimeStr)
+            } catch (e: Exception) {
+                // 다른 형식 시도
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                    .parse(dateTimeStr)
+            }
+            
+            val timestamp = if (dateTime != null) {
+                Timestamp(dateTime)
+            } else {
+                Log.e(TAG, "날짜 파싱 실패: date=$date, time=$time, normalizedTime=$normalizedTime")
+                null
+            }
+
+            if (timestamp == null) {
+                return false
+            }
+
+            groupsCollection.document(groupId)
+                .update(
+                    "confirmedTime", timestamp,
+                    "status", "LOCATION_INPUT_REQUIRED"
+                )
+                .await()
+            
+            Log.d(TAG, "✅ 최종 시간 확정: groupId=$groupId, date=$date, time=$time, timestamp=$timestamp")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 최종 시간 확정 실패: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
      * ⭐ NEW: 확정된 일정 정보(장소/시간)를 Firestore에 저장하고 그룹 상태를 변경합니다.
      */
     suspend fun confirmGroupSchedule(
@@ -325,6 +403,7 @@ class GroupRepository @Inject constructor(
             deleteCollection(groupRef.collection("inputLocations"))
             deleteCollection(groupRef.collection("placeCandidates"))
             deleteCollection(groupRef.collection("timeCandidates"))
+            deleteCollection(groupRef.collection("vote"))
 
             // 3. 그룹 문서 삭제
             groupRef.delete().await()
@@ -361,306 +440,4 @@ class GroupRepository @Inject constructor(
         batch.commit().await()
     }
 
-    // =========================
-    // Firestore: vote (투표 상태 관리)
-    // =========================
-
-    /**
-     * 1차 순위 투표 완료한 사용자를 rankedUsers 배열에 추가
-     */
-    suspend fun addUserToRankedList(groupId: String, uid: String) {
-        try {
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-
-            voteRef.update("rankedUsers", FieldValue.arrayUnion(uid)).await()
-            Log.d(TAG, "User $uid added to rankedUsers for group $groupId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to add user to rankedUsers: ${e.message}", e)
-            throw e
-        }
-    }
-
-    /**
-     * 모든 사용자가 1차 순위 투표를 완료했는지 확인
-     * @return true if all members have completed ranking, false otherwise
-     */
-    suspend fun checkAllUsersRanked(groupId: String): Boolean {
-        return try {
-            // 그룹 멤버 수 확인
-            val group = getGroupById(groupId) ?: return false
-            val totalMembers = group.memberUids.size
-
-            // vote 문서에서 rankedUsers 확인
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-            val voteSnapshot = voteRef.get().await()
-
-            @Suppress("UNCHECKED_CAST")
-            val rankedUsers = voteSnapshot.get("rankedUsers") as? List<String> ?: emptyList()
-
-            val allRanked = rankedUsers.size == totalMembers &&
-                    group.memberUids.all { it in rankedUsers }
-
-            Log.d(TAG, "checkAllUsersRanked - groupId: $groupId, totalMembers: $totalMembers, rankedUsers: ${rankedUsers.size}, allRanked: $allRanked")
-
-            allRanked
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to check all users ranked: ${e.message}", e)
-            false
-        }
-    }
-
-    /**
-     * 투표 상태 업데이트
-     */
-    suspend fun updateVoteStatus(groupId: String, status: String) {
-        try {
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-
-            voteRef.update("status", status).await()
-            Log.d(TAG, "Vote status updated to $status for group $groupId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update vote status: ${e.message}", e)
-            throw e
-        }
-    }
-
-    /**
-     * 최종 후보 3개 업데이트 및 상태를 FINAL_VOTING으로 변경
-     */
-    suspend fun updateFinalCandidates(groupId: String, finalCandidates: List<FinalCandidateData>) {
-        try {
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-
-            // finalCandidates를 Firestore에 저장할 수 있는 형태로 변환
-            val candidatesData = finalCandidates.map { candidate ->
-                mapOf(
-                    "placeId" to candidate.placeId,
-                    "name" to candidate.name,
-                    "latLng" to candidate.latLng,
-                    "totalScore" to candidate.totalScore,
-                    "categories" to candidate.categories,
-                    "rating" to (candidate.rating ?: ""),
-                    "address" to (candidate.address ?: "")
-                )
-            }
-
-            voteRef.update(
-                "finalCandidates", candidatesData,
-                "status", "FINAL_VOTING"
-            ).await()
-
-            Log.d(TAG, "Final candidates updated (${finalCandidates.size} items) and status changed to FINAL_VOTING for group $groupId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update final candidates: ${e.message}", e)
-            throw e
-        }
-    }
-
-    /**
-     * 최종 투표 완료한 사용자를 finalVotedUsers 배열에 추가
-     */
-    suspend fun addUserToFinalVotedList(groupId: String, uid: String) {
-        try {
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-
-            voteRef.update("finalVotedUsers", FieldValue.arrayUnion(uid)).await()
-            Log.d(TAG, "User $uid added to finalVotedUsers for group $groupId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to add user to finalVotedUsers: ${e.message}", e)
-            throw e
-        }
-    }
-
-    /**
-     * 모든 사용자가 최종 투표를 완료했는지 확인
-     */
-    suspend fun checkAllUsersFinalVoted(groupId: String): Boolean {
-        return try {
-            val group = getGroupById(groupId) ?: return false
-            val totalMembers = group.memberUids.size
-
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-            // ⚠️ Source.SERVER 추가하여 서버 데이터만 확인 (캐시 문제 방지)
-            val voteSnapshot = voteRef.get(Source.SERVER).await()
-
-            @Suppress("UNCHECKED_CAST")
-            val finalVotedUsers = voteSnapshot.get("finalVotedUsers") as? List<String> ?: emptyList()
-
-            val allVoted = finalVotedUsers.size == totalMembers &&
-                    group.memberUids.all { it in finalVotedUsers }
-
-            Log.d(TAG, "checkAllUsersFinalVoted - groupId: $groupId, totalMembers: $totalMembers, finalVotedUsers: ${finalVotedUsers.size}, allVoted: $allVoted")
-
-            allVoted
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to check all users final voted: ${e.message}", e)
-            false
-        }
-    }
-
-    /**
-     * 투표 상태 조회
-     */
-    suspend fun getVoteStatus(groupId: String): Vote? {
-        return try {
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-            val snapshot = voteRef.get().await()
-
-            if (snapshot.exists()) {
-                convertSnapshotToVote(snapshot)
-            } else {
-                Log.w(TAG, "Vote document not found for group $groupId")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to get vote status: ${e.message}", e)
-            null
-        }
-    }
-
-    /**
-     * Firestore 스냅샷을 Vote 객체로 변환
-     */
-    private fun convertSnapshotToVote(snapshot: com.google.firebase.firestore.DocumentSnapshot): Vote {
-        val status = snapshot.get("status") as? String ?: "RANKING"
-        @Suppress("UNCHECKED_CAST")
-        val rankedUsers = (snapshot.get("rankedUsers") as? List<String>) ?: emptyList()
-        @Suppress("UNCHECKED_CAST")
-        val finalVotedUsers = (snapshot.get("finalVotedUsers") as? List<String>) ?: emptyList()
-        val winningPlaceId = snapshot.get("winningPlaceId") as? String
-        val winningPlaceName = snapshot.get("winningPlaceName") as? String
-
-        // finalCandidates를 Map에서 FinalCandidateData로 변환
-        @Suppress("UNCHECKED_CAST")
-        val finalCandidatesData = (snapshot.get("finalCandidates") as? List<Map<String, Any>>)?.mapNotNull { map ->
-            try {
-                val placeId = map["placeId"] as? String ?: return@mapNotNull null
-                val name = map["name"] as? String ?: return@mapNotNull null
-                val latLng = when (val geo = map["latLng"]) {
-                    is GeoPoint -> geo
-                    is Map<*, *> -> {
-                        val lat = (geo["lat"] as? Number)?.toDouble() ?: (geo["latitude"] as? Number)?.toDouble()
-                        val lng = (geo["lng"] as? Number)?.toDouble() ?: (geo["longitude"] as? Number)?.toDouble()
-                        if (lat != null && lng != null) GeoPoint(lat, lng) else return@mapNotNull null
-                    }
-                    else -> return@mapNotNull null
-                }
-                val totalScore = (map["totalScore"] as? Number)?.toInt() ?: return@mapNotNull null
-                @Suppress("UNCHECKED_CAST")
-                val categories = (map["categories"] as? List<String>) ?: emptyList()
-                val rating = when (val ratingValue = map["rating"]) {
-                    is Number -> ratingValue.toDouble()
-                    is String -> if (ratingValue.isNotEmpty()) ratingValue.toDoubleOrNull() else null
-                    else -> null
-                }
-                val address = map["address"] as? String
-
-                FinalCandidateData(
-                    placeId = placeId,
-                    name = name,
-                    latLng = latLng,
-                    totalScore = totalScore,
-                    categories = categories,
-                    rating = rating,
-                    address = address
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to convert finalCandidate data: ${e.message}", e)
-                null
-            }
-        } ?: emptyList()
-
-        return Vote(
-            status = status,
-            rankedUsers = rankedUsers,
-            finalCandidates = finalCandidatesData,
-            finalVotedUsers = finalVotedUsers,
-            winningPlaceId = winningPlaceId,
-            winningPlaceName = winningPlaceName
-        )
-    }
-
-    /**
-     * 투표 상태 실시간 리스너 (Flow로 반환)
-     */
-    fun listenToVoteStatus(groupId: String): Flow<Vote?> = callbackFlow {
-        val voteRef = groupsCollection.document(groupId)
-            .collection("vote")
-            .document("vote")
-
-        val listener = voteRef.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                Log.e(TAG, "Error listening to vote status: ${error.message}", error)
-                trySend(null)
-                return@addSnapshotListener
-            }
-
-            val vote = snapshot?.let { convertSnapshotToVote(it) }
-            trySend(vote)
-        }
-
-        awaitClose { listener.remove() }
-    }
-
-    /**
-     * 승리한 장소로 투표 상태 완료 처리
-     */
-    suspend fun setWinningPlace(groupId: String, placeId: String, placeName: String) {
-        try {
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-
-            voteRef.update(
-                "winningPlaceId", placeId,
-                "winningPlaceName", placeName,
-                "status", "FINISHED"
-            ).await()
-
-            Log.d(TAG, "Winning place set: $placeName ($placeId) for group $groupId, status changed to FINISHED")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to set winning place: ${e.message}", e)
-            throw e
-        }
-    }
-
-    /**
-     * 투표 상태를 RANKING으로 초기화 (이전 테스트 데이터 정리용)
-     * ⚠️ 주의: 이 함수는 테스트 중에만 사용하거나, 새로운 투표 세션을 시작할 때 사용해야 합니다.
-     */
-    suspend fun resetVoteStatus(groupId: String) {
-        try {
-            val voteRef = groupsCollection.document(groupId)
-                .collection("vote")
-                .document("vote")
-
-            voteRef.update(
-                "status", "RANKING",
-                "rankedUsers", emptyList<String>(),
-                "finalCandidates", emptyList<Map<String, Any>>(),
-                "finalVotedUsers", emptyList<String>(),
-                "winningPlaceId", null,
-                "winningPlaceName", null
-            ).await()
-
-            Log.d(TAG, "Vote status reset to RANKING for group $groupId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to reset vote status: ${e.message}", e)
-            throw e
-        }
-    }
 }

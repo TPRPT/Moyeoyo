@@ -521,9 +521,13 @@ class TimeVoteActivity : AppCompatActivity() {
                         // 모든 멤버가 투표했지만 겹치는 시간이 없음
                         android.util.Log.d("TimeVoteActivity", "⚠️ 모든 멤버 투표 완료했지만 겹치는 시간이 없음")
                         showNoOverlappingTimeDialog()
+                    } else if (allVoted.second.size == 1) {
+                        // 겹치는 시간이 하나만 있으면 자동으로 최종 시간으로 확정
+                        android.util.Log.d("TimeVoteActivity", "✅ 겹치는 시간이 하나만 있음 - 자동 확정: ${allVoted.second[0]}")
+                        autoConfirmFinalTime(allVoted.first, allVoted.second[0])
                     } else {
-                        // 모든 멤버가 투표 완료하고 겹치는 시간이 있음 -> 바로 확인 팝업 표시
-                        android.util.Log.d("TimeVoteActivity", "✅ 저장 직후 모든 멤버 투표 완료 확인!")
+                        // 모든 멤버가 투표 완료하고 겹치는 시간이 여러 개 -> 최종 투표 확인 팝업 표시
+                        android.util.Log.d("TimeVoteActivity", "✅ 저장 직후 모든 멤버 투표 완료 확인! (겹치는 시간: ${allVoted.second.size}개)")
                         showFinalVoteConfirmationDialog(allVoted.first, allVoted.second)
                     }
                 } else {
@@ -549,6 +553,8 @@ class TimeVoteActivity : AppCompatActivity() {
     }
     
     private var waitingDialog: androidx.appcompat.app.AlertDialog? = null
+    private var finalVoteConfirmationDialog: androidx.appcompat.app.AlertDialog? = null
+    private var autoConfirmDialog: androidx.appcompat.app.AlertDialog? = null
     
     /**
      * 다른 멤버 투표 대기 중 메시지 표시
@@ -647,6 +653,78 @@ class TimeVoteActivity : AppCompatActivity() {
     }
     
     /**
+     * 겹치는 시간이 하나만 있을 때 자동으로 최종 시간 확정
+     */
+    private fun autoConfirmFinalTime(date: String, timeDisplay: String) {
+        if (hasNavigatedToFinalVote) return
+        hasNavigatedToFinalVote = true
+        
+        // 시간 형식 변환: "14시" -> "14:00"
+        val timeFormatted = timeDisplay.replace("시", ":00")
+        
+        // 날짜 표시 형식 변환
+        val dateDisplayFormat = SimpleDateFormat("yyyy년 MM월 dd일 (E)", Locale.KOREA)
+        val dateObj = dateFormat.parse(date)
+        val dateDisplay = dateObj?.let { dateDisplayFormat.format(it) } ?: date
+        
+        lifecycleScope.launch {
+            try {
+                // 최종 시간 확정
+                val success = groupRepository.setFinalTime(groupId, date, timeFormatted)
+                
+                if (success) {
+                    android.util.Log.d("TimeVoteActivity", "✅ 최종 시간 자동 확정 성공: $date $timeFormatted")
+                    
+                    // 기존 다이얼로그가 있으면 닫기
+                    autoConfirmDialog?.dismiss()
+                    
+                    // 자동 확정 팝업 메시지 표시
+                    autoConfirmDialog = androidx.appcompat.app.AlertDialog.Builder(this@TimeVoteActivity)
+                        .setTitle("시간 자동 확정")
+                        .setMessage("겹치는 시간이 한 개밖에 없어 자동으로 해당 시간으로 선택되었습니다.\n\n${dateDisplay} ${timeDisplay}")
+                        .setPositiveButton("확인") { _, _ ->
+                            // GroupDetailActivity로 이동 (코루틴 스코프 내에서 호출)
+                            lifecycleScope.launch {
+                                try {
+                                    val group = groupRepository.getGroupDetail(groupId)
+                                    val groupName = group?.groupName ?: ""
+                                    
+                                    val intent = android.content.Intent(this@TimeVoteActivity, com.moyeoyo.app.ui.groups.GroupDetailActivity::class.java).apply {
+                                        putExtra("GROUP_ID", groupId)
+                                        putExtra("GROUP_NAME", groupName)
+                                    }
+                                    startActivity(intent)
+                                    finish()
+                                } catch (e: Exception) {
+                                    android.util.Log.e("TimeVoteActivity", "그룹 정보 조회 실패: ${e.message}", e)
+                                    // 그룹 이름 없이도 이동
+                                    val intent = android.content.Intent(this@TimeVoteActivity, com.moyeoyo.app.ui.groups.GroupDetailActivity::class.java).apply {
+                                        putExtra("GROUP_ID", groupId)
+                                    }
+                                    startActivity(intent)
+                                    finish()
+                                }
+                            }
+                        }
+                        .setCancelable(false)
+                        .setOnDismissListener { autoConfirmDialog = null }
+                        .create()
+                    
+                    autoConfirmDialog?.show()
+                } else {
+                    android.util.Log.e("TimeVoteActivity", "❌ 최종 시간 자동 확정 실패")
+                    Toast.makeText(this@TimeVoteActivity, "시간 확정에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                    hasNavigatedToFinalVote = false
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("TimeVoteActivity", "최종 시간 자동 확정 중 오류: ${e.message}", e)
+                Toast.makeText(this@TimeVoteActivity, "오류가 발생했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                hasNavigatedToFinalVote = false
+            }
+        }
+    }
+    
+    /**
      * 겹치는 시간이 없을 때 팝업 표시
      */
     private fun showNoOverlappingTimeDialog() {
@@ -669,6 +747,9 @@ class TimeVoteActivity : AppCompatActivity() {
     private fun showFinalVoteConfirmationDialog(dateWithAllVoted: String, overlappingTimes: List<String>) {
         if (hasNavigatedToFinalVote) return
         
+        // 기존 다이얼로그가 있으면 닫기
+        finalVoteConfirmationDialog?.dismiss()
+        
         val dateDisplayFormat = SimpleDateFormat("yyyy년 MM월 dd일 (E)", Locale.KOREA)
         val date = dateFormat.parse(dateWithAllVoted)
         val dateDisplay = date?.let { dateDisplayFormat.format(it) } ?: dateWithAllVoted
@@ -682,7 +763,7 @@ class TimeVoteActivity : AppCompatActivity() {
             append("\n최종 시간 투표로 넘어가시겠습니까?")
         }
         
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        finalVoteConfirmationDialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("최종 시간 투표")
             .setMessage(message)
             .setPositiveButton("이동") { _, _ ->
@@ -707,7 +788,10 @@ class TimeVoteActivity : AppCompatActivity() {
                 }
             }
             .setNegativeButton("취소", null)
-            .show()
+            .setOnDismissListener { finalVoteConfirmationDialog = null }
+            .create()
+        
+        finalVoteConfirmationDialog?.show()
     }
     
     /**
@@ -774,9 +858,15 @@ class TimeVoteActivity : AppCompatActivity() {
                 dismissWaitingDialog()
                 
                 if (overlappingTimes.isNotEmpty()) {
-                    // 겹치는 시간이 있으면 최종 투표 확인 팝업 표시
-                    android.util.Log.d("TimeVoteActivity", "✅ 모든 멤버 투표 완료 확인! 최종 투표 확인 팝업 표시. (날짜: $dateWithAllVoted)")
-                    showFinalVoteConfirmationDialog(dateWithAllVoted, overlappingTimes)
+                    if (overlappingTimes.size == 1) {
+                        // 겹치는 시간이 하나만 있으면 자동으로 최종 시간으로 확정
+                        android.util.Log.d("TimeVoteActivity", "✅ 겹치는 시간이 하나만 있음 - 자동 확정: ${overlappingTimes[0]}")
+                        autoConfirmFinalTime(dateWithAllVoted, overlappingTimes[0])
+                    } else {
+                        // 겹치는 시간이 여러 개 있으면 최종 투표 확인 팝업 표시
+                        android.util.Log.d("TimeVoteActivity", "✅ 모든 멤버 투표 완료 확인! 최종 투표 확인 팝업 표시. (날짜: $dateWithAllVoted, 겹치는 시간: ${overlappingTimes.size}개)")
+                        showFinalVoteConfirmationDialog(dateWithAllVoted, overlappingTimes)
+                    }
                 } else if (hasAllVotedButNoOverlap) {
                     // 모든 멤버가 투표했지만 겹치는 시간이 없음
                     android.util.Log.d("TimeVoteActivity", "⚠️ 모든 멤버 투표 완료했지만 겹치는 시간이 없음")
@@ -791,6 +881,10 @@ class TimeVoteActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         dismissWaitingDialog()
+        finalVoteConfirmationDialog?.dismiss()
+        finalVoteConfirmationDialog = null
+        autoConfirmDialog?.dismiss()
+        autoConfirmDialog = null
         currentVoteObserver?.cancel()
     }
 

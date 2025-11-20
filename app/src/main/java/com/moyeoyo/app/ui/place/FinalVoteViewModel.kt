@@ -17,6 +17,7 @@ import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.data.model.Vote
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.MapRepository
+import com.moyeoyo.app.data.repository.VoteRepository
 import com.moyeoyo.app.ui.place.FinalCandidate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
@@ -32,7 +33,8 @@ data class VoteStatus(
 @HiltViewModel
 class FinalVoteViewModel @Inject constructor(
     private val mapRepository: MapRepository,
-    private val groupRepository: GroupRepository
+    private val groupRepository: GroupRepository,
+    private val voteRepository: VoteRepository
 ) : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
@@ -137,7 +139,8 @@ class FinalVoteViewModel @Inject constructor(
             val totalMembers = group?.memberUids?.size ?: 0
             
             // ⭐ vote 문서의 finalVotedUsers 배열 확인 (Single Source of Truth)
-            val allFinalVoted = groupRepository.checkAllUsersFinalVoted(groupId)
+            val memberUids = group?.memberUids ?: emptyList()
+            val allFinalVoted = voteRepository.checkAllUsersFinalVoted(groupId, memberUids)
             
             android.util.Log.d("FinalVoteViewModel", 
                 "🔍 승리 장소 결정 확인 - groupId: $groupId, totalMembers: $totalMembers, allFinalVoted: $allFinalVoted")
@@ -176,13 +179,13 @@ class FinalVoteViewModel @Inject constructor(
                     
                     winningCandidate?.let { candidate ->
                 // ⭐ vote 문서에 승리한 장소 저장 및 상태를 FINISHED로 변경
-                groupRepository.setWinningPlace(groupId, candidate.placeId, candidate.name)
+                voteRepository.setWinningPlace(groupId, candidate.placeId, candidate.name)
                 
                 android.util.Log.d("FinalVoteViewModel", 
                     "✅ 승리한 장소 결정: ${candidate.name} (placeId: ${candidate.placeId})")
                 
                 // ⭐ vote 문서의 finalCandidates에서 승리한 장소의 상세 정보 가져오기 (주소 포함)
-                val voteStatus = groupRepository.getVoteStatus(groupId)
+                val voteStatus = voteRepository.getVoteStatus(groupId)
                 val finalCandidate = voteStatus?.finalCandidates?.firstOrNull { 
                     it.placeId == candidate.placeId 
                 }
@@ -232,7 +235,7 @@ class FinalVoteViewModel @Inject constructor(
                 "📍 현재 사용자 입력 위치: ${if (userInputLocation != null) "있음" else "없음"}")
             
             // vote 문서 실시간 리스너 시작
-            groupRepository.listenToVoteStatus(groupId)
+            voteRepository.listenToVoteStatus(groupId)
                 .onEach { vote ->
                     if (vote != null) {
                         android.util.Log.d("FinalVoteViewModel", 
@@ -403,7 +406,7 @@ class FinalVoteViewModel @Inject constructor(
                 android.util.Log.d("FinalVoteViewModel", 
                     "💾 vote 문서에 finalCandidates 업데이트 및 상태 변경 시작 - 후보 수: ${finalCandidateDataList.size}")
                 
-                groupRepository.updateFinalCandidates(groupId, finalCandidateDataList)
+                voteRepository.updateFinalCandidates(groupId, finalCandidateDataList)
                 
                 android.util.Log.d("FinalVoteViewModel", 
                     "✅ vote 문서 업데이트 완료 - status: FINAL_VOTING")
@@ -500,7 +503,7 @@ class FinalVoteViewModel @Inject constructor(
                     mapRepository.votePlaceCandidate(groupId, candidate.id, uid)
                     
                     // 2. ⭐ vote 문서의 finalVotedUsers 배열에 현재 사용자 추가 (새로운 구조)
-                    groupRepository.addUserToFinalVotedList(groupId, uid)
+                    voteRepository.addUserToFinalVotedList(groupId, uid)
                     
                     android.util.Log.d("FinalVoteViewModel", 
                         "✅ 최종 투표 완료 - placeId: $placeId, uid: $uid")

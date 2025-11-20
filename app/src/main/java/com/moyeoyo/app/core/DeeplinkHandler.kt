@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
+import com.moyeoyo.app.MainActivity
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -47,18 +48,35 @@ class DeeplinkHandler constructor(
         lifecycleScope.launch {
             val group = groupRepository.getGroupById(groupId)
 
-            if (group != null) {
-                AlertDialog.Builder(context)
-                    .setTitle("${group.groupName}에 참가할까요?")
-                    .setMessage("현재 멤버 ${group.memberUids.size}명")
-                    .setPositiveButton("참가하기") { _, _ ->
-                        joinGroup(groupId)
-                    }
-                    .setNegativeButton("취소", null)
-                    .show()
-            } else {
+            if (group == null) {
                 Toast.makeText(context, "초대된 그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_LONG).show()
+                return@launch
             }
+
+            // ⭐ NEW: 투표 시작 이후면 참여 불가
+            if (group.status != "GROUP_CREATED") {
+                AlertDialog.Builder(context)
+                    .setTitle("참여할 수 없습니다")
+                    .setMessage("이미 투표가 시작된 그룹입니다.\n방장에게 문의해주세요.")
+                    .setPositiveButton("확인") { _, _ ->
+                        val intent = Intent(context, MainActivity::class.java)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                    }
+                    .setCancelable(false)
+                    .show()
+                return@launch
+            }
+
+            // ➜ 투표 시작 전이면 정상적으로 참여 가능
+            AlertDialog.Builder(context)
+                .setTitle("${group.groupName}에 참가할까요?")
+                .setMessage("현재 멤버 ${group.memberUids.size}명")
+                .setPositiveButton("참가하기") { _, _ ->
+                    joinGroup(groupId)
+                }
+                .setNegativeButton("취소", null)
+                .show()
         }
     }
 
