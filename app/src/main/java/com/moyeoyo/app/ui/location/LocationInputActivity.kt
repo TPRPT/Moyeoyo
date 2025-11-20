@@ -29,18 +29,25 @@ import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.map.MidpointActivity
+import com.moyeoyo.app.data.repository.GroupRepository
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class LocationInputActivity : AppCompatActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var firestore: FirebaseFirestore
     private lateinit var auth: FirebaseAuth
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
 
     private var selectedLocation: LatLng? = null
     private var selectedLocationType: String? = null // "current", "home", "work", "search"
@@ -575,6 +582,22 @@ class LocationInputActivity : AppCompatActivity() {
                     // 모든 사용자가 위치를 저장했으면 위치 입력 잠금
                     if (allInputted) {
                         isLocationLocked = true
+                        // ⭐ 모든 멤버가 위치 입력 완료 시 그룹 상태를 LOCATION_DONE으로 변경
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val currentGroup = groupRepository.getGroupDetail(groupId)
+                                if (currentGroup?.status == "LOCATION_INPUT_REQUIRED") {
+                                    val success = groupRepository.updateGroupStatus(groupId, "LOCATION_DONE")
+                                    if (success) {
+                                        Log.d("LocationInput", "✅ 그룹 상태 변경: LOCATION_INPUT_REQUIRED → LOCATION_DONE")
+                                    } else {
+                                        Log.e("LocationInput", "❌ 그룹 상태 변경 실패")
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e("LocationInput", "그룹 상태 변경 중 오류: ${e.message}")
+                            }
+                        }
                     }
                     updateUIForInputStatus(allInputted, missingUids)
                     // 잠금 상태에 따라 UI 업데이트

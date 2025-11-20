@@ -31,6 +31,7 @@ import com.moyeoyo.app.databinding.ActivityMidpointBinding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.moyeoyo.app.ui.place.RecommendedPlaceActivity
+import com.moyeoyo.app.data.repository.GroupRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,7 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -49,6 +51,9 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
     private var pendingTravelTimesDialog = false
     private var pendingNearbyDialog = false
     private var googleMap: GoogleMap? = null
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -140,8 +145,24 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
             if (pendingNearbyDialog && !s.isNearbyLoading) {
                 if (s.weightedCenter != null) {
                     pendingNearbyDialog = false
-                    // RecommendedPlaceActivity로 이동
+                    // ⭐ 중간값 계산 완료 시 그룹 상태를 LOCATION_DONE으로 변경 (아직 변경되지 않은 경우만)
                     val groupId = intent.getStringExtra("groupId") ?: ""
+                    if (groupId.isNotEmpty()) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val currentGroup = groupRepository.getGroupDetail(groupId)
+                                if (currentGroup?.status == "LOCATION_INPUT_REQUIRED") {
+                                    val success = groupRepository.updateGroupStatus(groupId, "LOCATION_DONE")
+                                    if (success) {
+                                        android.util.Log.d("MidpointActivity", "✅ 그룹 상태 변경: LOCATION_INPUT_REQUIRED → LOCATION_DONE")
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("MidpointActivity", "그룹 상태 변경 중 오류: ${e.message}")
+                            }
+                        }
+                    }
+                    // RecommendedPlaceActivity로 이동
                     val intent = android.content.Intent(this, RecommendedPlaceActivity::class.java).apply {
                         putExtra("groupId", groupId)
                         putExtra("centerLat", s.weightedCenter.lat)

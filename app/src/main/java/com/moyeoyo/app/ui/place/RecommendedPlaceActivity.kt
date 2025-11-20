@@ -618,6 +618,26 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
             return
         }
         
+        // ⭐ 모든 순위 지정 완료 시 그룹 상태를 PLACE_RANKING으로 변경
+        lifecycleScope.launch {
+            try {
+                val currentGroup = groupRepository.getGroupDetail(groupId)
+                if (currentGroup?.status == "LOCATION_DONE") {
+                    val success = groupRepository.updateGroupStatus(groupId, "PLACE_RANKING")
+                    if (success) {
+                        android.util.Log.d("RecommendedPlaceActivity", 
+                            "✅ 그룹 상태 변경: LOCATION_DONE → PLACE_RANKING")
+                    } else {
+                        android.util.Log.e("RecommendedPlaceActivity", 
+                            "❌ 그룹 상태 변경 실패")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RecommendedPlaceActivity", 
+                    "그룹 상태 변경 중 오류: ${e.message}")
+            }
+        }
+        
         android.util.Log.d("RecommendedPlaceActivity", 
             "🚀 최종 투표 화면으로 이동 - groupId: $groupId")
         

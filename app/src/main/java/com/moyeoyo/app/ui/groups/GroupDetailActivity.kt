@@ -256,7 +256,7 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
                     }
                     startActivity(intent)
                     return@launch
-                }
+        }
 
                 // 최종 시간 투표 화면으로 이동
                 val intent = Intent(this@GroupDetailActivity, FinalTimeVoteActivity::class.java).apply {
