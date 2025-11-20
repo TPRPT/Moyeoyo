@@ -49,8 +49,6 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
     private var pendingTravelTimesDialog = false
     private var pendingNearbyDialog = false
     private var googleMap: GoogleMap? = null
-    private var isMapReady = false
-    private var pendingWinningPlace: com.moyeoyo.app.data.model.NearbyPlace? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,32 +72,33 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         setupViews()
         observe()
 
-        // Intent로 groupId가 전달된 경우 자동으로 데이터 로드
-        if (intent.hasExtra("groupId")) {
-            viewModel.loadGroupMembers(groupId)
-        }
-        
-        // Intent로 승리한 장소가 전달된 경우 selectedPlace로 설정
+        // ⭐ Intent 처리: 최종 확정 장소가 있으면 최종 모드로, 없으면 중간 지점 계산 모드로
         val selectedPlaceId = intent.getStringExtra("selectedPlaceId")
-        val selectedPlaceName = intent.getStringExtra("selectedPlaceName")
-        val selectedPlaceLat = intent.getDoubleExtra("selectedPlaceLat", 0.0)
-        val selectedPlaceLng = intent.getDoubleExtra("selectedPlaceLng", 0.0)
-        
-        if (selectedPlaceId != null && selectedPlaceName != null && 
-            selectedPlaceLat != 0.0 && selectedPlaceLng != 0.0) {
-            // NearbyPlace 생성 및 선택
-            val winningPlace = com.moyeoyo.app.data.model.NearbyPlace(
-                placeId = selectedPlaceId,
-                name = selectedPlaceName,
-                address = null,
-                latLng = com.moyeoyo.app.data.model.LatLngData(selectedPlaceLat, selectedPlaceLng),
-                categories = emptyList(),
-                rating = null,
-                distanceMeters = 0.0
-            )
+        if (selectedPlaceId != null) {
+            // 최종 확정 장소가 있으면 최종 모드로 전환
+            val selectedPlaceName = intent.getStringExtra("selectedPlaceName") ?: "알 수 없는 장소"
+            val selectedPlaceAddress = intent.getStringExtra("selectedPlaceAddress")
+            val selectedPlaceLat = intent.getDoubleExtra("selectedPlaceLat", 0.0)
+            val selectedPlaceLng = intent.getDoubleExtra("selectedPlaceLng", 0.0)
             
-            // 그룹 멤버 로드 후 승리한 장소 선택 (observe 함수 내에서 처리)
-            pendingWinningPlace = winningPlace
+            if (selectedPlaceLat != 0.0 && selectedPlaceLng != 0.0) {
+                val winningPlace = com.moyeoyo.app.data.model.NearbyPlace(
+                    placeId = selectedPlaceId,
+                    name = selectedPlaceName,
+                    address = selectedPlaceAddress,
+                    latLng = com.moyeoyo.app.data.model.LatLngData(selectedPlaceLat, selectedPlaceLng),
+                    categories = emptyList(),
+                    rating = null,
+                    distanceMeters = 0.0
+                )
+                // ViewModel에게 최종 모드로 전환하라고 알림
+                viewModel.setFinalizedMode(winningPlace)
+            }
+        } else {
+            // 최종 확정 장소가 없으면 중간 지점 계산 모드로 시작
+            if (intent.hasExtra("groupId")) {
+                viewModel.loadGroupMembers(groupId)
+            }
         }
     }
 
@@ -126,28 +125,15 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun observe() {
         viewModel.state.observe(this) { s ->
-            // 중간지점 표시
-            s.weightedCenter?.let { center ->
-                binding.tvMidpointCoords.text = "위도: %.6f° / 경도: %.6f°".format(center.lat, center.lng)
-                // 주소 가져오기
-                getAddressFromLocation(center) { address ->
-                    binding.tvMidpointAddress.text = address
-                }
-            }
+            // ⭐ ViewModel의 isFinalized 상태에 따라 UI 업데이트
+            val isFinalized = viewModel.isFinalized.value == true
+            updateUIForMode(isFinalized, s)
 
             // 멤버별 소요시간 표시
             if (s.distanceByMember.isNotEmpty()) {
                 bindMemberDistances(s)
             } else if (adapter.itemCount != 0) {
                 adapter.submitList(emptyList())
-            }
-            
-            // 승리한 장소 선택 (멤버 로드 후 한 번만 실행)
-            pendingWinningPlace?.let { winningPlace ->
-                if (s.members.isNotEmpty()) {
-                    viewModel.selectNearbyPlace(winningPlace)
-                    pendingWinningPlace = null // 한 번만 실행되도록 null로 설정
-                }
             }
 
             // 주변 장소 필터링 화면으로 이동
@@ -181,6 +167,43 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             updateMapMarkers(s)
+        }
+    }
+
+    /**
+     * 최종 모드 여부에 따라 UI 업데이트
+     */
+    private fun updateUIForMode(isFinalized: Boolean, state: MapState) {
+        if (isFinalized) {
+            // 최종 확정된 약속 장소 정보 표시
+            binding.tvMidpointTitle.text = "최종 확정된 약속 장소"
+            state.selectedPlace?.let { place ->
+                binding.tvMidpointAddress.text = place.name
+                if (!place.address.isNullOrBlank()) {
+                    binding.tvMidpointCoords.text = place.address
+                } else {
+                    binding.tvMidpointCoords.text = "위도: %.6f° / 경도: %.6f°".format(
+                        place.latLng.lat, 
+                        place.latLng.lng
+                    )
+                }
+            } ?: run {
+                binding.tvMidpointAddress.text = "장소 정보를 불러오는 중..."
+                binding.tvMidpointCoords.text = ""
+            }
+        } else {
+            // 중간지점 표시
+            binding.tvMidpointTitle.text = "계산된 중간 지점"
+            state.weightedCenter?.let { center ->
+                binding.tvMidpointCoords.text = "위도: %.6f° / 경도: %.6f°".format(center.lat, center.lng)
+                // 주소 가져오기
+                getAddressFromLocation(center) { address ->
+                    binding.tvMidpointAddress.text = address
+                }
+            } ?: run {
+                binding.tvMidpointAddress.text = "중간 지점을 계산 중입니다..."
+                binding.tvMidpointCoords.text = ""
+            }
         }
     }
 
@@ -219,13 +242,33 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onMapReady(map: GoogleMap) {
         googleMap = map
-        isMapReady = true
         map.uiSettings.isZoomControlsEnabled = true
+        
+        // ⭐ ViewModel에 지도 준비 완료를 알림
+        viewModel.onMapReady()
+        
+        // 마커 클릭 리스너 설정
+        map.setOnMarkerClickListener { marker ->
+            // 최종 확정된 장소 마커인지 확인
+            val isFinalized = viewModel.isFinalized.value == true
+            val selectedPlace = viewModel.state.value?.selectedPlace
+            
+            if (isFinalized && selectedPlace != null && 
+                marker.position.latitude == selectedPlace.latLng.lat && 
+                marker.position.longitude == selectedPlace.latLng.lng) {
+                // 최종 확정된 장소 마커 클릭 시 정보 표시
+                marker.showInfoWindow()
+                true // 이벤트 소비
+            } else {
+                false // 기본 동작 수행
+            }
+        }
+        
+        // 지도가 준비되면 현재 상태로 마커 업데이트
         viewModel.state.value?.let { updateMapMarkers(it) }
     }
 
     private fun updateMapMarkers(state: MapState) {
-        if (!isMapReady) return
         val map = googleMap ?: return
         map.clear()
 
@@ -245,28 +288,45 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
             hasPoint = true
         }
 
-        state.weightedCenter?.let { center ->
-            val position = LatLng(center.lat, center.lng)
-            map.addMarker(
-                MarkerOptions()
-                    .position(position)
-                    .title(getString(R.string.center_marker_title))
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
-            )
-            builder.include(position)
-            hasPoint = true
-        }
-
-        state.selectedPlace?.let { place ->
-            val position = LatLng(place.latLng.lat, place.latLng.lng)
-        map.addMarker(
-            MarkerOptions()
-                    .position(position)
-                    .title(place.name)
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))
-            )
-            builder.include(position)
-            hasPoint = true
+        // ⭐ 최종 모드 여부에 따라 마커 표시 분기
+        val isFinalized = viewModel.isFinalized.value == true
+        
+        if (isFinalized) {
+            // 최종 모드: 최종 확정된 장소에 빨간색 마커 표시
+            state.selectedPlace?.let { place ->
+                val position = LatLng(place.latLng.lat, place.latLng.lng)
+                android.util.Log.d("MidpointActivity", 
+                    "✅ 승리한 장소 마커 추가: ${place.name}, 위치: (${place.latLng.lat}, ${place.latLng.lng}), 주소: ${place.address}")
+                val marker = map.addMarker(
+                    MarkerOptions()
+                        .position(position)
+                        .title(place.name)
+                        .snippet(place.address ?: "최종 확정된 장소")
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                )
+                if (marker != null) {
+                    android.util.Log.d("MidpointActivity", "✅ 빨간색 마커 추가 성공")
+                } else {
+                    android.util.Log.e("MidpointActivity", "❌ 마커 추가 실패")
+                }
+                builder.include(position)
+                hasPoint = true
+            } ?: run {
+                android.util.Log.d("MidpointActivity", "⏸️ 최종 모드이지만 selectedPlace가 null입니다")
+            }
+        } else {
+            // 중간 지점 모드: 중간 지점에 파란색 마커 표시
+            state.weightedCenter?.let { center ->
+                val position = LatLng(center.lat, center.lng)
+                map.addMarker(
+                    MarkerOptions()
+                        .position(position)
+                        .title(getString(R.string.center_marker_title))
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+                )
+                builder.include(position)
+                hasPoint = true
+            }
         }
 
         if (hasPoint) {

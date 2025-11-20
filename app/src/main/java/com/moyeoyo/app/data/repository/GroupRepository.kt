@@ -9,6 +9,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Source
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.model.Vote
 import com.moyeoyo.app.data.model.FinalCandidateData
@@ -491,7 +492,8 @@ class GroupRepository @Inject constructor(
             val voteRef = groupsCollection.document(groupId)
                 .collection("vote")
                 .document("vote")
-            val voteSnapshot = voteRef.get().await()
+            // ⚠️ Source.SERVER 추가하여 서버 데이터만 확인 (캐시 문제 방지)
+            val voteSnapshot = voteRef.get(Source.SERVER).await()
             
             @Suppress("UNCHECKED_CAST")
             val finalVotedUsers = voteSnapshot.get("finalVotedUsers") as? List<String> ?: emptyList()

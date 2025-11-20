@@ -207,11 +207,12 @@ class FinalVoteActivity : AppCompatActivity() {
             .setTitle("최종 약속 장소 확정")
             .setMessage("최종 약속 장소는 \"${winningPlace.name}\"로 선정되었습니다.\n중간값 계산 화면으로 이동하여 소요시간을 확인하시겠습니까?")
             .setPositiveButton("확인") { _, _ ->
-                // 중간값 계산 화면으로 이동하며 승리한 장소 전달
+                // 중간값 계산 화면으로 이동하며 승리한 장소 전달 (주소 포함)
                 val intent = Intent(this, MidpointActivity::class.java).apply {
                     putExtra("groupId", groupId)
                     putExtra("selectedPlaceId", winningPlace.placeId)
                     putExtra("selectedPlaceName", winningPlace.name)
+                    putExtra("selectedPlaceAddress", winningPlace.address)
                     putExtra("selectedPlaceLat", winningPlace.latLng.lat)
                     putExtra("selectedPlaceLng", winningPlace.latLng.lng)
                 }

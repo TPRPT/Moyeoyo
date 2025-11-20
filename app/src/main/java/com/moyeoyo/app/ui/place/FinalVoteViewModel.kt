@@ -181,6 +181,12 @@ class FinalVoteViewModel @Inject constructor(
                 android.util.Log.d("FinalVoteViewModel", 
                     "✅ 승리한 장소 결정: ${candidate.name} (placeId: ${candidate.placeId})")
                 
+                // ⭐ vote 문서의 finalCandidates에서 승리한 장소의 상세 정보 가져오기 (주소 포함)
+                val voteStatus = groupRepository.getVoteStatus(groupId)
+                val finalCandidate = voteStatus?.finalCandidates?.firstOrNull { 
+                    it.placeId == candidate.placeId 
+                }
+                
                 // PlaceCandidate를 NearbyPlace로 변환하여 UI에 표시
                         val latLng = candidate.latLng?.let { 
                             LatLngData(it.latitude, it.longitude) 
@@ -189,10 +195,10 @@ class FinalVoteViewModel @Inject constructor(
                         val winningPlace = NearbyPlace(
                             placeId = candidate.placeId,
                             name = candidate.name,
-                            address = null,
+                            address = finalCandidate?.address, // ⭐ finalCandidates에서 주소 가져오기
                             latLng = latLng,
-                            categories = emptyList(),
-                            rating = null,
+                            categories = finalCandidate?.categories ?: emptyList(),
+                            rating = finalCandidate?.rating,
                     distanceMeters = userInputLocation?.let { inputLoc ->
                         calculateDistanceMeters(
                             inputLoc.latLng,
@@ -503,13 +509,11 @@ class FinalVoteViewModel @Inject constructor(
                     loadVoteStatus(groupId)
                     
                     // 4. ⭐ 내 투표 완료 후 충분한 지연을 두고 모든 사용자 완료 여부 확인 (Firestore 서버 동기화 시간 확보)
-                    kotlinx.coroutines.delay(1500)
-                    
-                    // 5. ⭐ 핵심: 내 투표 후에만 모든 사용자가 투표했는지 확인하고 승리 장소 결정
-                    // ⚠️ Firestore 동기화를 위한 지연 시간 필요 (다른 사용자의 투표가 반영되기 전)
                     android.util.Log.d("FinalVoteViewModel", 
                         "🔍 내 투표 저장 완료 후 모든 사용자 투표 완료 여부 확인 시작 (동기화 대기)")
                     kotlinx.coroutines.delay(1500) // Firestore 동기화 시간 확보
+                    
+                    // 5. ⭐ 핵심: 내 투표 후에만 모든 사용자가 투표했는지 확인하고 승리 장소 결정
                     determineWinner(groupId)
                     
                     _voteSuccess.value = true
