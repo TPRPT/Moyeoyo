@@ -197,6 +197,81 @@ class GroupRepository @Inject constructor(
         }
     }
 
+    // 그룹에서 특정 멤버 제거
+    suspend fun removeMember(groupId: String, memberUid: String): Boolean {
+        return try {
+            val groupRef = groupsCollection.document(groupId)
+            val userRef = usersCollection.document(memberUid)
+
+            db.runTransaction { tx ->
+                val snap = tx.get(groupRef)
+                if (!snap.exists()) throw IllegalStateException("Group missing")
+
+                @Suppress("UNCHECKED_CAST")
+                val members = snap.get("memberUids") as? List<String> ?: emptyList()
+
+                if (!members.contains(memberUid)) return@runTransaction null
+
+                val newMembers = members.filter { it != memberUid }
+                tx.update(groupRef, "memberUids", newMembers)
+
+                tx.update(userRef, "groups", FieldValue.arrayRemove(groupId))
+
+                tx.delete(groupRef.collection("inputLocations").document(memberUid))
+                null
+            }.await()
+
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // 내가 그룹 나가기
+    suspend fun leaveGroup(groupId: String) =
+        removeMember(groupId, auth.currentUser?.uid ?: "")
+
+
+    // 그룹 삭제
+    suspend fun deleteGroup(groupId: String): Boolean {
+        val groupRef = groupsCollection.document(groupId)
+
+        return try {
+            val snap = groupRef.get().await()
+            @Suppress("UNCHECKED_CAST")
+            val members = snap.get("memberUids") as? List<String> ?: emptyList()
+
+            // 하위 컬렉션 삭제
+            deleteCollection(groupRef.collection("inputLocations"))
+            deleteCollection(groupRef.collection("placeCandidates"))
+            deleteCollection(groupRef.collection("timeCandidates"))
+
+            // 그룹 문서 삭제
+            groupRef.delete().await()
+
+            // 모든 유저에서 groupId 제거
+            val batch = db.batch()
+            members.forEach { uid ->
+                batch.update(usersCollection.document(uid), "groups", FieldValue.arrayRemove(groupId))
+            }
+            batch.commit().await()
+
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // 하위 컬렉션 삭제
+    private suspend fun deleteCollection(col: CollectionReference, batchSize: Int = 100) {
+        val snap = col.limit(batchSize.toLong()).get().await()
+        if (snap.isEmpty) return
+
+        val batch = db.batch()
+        snap.documents.forEach { batch.delete(it.reference) }
+        batch.commit().await()
+    }
+
     // -------------------------------------------------------
     // 투표 시스템 전체 (HEAD 유지)
     // -------------------------------------------------------
