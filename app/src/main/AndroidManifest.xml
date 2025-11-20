@@ -38,6 +38,7 @@
         <activity android:name=".ui.groups.SelectFriendsActivity" />
         <activity android:name=".ui.groups.GroupInviteActivity" />
         <activity android:name=".ui.groups.GroupDetailActivity" />
+        <activity android:name=".ui.groups.ShareMeetingActivity" />
 
         <activity android:name=".ui.vote.ConfirmActivity" />
 
