@@ -5,6 +5,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.moyeoyo.app.data.repository.NotificationRepository
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
+import com.moyeoyo.app.data.repository.VoteRepository
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -38,13 +39,23 @@ object AppModule {
         return FriendRepository(db, auth, notificationRepository)
     }
 
+    // VoteRepository
+    @Provides
+    @Singleton
+    fun provideVoteRepository(
+        db: FirebaseFirestore
+    ): VoteRepository {
+        return VoteRepository(db)
+    }
+
     // GroupRepository
     @Provides
     @Singleton
     fun provideGroupRepository(
         db: FirebaseFirestore,
-        auth: FirebaseAuth
+        auth: FirebaseAuth,
+        voteRepository: VoteRepository
     ): GroupRepository {
-        return GroupRepository(db, auth)
+        return GroupRepository(db, auth, voteRepository)
     }
 }
