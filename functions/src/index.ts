@@ -40,7 +40,8 @@ async function createNotification(uid: string, data: any) {
     .add({
       ...data,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      read: false
+      read: false,
+      handled: false,
     });
 }
 
@@ -58,23 +59,21 @@ async function sendPushToMembers(
   if (tokens.length > 0) {
     await admin.messaging().sendEachForMulticast({
       tokens,
-      notification: {
-        title,
-        body: message
-      },
+      notification: { title, body: message },
       data
     });
   }
 
-  // Firestore 알림 문서 저장
+  // Firestore 알림 저장 시 전달된 data를 그대로 포함
   for (const uid of memberUids) {
     await createNotification(uid, {
       title,
       message,
-      type: data.type ?? "group_event"
+      ...data
     });
   }
 }
+
 
 /* ------------------------------------------------------
   1) 친구 요청 알림
@@ -116,7 +115,8 @@ export const onFriendRequestCreated = onDocumentCreated(
     await createNotification(receiverUid, {
       title: "새 친구 요청",
       message: `${senderName}님이 친구 요청을 보냈습니다!`,
-      type: "friend_request"
+      type: "friend_request",
+      senderUid: senderUid
     });
   }
 );
