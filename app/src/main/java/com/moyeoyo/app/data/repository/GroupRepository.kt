@@ -240,6 +240,68 @@ class GroupRepository @Inject constructor(
     }
 
     /**
+     * 그룹 상태 업데이트
+     */
+    suspend fun updateGroupStatus(groupId: String, status: String): Boolean {
+        return try {
+            groupsCollection.document(groupId)
+                .update("status", status)
+                .await()
+            
+            Log.d(TAG, "✅ 그룹 상태 업데이트: groupId=$groupId, status=$status")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 그룹 상태 업데이트 실패: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * 최종 시간 확정
+     */
+    suspend fun setFinalTime(groupId: String, date: String, time: String): Boolean {
+        return try {
+            // Timestamp 생성 (날짜 + 시간)
+            // time 형식: "HH:mm" 또는 "HH시"
+            val normalizedTime = time.replace("시", ":00").replace("분", "")
+            val dateTimeStr = "$date $normalizedTime"
+            
+            val dateTime = try {
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                    .parse(dateTimeStr)
+            } catch (e: Exception) {
+                // 다른 형식 시도
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                    .parse(dateTimeStr)
+            }
+            
+            val timestamp = if (dateTime != null) {
+                Timestamp(dateTime)
+            } else {
+                Log.e(TAG, "날짜 파싱 실패: date=$date, time=$time, normalizedTime=$normalizedTime")
+                null
+            }
+
+            if (timestamp == null) {
+                return false
+            }
+
+            groupsCollection.document(groupId)
+                .update(
+                    "confirmedTime", timestamp,
+                    "status", "LOCATION_INPUT_REQUIRED"
+                )
+                .await()
+            
+            Log.d(TAG, "✅ 최종 시간 확정: groupId=$groupId, date=$date, time=$time, timestamp=$timestamp")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 최종 시간 확정 실패: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
      * ⭐ NEW: 확정된 일정 정보(장소/시간)를 Firestore에 저장하고 그룹 상태를 변경합니다.
      */
     suspend fun confirmGroupSchedule(
@@ -341,6 +403,7 @@ class GroupRepository @Inject constructor(
             deleteCollection(groupRef.collection("inputLocations"))
             deleteCollection(groupRef.collection("placeCandidates"))
             deleteCollection(groupRef.collection("timeCandidates"))
+            deleteCollection(groupRef.collection("vote"))
 
             // 3. 그룹 문서 삭제
             groupRef.delete().await()
