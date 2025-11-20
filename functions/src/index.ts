@@ -5,7 +5,15 @@ import {
 } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
-admin.initializeApp();
+/* ------------------------------------------------------
+  Admin SDK 초기화 (Node 22 + Functions v2 필수)
+-------------------------------------------------------*/
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault()
+  });
+}
+
 const db = admin.firestore();
 
 /* ------------------------------------------------------
@@ -14,29 +22,30 @@ const db = admin.firestore();
 async function getMembersFcmTokens(memberUids: string[]): Promise<string[]> {
   const tokens: string[] = [];
   for (const uid of memberUids) {
-    const userDoc = await db.collection("users").doc(uid).get();
-    const token = userDoc.get("fcmToken");
+    const doc = await db.collection("users").doc(uid).get();
+    const token = doc.get("fcmToken");
     if (token) tokens.push(token);
   }
   return tokens;
 }
 
 /* ------------------------------------------------------
-  공통: Firestore notifications 저장
+  공통: 알림 문서 생성
 -------------------------------------------------------*/
 async function createNotification(uid: string, data: any) {
-  await db
+  return db
     .collection("users")
     .doc(uid)
     .collection("notifications")
     .add({
       ...data,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read: false
     });
 }
 
 /* ------------------------------------------------------
-  공통: 푸시 발송 + Firestore 알림 저장
+  공통: 푸시 + 알림 문서 생성 (FCM v1 안정 API)
 -------------------------------------------------------*/
 async function sendPushToMembers(
   memberUids: string[],
@@ -45,14 +54,19 @@ async function sendPushToMembers(
   data: any = {}
 ) {
   const tokens = await getMembersFcmTokens(memberUids);
+
   if (tokens.length > 0) {
-    await admin.messaging().sendToDevice(tokens, {
-      notification: { title, body: message },
+    await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title,
+        body: message
+      },
       data
     });
   }
 
-  // Firestore 알림 문서 생성
+  // Firestore 알림 문서 저장
   for (const uid of memberUids) {
     await createNotification(uid, {
       title,
@@ -63,7 +77,7 @@ async function sendPushToMembers(
 }
 
 /* ------------------------------------------------------
-  1) 기존 친구 요청 알림 ( 그대로 유지 )
+  1) 친구 요청 알림
 -------------------------------------------------------*/
 export const onFriendRequestCreated = onDocumentCreated(
   {
@@ -71,27 +85,34 @@ export const onFriendRequestCreated = onDocumentCreated(
     document: "friendRequests/{requestId}"
   },
   async (event) => {
-    const data = event.data?.data();
+    const snap = event.data;
+    if (!snap) return;
+
+    const data = snap.data();
     if (!data) return;
 
-    const receiverUid = data.receiverUid;
     const senderUid = data.senderUid;
+    const receiverUid = data.receiverUid;
 
     const senderDoc = await db.collection("users").doc(senderUid).get();
     const senderName = senderDoc.get("nickname") ?? "누군가";
 
     const receiverDoc = await db.collection("users").doc(receiverUid).get();
-    const token = receiverDoc.get("fcmToken");
-    if (!token) return;
+    const receiverToken = receiverDoc.get("fcmToken");
 
-    await admin.messaging().sendToDevice(token, {
-      notification: {
-        title: "새 친구 요청",
-        body: `${senderName}님이 친구 요청을 보냈습니다.`
-      },
-      data: { type: "friend_request" }
-    });
+    // FCM 푸시
+    if (receiverToken) {
+      await admin.messaging().sendEachForMulticast({
+        tokens: [receiverToken],
+        notification: {
+          title: "새 친구 요청",
+          body: `${senderName}님이 친구 요청을 보냈습니다.`
+        },
+        data: { type: "friend_request" }
+      });
+    }
 
+    // Firestore 저장
     await createNotification(receiverUid, {
       title: "새 친구 요청",
       message: `${senderName}님이 친구 요청을 보냈습니다.`,
@@ -101,8 +122,7 @@ export const onFriendRequestCreated = onDocumentCreated(
 );
 
 /* ------------------------------------------------------
-  2) 그룹 상태 변경 → 푸시 발송
-  (GROUP_CREATED 는 제외)
+  2) 그룹 상태 변경 알림
 -------------------------------------------------------*/
 export const onGroupStatusChanged = onDocumentUpdated(
   {
@@ -110,18 +130,20 @@ export const onGroupStatusChanged = onDocumentUpdated(
     document: "groups/{groupId}"
   },
   async (event) => {
-    const before = event.data?.before.data();
-    const after = event.data?.after.data();
+    const before = event?.data?.before?.data();
+    const after = event?.data?.after?.data();
 
     if (!before || !after) return;
-    if (before.status === after.status) return;
 
-    const status = after.status;
+    const previousStatus = before.status;
+    const newStatus = after.status;
+
+    if (!newStatus || previousStatus === newStatus) return;
+
     const memberUids = after.memberUids ?? [];
     const groupName = after.groupName ?? "모임";
 
-    switch (status) {
-      // ⭐ 방장이 투표 시작 눌렀을 때만 시간 투표 요청
+    switch (newStatus) {
       case "TIME_VOTE_REQUIRED":
         await sendPushToMembers(
           memberUids,
@@ -180,25 +202,25 @@ export const onGroupStatusChanged = onDocumentUpdated(
 );
 
 /* ------------------------------------------------------
-  3) 약속 전날 알림 (Scheduler)
+  3) 약속 전날 알림
 -------------------------------------------------------*/
 export const appointmentReminder = onSchedule("0 9 * * *", async () => {
-  const now = new Date();
-  const tomorrow = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + 1
-  );
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const start = new Date(tomorrow.setHours(0, 0, 0));
+  const end = new Date(tomorrow.setHours(23, 59, 59));
 
   const snap = await db
     .collection("groups")
-    .where("confirmedTime", ">=", new Date(tomorrow.setHours(0, 0, 0)))
-    .where("confirmedTime", "<=", new Date(tomorrow.setHours(23, 59, 59)))
+    .where("confirmedTime", ">=", start)
+    .where("confirmedTime", "<=", end)
     .get();
 
   for (const doc of snap.docs) {
-    const group = doc.data();
-    const memberUids = group.memberUids ?? [];
+    const data = doc.data();
+    const memberUids = data.memberUids ?? [];
 
     await sendPushToMembers(
       memberUids,
