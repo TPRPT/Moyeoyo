@@ -89,8 +89,12 @@ class NotificationActivity : AppCompatActivity() {
 
                 emptyText.visibility = if (sorted.isEmpty()) View.VISIBLE else View.GONE
 
-                if (unreadIds.isNotEmpty()) {
-                    notificationRepository.markNotificationsAsRead(unreadIds)
+                val unreadNormalIds = rawList
+                    .filter { !it.read && it.type != "friend_request" }
+                    .map { it.id }
+
+                if (unreadNormalIds.isNotEmpty()) {
+                    notificationRepository.markNotificationsAsRead(unreadNormalIds)
                 }
 
             } catch (e: Exception) {
@@ -175,10 +179,11 @@ class NotificationActivity : AppCompatActivity() {
             holder.time.text = item.time
 
             // 읽음/안읽음 시각 효과
-            if (item.read) {
-                holder.card.alpha = 0.4f      // 흐림 효과
+            // 친구 요청은 handled=true 일 때만 흐림!
+            if (item.type == "friend_request") {
+                holder.card.alpha = if (item.handled) 0.4f else 1.0f
             } else {
-                holder.card.alpha = 1.0f
+                holder.card.alpha = if (item.read) 0.4f else 1.0f
             }
 
             holder.card.setOnClickListener {
@@ -268,9 +273,10 @@ class NotificationActivity : AppCompatActivity() {
                     }
                 }
             }
-            .setNegativeButton("취소") { _, _ ->
+            .setNegativeButton("거절") { _, _ ->
                 lifecycleScope.launch {
                     notificationRepository.markNotificationAsRead(item.id)
+                    notificationRepository.markNotificationAsHandled(item.id)
                     loadNotifications()
                 }
             }

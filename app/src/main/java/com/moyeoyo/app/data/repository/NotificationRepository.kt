@@ -87,6 +87,7 @@ class NotificationRepository(
                         groupId = doc.getString("groupId"),
                         senderUid = doc.getString("senderUid"),
                         read = doc.getBoolean("read") ?: false,
+                        handled = doc.getBoolean("handled") ?: false,
                         createdAt = doc.getTimestamp("createdAt")
                     )
                 } catch (e: Exception) {
