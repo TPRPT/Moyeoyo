@@ -13,6 +13,7 @@ import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.data.model.Vote
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.MapRepository
+import com.moyeoyo.app.data.repository.VoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -22,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class RecommendedPlaceViewModel @Inject constructor(
     private val mapRepository: MapRepository,
-    private val groupRepository: GroupRepository
+    private val groupRepository: GroupRepository,
+    private val voteRepository: VoteRepository
 ) : ViewModel() {
 
     private val _places = MutableLiveData<List<NearbyPlace>>(emptyList())
@@ -73,11 +75,11 @@ class RecommendedPlaceViewModel @Inject constructor(
         // ⭐ Activity 시작 시 vote 문서 상태 확인 및 초기화 (이전 테스트 데이터 정리)
         viewModelScope.launch {
             try {
-                val voteStatus = groupRepository.getVoteStatus(id)
+                val voteStatus = voteRepository.getVoteStatus(id)
                 if (voteStatus?.status == "FINISHED") {
                     android.util.Log.d("RecommendedPlaceViewModel", 
                         "⚠️ vote 문서가 FINISHED 상태입니다. 이전 테스트 데이터를 초기화합니다.")
-                    groupRepository.resetVoteStatus(id)
+                    voteRepository.resetVoteStatus(id)
                     android.util.Log.d("RecommendedPlaceViewModel", 
                         "✅ vote 문서를 RANKING 상태로 초기화했습니다.")
                 }
@@ -96,7 +98,7 @@ class RecommendedPlaceViewModel @Inject constructor(
      * FINAL_VOTING이나 FINISHED 상태는 이 ViewModel의 관심사가 아님
      */
     private fun startListeningToVoteStatus(groupId: String) {
-        groupRepository.listenToVoteStatus(groupId)
+        voteRepository.listenToVoteStatus(groupId)
             .onEach { vote ->
                 if (vote == null) return@onEach
                 
@@ -124,7 +126,9 @@ class RecommendedPlaceViewModel @Inject constructor(
                     if (_hasUserRanking.value == true) {
                         viewModelScope.launch {
                             // 한 번 더 확인하여 모든 사용자가 확정했는지 검증
-                            val allRanked = groupRepository.checkAllUsersRanked(groupId)
+                            val group = groupRepository.getGroupById(groupId)
+                            val memberUids = group?.memberUids ?: emptyList()
+                            val allRanked = voteRepository.checkAllUsersRanked(groupId, memberUids)
                             android.util.Log.d("RecommendedPlaceViewModel", 
                                 "🔍 FINAL_VOTING 상태 - 모든 사용자 완료 여부 확인: allRanked=$allRanked")
                             
@@ -150,7 +154,9 @@ class RecommendedPlaceViewModel @Inject constructor(
                     // 현재 사용자가 이미 확정한 경우에만 다른 사용자들의 완료 여부 확인
                     if (_hasUserRanking.value == true) {
                         viewModelScope.launch {
-                            val allRanked = groupRepository.checkAllUsersRanked(groupId)
+                            val group = groupRepository.getGroupById(groupId)
+                            val memberUids = group?.memberUids ?: emptyList()
+                            val allRanked = voteRepository.checkAllUsersRanked(groupId, memberUids)
                             android.util.Log.d("RecommendedPlaceViewModel", 
                                 "🔍 RANKING 상태 확인 (다른 사용자 확정 감지) - allRanked: $allRanked")
                             
@@ -317,7 +323,7 @@ class RecommendedPlaceViewModel @Inject constructor(
                 
                 // 2. vote 문서의 rankedUsers 배열에 현재 사용자 추가
                 // ⚠️ 이 변경이 리스너를 트리거하여 자동으로 완료 여부를 확인함
-                groupRepository.addUserToRankedList(id, uid)
+                voteRepository.addUserToRankedList(id, uid)
                 
                 // 3. UI 업데이트를 위한 상태 설정
                 _hasUserRanking.value = true
@@ -335,9 +341,11 @@ class RecommendedPlaceViewModel @Inject constructor(
                 // _hasUserRanking.value == true이어야 이 함수가 실행되는 것이 보장되지만,
                 // 혹시 모를 상황을 대비하여 명시적으로 확인
                 if (_hasUserRanking.value == true) {
-                    val currentVoteStatus = groupRepository.getVoteStatus(id)
+                    val currentVoteStatus = voteRepository.getVoteStatus(id)
                     if (currentVoteStatus != null) {
-                        val allRanked = groupRepository.checkAllUsersRanked(id)
+                        val group = groupRepository.getGroupById(id)
+                        val memberUids = group?.memberUids ?: emptyList()
+                        val allRanked = voteRepository.checkAllUsersRanked(id, memberUids)
                         android.util.Log.d("RecommendedPlaceViewModel", 
                             "🔍 순위 저장 후 즉시 확인 - status: ${currentVoteStatus.status}, allRanked: $allRanked, _hasUserRanking: ${_hasUserRanking.value}")
                         
