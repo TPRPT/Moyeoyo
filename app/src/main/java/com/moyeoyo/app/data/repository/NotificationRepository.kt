@@ -80,12 +80,14 @@ class NotificationRepository(
             snap.documents.mapNotNull { doc ->
                 try {
                     Notification(
+                        id = doc.id,
                         title = doc.getString("title"),
                         message = doc.getString("message"),
+                        type = doc.getString("type") ?: "unknown",
+                        groupId = doc.getString("groupId"),
                         senderUid = doc.getString("senderUid"),
-                        createdAt = doc.getTimestamp("createdAt"),
                         read = doc.getBoolean("read") ?: false,
-                        id = doc.id
+                        createdAt = doc.getTimestamp("createdAt")
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Mapping error: ${e.message}")

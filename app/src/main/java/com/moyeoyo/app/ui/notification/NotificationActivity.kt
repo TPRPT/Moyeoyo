@@ -14,16 +14,29 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.moyeoyo.app.R
+import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import com.moyeoyo.app.data.model.Notification
 import com.moyeoyo.app.data.model.NotificationUi
 import com.moyeoyo.app.data.repository.NotificationRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import com.moyeoyo.app.data.repository.FriendRepository
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.FirebaseAuth
 import java.util.*
+import android.content.Intent
+import androidx.appcompat.app.AlertDialog   // Dialog도 함께 필요
+
 
 class NotificationActivity : AppCompatActivity() {
 
     private val notificationRepository = NotificationRepository()
+
+    private val friendRepository = FriendRepository(
+        FirebaseFirestore.getInstance(),
+        FirebaseAuth.getInstance(),
+        NotificationRepository()
+    )
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var tvNotificationCount: TextView
@@ -91,13 +104,15 @@ class NotificationActivity : AppCompatActivity() {
         val ts = n.createdAt?.toDate()?.time ?: 0L
 
         return NotificationUi(
-            id = n.id,
+            id = n.id,                             // Firestore 문서 ID
             title = n.title ?: "",
             message = n.message ?: "",
-            type = "friend_request",    // 필요하면 type 저장하도록 변경 가능
+            type = n.type ?: "unknown",            // 기본값 처리
+            groupId = n.groupId,                   // 그룹 알림이면 groupId 존재
+            senderUid = n.senderUid,               // 친구 요청이면 senderUid 존재
             time = formatTime(ts),
             timestamp = ts,
-            read = n.read               // ⭐ 중요: read 필드 UI 적용
+            read = n.read                          // 읽음 여부 반영
         )
     }
 
@@ -162,8 +177,100 @@ class NotificationActivity : AppCompatActivity() {
             }
 
             holder.card.setOnClickListener {
-                Toast.makeText(this@NotificationActivity, "클릭됨: ${item.title}", Toast.LENGTH_SHORT).show()
+
+                // 이미 처리된 알림은 클릭 비활성화
+                if (item.read) {
+                    Toast.makeText(
+                        this@NotificationActivity,
+                        "이미 처리된 알림입니다.", Toast.LENGTH_SHORT
+                    ).show()
+                    return@setOnClickListener
+                }
+
+                // 알림 타입 분기
+                when (item.type) {
+
+                    // 🔵 친구 요청 알림
+                    "friend_request" -> {
+                        showFriendRequestDialog(item)
+                    }
+
+                    // 🔵 그룹 관련 알림 → 그룹 상세로 이동
+                    "time_vote", "location_input", "final_vote", "finalized", "ranking" -> {
+                        if (item.groupId == null) {
+                            Toast.makeText(
+                                this@NotificationActivity,
+                                "그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT
+                            ).show()
+                            return@setOnClickListener
+                        }
+
+                        // 단건 읽음 처리
+                        lifecycleScope.launch {
+                            notificationRepository.markNotificationAsRead(item.id)
+                        }
+
+                        // GroupDetailActivity 이동
+                        val intent =
+                            Intent(this@NotificationActivity, GroupDetailActivity::class.java)
+                        intent.putExtra("groupId", item.groupId)
+                        startActivity(intent)
+
+                        // UI 흐림 처리 반영
+                        holder.card.alpha = 0.4f
+                    }
+
+                    else -> {
+                        Toast.makeText(
+                            this@NotificationActivity,
+                            "지원되지 않는 알림 유형입니다.", Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
             }
         }
     }
+
+    private fun showFriendRequestDialog(item: NotificationUi) {
+        val senderUid = item.senderUid ?: return
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("친구 요청")
+            .setMessage("이 사용자의 친구 요청을 수락할까요?")
+            .setPositiveButton("수락") { _, _ ->
+                lifecycleScope.launch {
+                    val ok = friendRepository.acceptFriendRequest(senderUid)
+
+                    if (ok) {
+                        // 읽음 처리
+                        notificationRepository.markNotificationAsRead(item.id)
+
+                        Toast.makeText(
+                            this@NotificationActivity,
+                            "친구 요청을 수락했습니다!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        // UI 갱신
+                        loadNotifications()
+                    } else {
+                        Toast.makeText(
+                            this@NotificationActivity,
+                            "친구 요청 수락 실패",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+            .setNegativeButton("취소") { _, _ ->
+                lifecycleScope.launch {
+                    notificationRepository.markNotificationAsRead(item.id)
+                    loadNotifications()
+                }
+            }
+            .create()
+
+        dialog.show()
+    }
+
 }
