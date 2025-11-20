@@ -8,6 +8,7 @@
     android:background="#F9FAFB"
     tools:context=".MainActivity">
 
+    <!-- 상단 툴바 영역 -->
     <LinearLayout
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -41,7 +42,7 @@
                 android:padding="8dp"
                 android:src="@drawable/ic_notification_bell"
                 android:contentDescription="알림"
-                app:tint="#3B82F6" />
+                app:tint="#000000" />
 
             <TextView
                 android:id="@+id/notification_badge"
@@ -54,17 +55,10 @@
                 android:visibility="gone"
                 tools:visibility="visible" />
         </FrameLayout>
-        <ImageButton
-            android:id="@+id/btn_settings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="8dp"
-            android:src="@drawable/ic_settings_gear"
-            android:contentDescription="설정"
-            app:tint="#3B82F6" />
+
     </LinearLayout>
 
+    <!-- 전체 스크롤 영역 -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -75,6 +69,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- 프로필 카드 -->
             <LinearLayout
                 android:id="@+id/profile_card"
                 android:layout_width="match_parent"
@@ -83,6 +78,7 @@
                 android:padding="16dp"
                 android:background="@drawable/bg_input_field"
                 android:elevation="2dp"
+                android:backgroundTint="#FFFFFF"
                 android:gravity="center_vertical"
                 android:layout_marginTop="24dp">
 
@@ -111,7 +107,7 @@
                         android:textStyle="bold"
                         android:textSize="18sp" />
 
-    <TextView
+                    <TextView
                         android:id="@+id/text_email"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -123,22 +119,33 @@
 
                 <Button
                     android:id="@+id/btn_logout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:text="로그아웃"
                     android:textColor="@android:color/white"
                     android:backgroundTint="#3B82F6" />
             </LinearLayout>
 
-            <Button
+            <!-- 친구 추가하기 버튼 (fragment 스타일로 적용됨) -->
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_add_friend"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_marginTop="24dp"
                 android:text="친구 추가하기"
                 android:textSize="16sp"
-                android:backgroundTint="#8B5CF6" />
+                android:textColor="#000000"
+                android:backgroundTint="#FFFFFF"
+                style="?attr/materialButtonOutlinedStyle"
+                app:icon="@drawable/ic_person_24"
+                app:iconTint="@color/black"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                app:cornerRadius="12dp"
+                app:strokeColor="#E9E9EF"
+                app:strokeWidth="1dp" />
 
+            <!-- 그룹 헤더 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -162,12 +169,23 @@
                     android:layout_height="40dp"
                     android:text="새 그룹 만들기"
                     android:textSize="14sp"
-                    android:backgroundTint="#3B82F6"
+                    android:backgroundTint="#050505"
                     android:drawableStart="@drawable/ic_plus_white"
                     android:drawablePadding="4dp"
                     android:paddingHorizontal="12dp" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/text_group_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="참여중인 그룹 0개"
+                android:textSize="12sp"
+                android:textColor="#666666"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="6dp"/>
+
+            <!-- 그룹 리스트 컨테이너 -->
             <LinearLayout
                 android:id="@+id/group_list_container"
                 android:layout_width="match_parent"
@@ -184,8 +202,7 @@
                     android:gravity="center"
                     android:paddingVertical="32dp"
                     android:background="@drawable/bg_dashed_border"
-                    android:lineSpacingExtra="4dp"/>
-
+                    android:lineSpacingExtra="4dp" />
             </LinearLayout>
 
         </LinearLayout>

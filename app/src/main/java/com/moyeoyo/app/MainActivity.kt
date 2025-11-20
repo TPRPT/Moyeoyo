@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
 
         // 딥링크 처리
         deeplinkHandler.handle(intent)
-        DeepLinkHandler(this).handle(intent)
+        //DeepLinkHandler(this).handle(intent)
     }
 
     override fun onNewIntent(intent: Intent) {

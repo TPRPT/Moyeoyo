@@ -1,92 +1,229 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    tools:context=".ui.friends.AddFriendActivity">
+    android:background="@color/white">
 
-    <TextView
+    <!-- ⭐ 상단 APP BAR (뒤로가기 버튼 유지) -->
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="친구 이메일 검색"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
+        android:background="@color/white">
 
-    <LinearLayout
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbarFriend"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_chevron_left_24"
+            app:title=""
+            android:background="@color/white"
+            app:contentInsetStartWithNavigation="0dp"/>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- ⭐ 스크롤 영역 -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:layout_height="match_parent"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="20dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <EditText
-            android:id="@+id/edit_text_email"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="친구의 이메일을 입력하세요"
-            android:inputType="textEmailAddress"
-            android:padding="12dp"
-            android:background="@drawable/bg_input_field"
-            android:imeOptions="actionSearch"/>
-
-        <Button
-            android:id="@+id/btn_search_friend"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="검색"
-            android:layout_marginStart="8dp"
-            android:backgroundTint="#3B82F6"/>
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/text_search_result"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:textSize="16sp"
-        android:textColor="#333"
-        android:visibility="gone"
-        tools:text="검색 결과: 닉네임 (uid...)"
-        tools:visibility="visible"/>
-
-    <Button
-        android:id="@+id/btn_send_request"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="친구 요청 보내기"
-        android:backgroundTint="#10B981"
-        android:visibility="gone"
-        tools:visibility="visible"/>
-
-    <Button
-        android:id="@+id/btn_invite_friend"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="친구 초대 링크 공유"
-        android:backgroundTint="#2563EB"
-        android:layout_marginTop="16dp"/>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="내 친구 목록"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginTop="32dp"
-        android:layout_marginBottom="8dp"/>
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
         <LinearLayout
-            android:id="@+id/friend_list_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            tools:ignore="ScrollViewContents" />
-    </ScrollView>
-</LinearLayout>
+            android:orientation="vertical">
+
+            <!-- Title -->
+            <TextView
+                android:id="@+id/pageTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="친구 관리"
+                android:textColor="@color/black"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp"/>
+
+            <!-- Subtitle -->
+            <TextView
+                android:id="@+id/pageSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="친구를 검색하고 요청을 보낼 수 있어요"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:paddingBottom="12dp"/>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/light_gray"
+                android:layout_marginBottom="20dp"/>
+
+            <!-- 친구 추가 타이틀 -->
+            <TextView
+                android:id="@+id/tvAddFriend"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="친구 추가"
+                android:textSize="14sp"
+                android:textColor="@color/black"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- ⭐ 검색 박스 (fragment 스타일로 변경) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_round_gray"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginStart="12dp"
+                    android:src="@drawable/ic_search_24"
+                    app:tint="#B0B0BF"/>
+
+                <EditText
+                    android:id="@+id/edit_text_email"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:hint="친구 이메일 입력"
+                    android:textSize="14sp"
+                    android:background="@null"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:inputType="textEmailAddress"/>
+
+                <Button
+                    android:id="@+id/btn_search_friend"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:text="검색"
+                    android:textColor="@color/white"
+                    android:textSize="13sp"
+                    android:backgroundTint="@android:color/black"/>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/text_search_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/black"
+                android:textSize="14sp"
+                android:visibility="gone"
+                android:layout_marginTop="12dp"/>
+
+
+            <!-- ⭐ 검색 결과 카드 (fragment 스타일) -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardSearchResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tvInitial"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:gravity="center"
+                        android:text="M"
+                        android:textColor="@color/black"
+                        android:textStyle="bold"
+                        android:background="@drawable/bg_circle_gray"/>
+
+                    <LinearLayout
+                        android:orientation="vertical"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:id="@+id/tvName"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="사용자 이름"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/black"/>
+
+                        <TextView
+                            android:id="@+id/tvEmail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="email@example.com"
+                            android:textSize="12sp"
+                            android:textColor="@color/gray_600"
+                            android:layout_marginTop="4dp"/>
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_send_request"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="친구 요청"
+                        android:textColor="@color/white"
+                        android:backgroundTint="@color/black"
+                        app:icon="@drawable/ic_person_add_24"
+                        app:iconTint="@color/white"
+                        app:iconGravity="textStart"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- 초대 링크 버튼 (기존 기능 유지) -->
+            <Button
+                android:id="@+id/btn_invite_friend"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="친구 초대 링크 공유"
+                android:backgroundTint="#000000"
+                android:textColor="@android:color/white"
+                android:layout_marginTop="16dp"/>
+
+            <!-- 친구 목록 헤더 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="내 친구 목록"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:layout_marginTop="32dp"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- ⭐ 기존 기능 유지: ScrollView + LinearLayout 친구 리스트 -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:id="@+id/friend_list_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"/>
+            </ScrollView>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

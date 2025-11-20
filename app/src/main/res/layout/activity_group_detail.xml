@@ -1,55 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground">
+    android:background="@color/white">
 
-    <TextView
-        android:id="@+id/group_name_text"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="그룹 이름"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:padding="16dp"
-        android:background="@android:color/white"
-        android:elevation="2dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <ScrollView
+    <!-- 상단 툴바 -->
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/group_name_text"
-        app:layout_constraintBottom_toTopOf="@id/bottom_fixed_controls">
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:elevation="2dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/white"
+            app:navigationIcon="@drawable/ic_chevron_left_24"
+            app:titleTextColor="@color/black"
+            app:subtitleTextColor="@color/text_secondary"
+            app:menu="@menu/group_detail_menu" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- 전체 스크롤 -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="40dp">
 
+            <!-- 모임명 -->
             <TextView
-                android:id="@+id/member_count_label"
+                android:id="@+id/tvGroupName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="현재 그룹 멤버 수:"
-                android:textSize="18sp"
-                android:layout_marginTop="16dp" />
-
-            <TextView
-                android:id="@+id/member_count_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="1명 (당신)"
-                android:textSize="20sp"
+                android:text="대학 동기들"
+                android:textColor="@color/black"
                 android:textStyle="bold"
-                android:textColor="#3B82F6"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"/>
+                android:textSize="20sp" />
+
+            <!-- 멤버 수 -->
+            <TextView
+                android:id="@+id/tvMemberCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="멤버 5명"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
 
             <!-- 최종 확정된 일정 표시 블록 -->
             <com.google.android.material.card.MaterialCardView
@@ -126,6 +135,7 @@
                     android:layout_marginStart="8dp"
                     android:enabled="false"/>
             </LinearLayout>
+
             <Button
                 android:id="@+id/btn_start_vote"
                 android:layout_width="match_parent"
@@ -137,87 +147,208 @@
                 android:layout_marginBottom="16dp"
                 android:visibility="gone" />
 
-            <Button
-                android:id="@+id/btn_confirm_schedule_now"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:text="확정 및 캘린더 추가 (테스트용)"
-                android:backgroundTint="#10B981"
-                android:textSize="16sp"
-                android:layout_marginBottom="32dp"/>
-
-            <TextView
+            <!-- 그룹 삭제/나가기 버튼 -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="팀원 목록"
-                android:textStyle="bold"
-                android:textSize="18sp"
-                android:layout_marginBottom="8dp"/>
+                android:orientation="horizontal"
+                android:gravity="end"
+                android:layout_marginBottom="16dp">
 
+                <Button
+                    android:id="@+id/btnDeleteGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:backgroundTint="@color/light_gray_bg"
+                    android:elevation="2dp"
+                    android:text="그룹 삭제"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btnLeaveGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:backgroundTint="@color/light_gray_bg"
+                    android:elevation="2dp"
+                    android:text="그룹 나가기"
+                    android:textColor="@color/black"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- 다음 모임 카드 -->
             <LinearLayout
-                android:id="@+id/member_list_container"
+                android:id="@+id/nextMeetingCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_header_blue"
+                android:clipToOutline="true"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/labelNext"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="다음 모임"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="10dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_event_24"
+                        app:tint="@color/white" />
+
+                    <TextView
+                        android:id="@+id/tvMeetingDateAndTime"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="2025년 10월 20일 (일) 18:00"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDDay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="D-5"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="2dp"
+                        android:background="@drawable/bg_badge_blue"
+                        android:textColor="@color/badge_blue_text"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="8dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_place_24"
+                        app:tint="@color/white" />
+
+                    <TextView
+                        android:id="@+id/tvMeetingLocation"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="스타벅스 역삼역점"
+                        android:textColor="@color/white"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <!-- 캘린더 추가 버튼 -->
+                <LinearLayout
+                    android:id="@+id/btnAddToCalendarWrapper"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_light_blue_outline_button"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_event_24"
+                        app:tint="@color/white"
+                        android:layout_marginEnd="8dp" />
+
+                    <TextView
+                        android:id="@+id/btnAddToCalendar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="캘린더에 추가"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 투표중 카드 -->
+            <LinearLayout
+                android:id="@+id/votingStatusCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:background="@drawable/bg_input_field"
-                android:padding="8dp"
-                android:layout_marginBottom="32dp"/>
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="24dp"
+                android:padding="16dp"
+                android:background="@drawable/bg_vote_card_light"
+                android:visibility="gone">
 
+                <!-- 시간/장소 투표 UI 동일 유지 -->
+                <!-- (생략: 기존 fragment_group_detail.xml 내용 그대로) -->
 
-            <TextView
-                android:layout_width="wrap_content"
+            </LinearLayout>
+
+            <!-- 탭 (장소 / 멤버) -->
+            <RadioGroup
+                android:id="@+id/tabGroup"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="@drawable/bg_segment_container"
+                android:padding="3dp">
+
+                <RadioButton
+                    android:id="@+id/tabPlace"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="장소"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:background="@drawable/bg_segment_selected_left" />
+
+                <RadioButton
+                    android:id="@+id/tabMember"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="멤버"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:background="@drawable/bg_segment_selected_right" />
+            </RadioGroup>
+
+            <!-- ViewPager -->
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/viewPager"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="여기에 투표, 장소, 시간 선택 기능이 들어갑니다."
-                android:textColor="#999999"
-                android:layout_marginTop="40dp" />
+                android:layout_marginTop="12dp" />
 
         </LinearLayout>
-    </ScrollView>
-
-    <LinearLayout
-        android:id="@+id/bottom_fixed_controls"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@android:color/white"
-        android:padding="16dp"
-        android:elevation="8dp"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent">
-
-        <Button
-            android:id="@+id/btn_invite_friends"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="0.65"
-            android:text="친구 초대하기"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:drawableStart="@drawable/ic_link"
-            android:drawablePadding="8dp"
-            android:backgroundTint="#3B82F6"
-            android:layout_marginEnd="10dp"/>
-
-        <Button
-            android:id="@+id/btn_delete_group"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="0.35"
-            android:text="삭제"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:backgroundTint="#EF4444"
-            android:visibility="gone" />
-
-        <Button
-            android:id="@+id/btn_leave_group"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="0.35"
-            android:text="나가기"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:backgroundTint="#FF5722"
-            android:visibility="gone" />
-
-    </LinearLayout>
-</androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
