@@ -1,11 +1,9 @@
-package com.moyeoyo.app.ui.auth
+package com.moyeoyo.app.ui.location
 
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
-import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -17,7 +15,6 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.material.snackbar.Snackbar
 import com.moyeoyo.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,11 +22,11 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.*
 
-class ConfirmLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
+class CurrentLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
 
     companion object {
         const val EXTRA_LATLNG = "extra_latlng"
@@ -38,7 +35,7 @@ class ConfirmLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
         const val RESULT_CODE_LOCATION_CONFIRMED = 100
 
         fun newIntent(context: Context, latLng: LatLng, isHome: Boolean): Intent {
-            return Intent(context, ConfirmLocationActivity::class.java).apply {
+            return Intent(context, CurrentLocationActivity::class.java).apply {
                 putExtra(EXTRA_LATLNG, latLng)
                 putExtra(EXTRA_IS_HOME, isHome)
             }
@@ -261,7 +258,7 @@ class ConfirmLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
 
         val resultIntent = Intent().apply {
             val bundle = Bundle().apply {
-                putSerializable(EXTRA_LOCATION_DATA, confirmedLocationMap as java.io.Serializable)
+                putSerializable(EXTRA_LOCATION_DATA, confirmedLocationMap as Serializable)
                 putBoolean(EXTRA_IS_HOME, isHomeLocation)
             }
             putExtras(bundle)
