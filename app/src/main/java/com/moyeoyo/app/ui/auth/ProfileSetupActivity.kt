@@ -565,9 +565,12 @@ class ProfileSetupActivity : AppCompatActivity() {
         val firestoreWorkLocation = createFirestoreLocationMap(workLocation)
 
         val userData = hashMapOf<String, Any>(
-            "nickname" to nickname,
-            "photoUrl" to (imageUrl ?: "")
+            "nickname" to nickname
         )
+
+        if (imageUrl != null) {
+            userData["photoUrl"] = imageUrl   // 새 이미지 있을 때만 업데이트
+        }
 
         if (firestoreHomeLocation != null) {
             userData["homeLocation"] = firestoreHomeLocation

@@ -1,5 +1,6 @@
 package com.moyeoyo.app
 
+import android.Manifest
 import com.moyeoyo.app.DeepLinkHandler
 import android.content.Intent
 import android.content.pm.PackageManager
