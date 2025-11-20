@@ -73,7 +73,36 @@ class LocationInputActivity : AppCompatActivity() {
         }
     }
 
-    // ConfirmLocationActivity는 Places Autocomplete로 대체되므로 제거
+    private val confirmLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == CurrentLocationActivity.RESULT_CODE_LOCATION_CONFIRMED) {
+            handleConfirmedLocation(result.data)
+        } else {
+            Toast.makeText(this, "위치 설정이 취소되었습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun handleConfirmedLocation(data: Intent?) {
+        data?.extras?.let { extras ->
+            @Suppress("UNCHECKED_CAST")
+            val locationMap = extras
+                .getSerializable(CurrentLocationActivity.EXTRA_LOCATION_DATA) as? Map<String, Any>
+
+            val latLng = locationMap?.get("latLng") as? LatLng
+            val address = locationMap?.get("address") as? String ?: ""
+            val name = locationMap?.get("name") as? String ?: ""
+
+            if (latLng != null) {
+                selectedLocation = latLng
+                selectedAddress = address
+                selectedLocationType = "confirmed"
+
+                updateSelectedLocationUI()
+            }
+        }
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -200,12 +229,15 @@ class LocationInputActivity : AppCompatActivity() {
             fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
                 .addOnSuccessListener { location ->
                     if (location != null) {
-                        selectedLocation = LatLng(location.latitude, location.longitude)
-                        selectedLocationType = "current"
-                        getAddressFromLocation(selectedLocation!!) { address ->
-                            selectedAddress = address
-                            updateSelectedLocationUI()
-                        }
+                        val latLng = LatLng(location.latitude, location.longitude)
+
+                        // 지도에서 최종 확인하도록 CurrentLocationActivity로 전달
+                        val intent = CurrentLocationActivity.newIntent(
+                            this,
+                            latLng,
+                            false   // home/work 여부는 여기선 의미 없음
+                        )
+                        confirmLocationLauncher.launch(intent)
                     } else {
                         Toast.makeText(this, "위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
                     }
@@ -292,11 +324,15 @@ class LocationInputActivity : AppCompatActivity() {
                     
                     if (lat != null && lng != null) {
                         withContext(Dispatchers.Main) {
-                            selectedLocation = LatLng(lat, lng)
-                            selectedLocationType = "home"
-                            // addressName 또는 address 필드 확인
-                            selectedAddress = (home["addressName"] as? String) ?: (home["address"] as? String) ?: ""
-                            updateSelectedLocationUI()
+                            val latLng = LatLng(lat, lng)
+
+                            // ProfileSetupActivity처럼 지도에서 최종 확인하게 처리
+                            val intent = CurrentLocationActivity.newIntent(
+                                this@LocationInputActivity,
+                                latLng,
+                                true   // 집인지 여부 전달
+                            )
+                            confirmLocationLauncher.launch(intent)
                         }
                     } else {
                         withContext(Dispatchers.Main) {
@@ -353,11 +389,15 @@ class LocationInputActivity : AppCompatActivity() {
                     
                     if (lat != null && lng != null) {
                         withContext(Dispatchers.Main) {
-                            selectedLocation = LatLng(lat, lng)
-                            selectedLocationType = "work"
-                            // addressName 또는 address 필드 확인
-                            selectedAddress = (work["addressName"] as? String) ?: (work["address"] as? String) ?: ""
-                            updateSelectedLocationUI()
+                            val latLng = LatLng(lat, lng)
+
+                            // 지도에서 최종 확인 가능하게 변경
+                            val intent = CurrentLocationActivity.newIntent(
+                                this@LocationInputActivity,
+                                latLng,
+                                false   // 회사는 isHome = false 전달
+                            )
+                            confirmLocationLauncher.launch(intent)
                         }
                     } else {
                         withContext(Dispatchers.Main) {
@@ -393,10 +433,15 @@ class LocationInputActivity : AppCompatActivity() {
     private fun handleSelectedPlace(place: Place, type: String) {
         val latLng = place.latLng
         if (latLng != null) {
-            selectedLocation = latLng
-            selectedLocationType = type
-            selectedAddress = place.address ?: ""
-            updateSelectedLocationUI()
+            val latLng = place.latLng ?: return
+
+            // 검색된 위치도 지도에서 조정 가능하게 CurrentLocationActivity로 전달
+            val intent = CurrentLocationActivity.newIntent(
+                this,
+                latLng,
+                false
+            )
+            confirmLocationLauncher.launch(intent)
         }
     }
 

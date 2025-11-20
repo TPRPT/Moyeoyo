@@ -13,19 +13,34 @@ import androidx.cardview.widget.CardView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ItemTouchHelper
 import com.moyeoyo.app.R
+import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import com.moyeoyo.app.data.model.Notification
 import com.moyeoyo.app.data.model.NotificationUi
 import com.moyeoyo.app.data.repository.NotificationRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import com.moyeoyo.app.data.repository.FriendRepository
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.FirebaseAuth
 import java.util.*
+import android.content.Intent
+import androidx.appcompat.app.AlertDialog   // Dialog도 함께 필요
+
 
 class NotificationActivity : AppCompatActivity() {
 
     private val notificationRepository = NotificationRepository()
 
+    private val friendRepository = FriendRepository(
+        FirebaseFirestore.getInstance(),
+        FirebaseAuth.getInstance(),
+        NotificationRepository()
+    )
+
     private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: NotificationAdapter
     private lateinit var tvNotificationCount: TextView
     private lateinit var emptyText: TextView
 
@@ -42,6 +57,10 @@ class NotificationActivity : AppCompatActivity() {
 
         recyclerView.layoutManager = LinearLayoutManager(this)
 
+        adapter = NotificationAdapter(mutableListOf())
+        recyclerView.adapter = adapter
+        initSwipeToDelete(adapter)
+
         loadNotifications()
     }
 
@@ -53,18 +72,29 @@ class NotificationActivity : AppCompatActivity() {
             try {
                 val rawList = notificationRepository.getNotifications()
 
+                // 1) 읽지 않은 알림 리스트 추출
+                val unreadIds = rawList.filter { !it.read }.map { it.id }
+
+                // 2) UI 먼저 표시 (현재는 모두 선명하게)
                 val sorted = rawList
                     .sortedByDescending { it.createdAt?.toDate()?.time ?: 0L }
                     .map { convertToUi(it) }
+                    .sortedByDescending { it.timestamp }   // 최신순 보장
 
                 tvNotificationCount.text = "${sorted.size}개"
 
-                if (sorted.isEmpty()) {
-                    emptyText.visibility = View.VISIBLE
-                    recyclerView.adapter = NotificationAdapter(emptyList())
-                } else {
-                    emptyText.visibility = View.GONE
-                    recyclerView.adapter = NotificationAdapter(sorted)
+                adapter.items.clear()
+                adapter.items.addAll(sorted)
+                adapter.notifyDataSetChanged()
+
+                emptyText.visibility = if (sorted.isEmpty()) View.VISIBLE else View.GONE
+
+                val unreadNormalIds = rawList
+                    .filter { !it.read && it.type != "friend_request" }
+                    .map { it.id }
+
+                if (unreadNormalIds.isNotEmpty()) {
+                    notificationRepository.markNotificationsAsRead(unreadNormalIds)
                 }
 
             } catch (e: Exception) {
@@ -74,17 +104,24 @@ class NotificationActivity : AppCompatActivity() {
         }
     }
 
+
     // -------------------------------------------------------------------
     // 🔵 Notification → NotificationUi 변환
     // -------------------------------------------------------------------
     private fun convertToUi(n: Notification): NotificationUi {
         val ts = n.createdAt?.toDate()?.time ?: 0L
+
         return NotificationUi(
+            id = n.id,                             // Firestore 문서 ID
             title = n.title ?: "",
             message = n.message ?: "",
-            type = "friend_request",
+            type = n.type ?: "unknown",            // 기본값 처리
+            groupId = n.groupId,                   // 그룹 알림이면 groupId 존재
+            senderUid = n.senderUid,               // 친구 요청이면 senderUid 존재
             time = formatTime(ts),
-            timestamp = ts
+            timestamp = ts,
+            read = n.read,                          // 읽음 여부 반영
+            handled = n.handled
         )
     }
 
@@ -116,7 +153,7 @@ class NotificationActivity : AppCompatActivity() {
     // -------------------------------------------------------------------
     // 🔵 RecyclerView Adapter
     // -------------------------------------------------------------------
-    private inner class NotificationAdapter(private val items: List<NotificationUi>) :
+    private inner class NotificationAdapter(val items: MutableList<NotificationUi>) :
         RecyclerView.Adapter<NotificationAdapter.ViewHolder>() {
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -141,9 +178,138 @@ class NotificationActivity : AppCompatActivity() {
             holder.message.text = item.message
             holder.time.text = item.time
 
+            // 읽음/안읽음 시각 효과
+            // 친구 요청은 handled=true 일 때만 흐림!
+            if (item.type == "friend_request") {
+                holder.card.alpha = if (item.handled) 0.4f else 1.0f
+            } else {
+                holder.card.alpha = if (item.read) 0.4f else 1.0f
+            }
+
             holder.card.setOnClickListener {
-                Toast.makeText(this@NotificationActivity, "클릭됨: ${item.title}", Toast.LENGTH_SHORT).show()
+
+                // 알림 타입 분기
+                when (item.type) {
+
+                    // 🔵 친구 요청 알림
+                    "friend_request" -> {
+                        // handled=true 이면 아예 비활성화
+                        if (item.handled) {
+                            Toast.makeText(
+                                this@NotificationActivity,
+                                "이미 처리된 친구 요청입니다.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@setOnClickListener
+                        }
+                        showFriendRequestDialog(item)   // 수락/거절 처리
+                    }
+
+                    // 🔵 그룹 관련 알림 → 그룹 상세로 이동
+                    "time_vote", "location_input", "final_vote", "finalized", "ranking" -> {
+                        if (item.groupId == null) {
+                            Toast.makeText(
+                                this@NotificationActivity,
+                                "그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT
+                            ).show()
+                            return@setOnClickListener
+                        }
+
+                        // 단건 읽음 처리
+                        lifecycleScope.launch {
+                            notificationRepository.markNotificationAsRead(item.id)
+                        }
+
+                        // GroupDetailActivity 이동
+                        val intent =
+                            Intent(this@NotificationActivity, GroupDetailActivity::class.java)
+                        intent.putExtra("groupId", item.groupId)
+                        startActivity(intent)
+
+                        // UI 흐림 처리 반영
+                        holder.card.alpha = 0.4f
+                    }
+
+                    else -> {
+                        Toast.makeText(
+                            this@NotificationActivity,
+                            "지원되지 않는 알림 유형입니다.", Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
             }
         }
     }
+
+    private fun showFriendRequestDialog(item: NotificationUi) {
+        val senderUid = item.senderUid ?: return
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("친구 요청")
+            .setMessage("이 사용자의 친구 요청을 수락할까요?")
+            .setPositiveButton("수락") { _, _ ->
+                lifecycleScope.launch {
+                    val ok = friendRepository.acceptFriendRequest(senderUid)
+
+                    if (ok) {
+                        // 읽음 처리
+                        notificationRepository.markNotificationAsRead(item.id)
+                        notificationRepository.markNotificationAsHandled(item.id)
+
+                        Toast.makeText(
+                            this@NotificationActivity,
+                            "친구 요청을 수락했습니다!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        // UI 갱신
+                        loadNotifications()
+                    } else {
+                        Toast.makeText(
+                            this@NotificationActivity,
+                            "친구 요청 수락 실패",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+            .setNegativeButton("거절") { _, _ ->
+                lifecycleScope.launch {
+                    notificationRepository.markNotificationAsRead(item.id)
+                    notificationRepository.markNotificationAsHandled(item.id)
+                    loadNotifications()
+                }
+            }
+            .create()
+
+        dialog.show()
+    }
+
+    private fun initSwipeToDelete(adapter: NotificationAdapter) {
+
+        val swipeHelper = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val item = adapter.items[position]
+
+                lifecycleScope.launch {
+                    notificationRepository.deleteNotification(item.id)
+                    adapter.items.removeAt(position)
+                    adapter.notifyItemRemoved(position)
+                    tvNotificationCount.text = "${adapter.items.size}개"
+                }
+            }
+        }
+
+        ItemTouchHelper(swipeHelper).attachToRecyclerView(recyclerView)
+    }
+
+
 }

@@ -40,9 +40,8 @@ import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.common.GooglePlayServicesRepairableException
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException
+import com.moyeoyo.app.ui.location.CurrentLocationActivity
 import java.io.File
-import java.io.IOException
-import java.util.Locale
 
 class ProfileSetupActivity : AppCompatActivity() {
 
@@ -81,7 +80,7 @@ class ProfileSetupActivity : AppCompatActivity() {
     private val confirmLocationLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == ConfirmLocationActivity.RESULT_CODE_LOCATION_CONFIRMED) {
+        if (result.resultCode == CurrentLocationActivity.RESULT_CODE_LOCATION_CONFIRMED) {
             handleConfirmedLocation(result.data)
         } else {
             Snackbar.make(rootView, "위치 설정을 취소했습니다.", Snackbar.LENGTH_SHORT).show()
@@ -254,7 +253,7 @@ class ProfileSetupActivity : AppCompatActivity() {
                         )
 
                         val intent =
-                            ConfirmLocationActivity.newIntent(this, latLng, isSettingHomeLocation)
+                            CurrentLocationActivity.newIntent(this, latLng, isSettingHomeLocation)
                         confirmLocationLauncher.launch(intent)
 
                     } else {
@@ -294,8 +293,8 @@ class ProfileSetupActivity : AppCompatActivity() {
         data?.extras?.let { extras ->
             @Suppress("UNCHECKED_CAST")
             val locationMap =
-                extras.getSerializable(ConfirmLocationActivity.EXTRA_LOCATION_DATA) as? Map<String, Any>
-            val isHome = extras.getBoolean(ConfirmLocationActivity.EXTRA_IS_HOME, true)
+                extras.getSerializable(CurrentLocationActivity.EXTRA_LOCATION_DATA) as? Map<String, Any>
+            val isHome = extras.getBoolean(CurrentLocationActivity.EXTRA_IS_HOME, true)
 
             if (locationMap != null) {
                 val address = locationMap["address"] as? String ?: "주소 확인됨"

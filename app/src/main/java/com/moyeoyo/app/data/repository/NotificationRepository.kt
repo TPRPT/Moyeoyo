@@ -80,9 +80,14 @@ class NotificationRepository(
             snap.documents.mapNotNull { doc ->
                 try {
                     Notification(
+                        id = doc.id,
                         title = doc.getString("title"),
                         message = doc.getString("message"),
+                        type = doc.getString("type") ?: "unknown",
+                        groupId = doc.getString("groupId"),
                         senderUid = doc.getString("senderUid"),
+                        read = doc.getBoolean("read") ?: false,
+                        handled = doc.getBoolean("handled") ?: false,
                         createdAt = doc.getTimestamp("createdAt")
                     )
                 } catch (e: Exception) {
@@ -96,4 +101,85 @@ class NotificationRepository(
             emptyList()
         }
     }
+
+    /**
+     * 특정 알림 하나만 읽음 처리
+     */
+    suspend fun markNotificationAsRead(notificationId: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        try {
+            db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .document(notificationId)
+                .update("read", true)
+                .await()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "markNotificationAsRead error: ${e.message}")
+        }
+    }
+
+    /**
+     * 알림 일괄 읽음 처리
+     */
+    suspend fun markNotificationsAsRead(notificationIds: List<String>) {
+        val uid = auth.currentUser?.uid ?: return
+
+        if (notificationIds.isEmpty()) return
+
+        try {
+            val batch = db.batch()
+            val colRef = db.collection("users")
+                .document(uid)
+                .collection("notifications")
+
+            notificationIds.forEach { id ->
+                val docRef = colRef.document(id)
+                batch.update(docRef, "read", true)
+            }
+
+            batch.commit().await()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "markNotificationsAsRead error: ${e.message}")
+        }
+    }
+
+    /**
+     * 친구 요청 알림 처리
+     */
+    suspend fun markNotificationAsHandled(id: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        db.collection("users").document(uid)
+            .collection("notifications")
+            .document(id)
+            .update("handled", true)
+            .await()
+    }
+
+    /**
+     * 알림 삭제
+     */
+    suspend fun deleteNotification(notificationId: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        try {
+            db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .document(notificationId)
+                .delete()
+                .await()
+
+            Log.d(TAG, "Notification deleted: $notificationId")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteNotification error: ${e.message}")
+        }
+    }
+
+
 }
