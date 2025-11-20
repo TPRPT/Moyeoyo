@@ -54,6 +54,8 @@ class MainFragment : Fragment(R.layout.activity_main) {
     private lateinit var profileCardArea: LinearLayout
     private lateinit var groupListContainer: LinearLayout
     private lateinit var textNoGroups: TextView
+    private lateinit var textGroupCount: TextView
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +82,8 @@ class MainFragment : Fragment(R.layout.activity_main) {
         profileCardArea = view.findViewById(R.id.profile_card)
         groupListContainer = view.findViewById(R.id.group_list_container)
         textNoGroups = view.findViewById(R.id.text_no_groups)
+        textGroupCount = view.findViewById(R.id.text_group_count)
+
 
         profileCardArea.setOnClickListener {
             startActivity(Intent(activity, ProfileSetupActivity::class.java))
@@ -167,6 +171,8 @@ class MainFragment : Fragment(R.layout.activity_main) {
     private fun loadGroups() {
         viewLifecycleOwner.lifecycleScope.launch {
             val groups = groupRepository.getGroupsForUser()
+
+            textGroupCount.text = "참여중인 그룹 ${groups.size}개"
 
             if (groups.isEmpty()) {
                 textNoGroups.visibility = View.VISIBLE
