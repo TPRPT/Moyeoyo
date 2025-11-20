@@ -14,6 +14,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
@@ -84,6 +86,14 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var btnInviteMember: View
     private var isMemberTabInitialized = false
     private var pendingMemberState: PendingMemberState? = null
+    
+    // 투표 탭 뷰 참조 (버튼 업데이트용)
+    private var voteTabView: View? = null
+    
+    // 그룹 상태 실시간 리스너
+    private var groupStatusListener: ListenerRegistration? = null
+    private var previousStatus: String? = null
+    private var hasShownVotingStartedDialog = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,6 +110,7 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
         setupToolbar()
         setupButtons()
         setupTabs()
+        startMonitoringGroupStatus()
     }
 
     private fun setupToolbar() {
@@ -153,6 +164,9 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
     //  투표 탭(view_vote_tab.xml)
     // ---------------------------
     private fun bindVoteTab(view: View) {
+        // 투표 탭 뷰 참조 저장
+        voteTabView = view
+        
         // 최종 위치 지도 UI
         layoutFinalPlaceMap = view.findViewById<View>(R.id.layoutFinalPlaceMap)
         recyclerMemberDistances = view.findViewById<RecyclerView>(R.id.rvMemberDistances)
@@ -175,6 +189,12 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
         btnFilterLocation.setOnClickListener {
             startFinalPlaceVote()
         }
+        
+        // 투표 시작 버튼 (방장만 표시)
+        val btnStartVoting = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnStartVoting)
+        btnStartVoting.setOnClickListener {
+            showStartVotingConfirmationDialog()
+        }
 
         // 초기 상태 확인 및 UI 업데이트
         updateVoteTabUI(view)
@@ -186,10 +206,14 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
             val group = groupRepository.getGroupById(groupId)
             val confirmedTime = group?.confirmedTime
             val confirmedPlace = group?.confirmedPlace
+            val status = group?.status
             
             val layoutInitialButtons = view.findViewById<View>(R.id.layoutInitialButtons)
             val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
             val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
+            
+            // ⭐ 투표 시작 전 (GROUP_CREATED)이면 투표 버튼 비활성화
+            val isVotingStarted = status != null && status != "GROUP_CREATED"
             
             // 초기 상태: 시간과 장소 모두 확정되지 않은 경우
             val isInitialState = confirmedTime == null && confirmedPlace == null
@@ -199,6 +223,20 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
                 layoutInitialButtons?.visibility = View.VISIBLE
                 btnFilterTime?.visibility = View.VISIBLE
                 btnFilterLocation?.visibility = View.VISIBLE
+                
+                // ⭐ 투표 시작 전이면 버튼 비활성화
+                if (!isVotingStarted) {
+                    btnFilterTime?.isEnabled = false
+                    btnFilterTime?.alpha = 0.5f
+                    btnFilterLocation?.isEnabled = false
+                    btnFilterLocation?.alpha = 0.5f
+                } else {
+                    btnFilterTime?.isEnabled = true
+                    btnFilterTime?.alpha = 1.0f
+                    btnFilterLocation?.isEnabled = false
+                    btnFilterLocation?.alpha = 0.5f
+                }
+                
                 // 후보 리스트와 투표 버튼은 숨김
                 view.findViewById<RecyclerView>(R.id.rvFinalCandidates)?.visibility = View.GONE
                 view.findViewById<Button>(R.id.btnSubmitVote)?.visibility = View.GONE
@@ -207,6 +245,15 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
                 layoutInitialButtons?.visibility = View.VISIBLE
                 btnFilterTime?.visibility = View.GONE
                 btnFilterLocation?.visibility = View.VISIBLE
+                
+                // ⭐ 투표 시작 전이면 장소 버튼도 비활성화
+                if (!isVotingStarted) {
+                    btnFilterLocation?.isEnabled = false
+                    btnFilterLocation?.alpha = 0.5f
+                } else {
+                    btnFilterLocation?.isEnabled = true
+                    btnFilterLocation?.alpha = 1.0f
+                }
             } else {
                 // 둘 다 확정된 경우: 초기 버튼 모두 숨기기
                 layoutInitialButtons?.visibility = View.GONE
@@ -331,6 +378,91 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
             val voteTabView = binding.viewPager.getChildAt(0)
             voteTabView?.let { updateVoteTabUI(it) }
         }
+        // 그룹 상태 리스너 재시작 (이미 시작되어 있으면 중복 방지)
+        if (groupStatusListener == null) {
+            startMonitoringGroupStatus()
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // 리스너는 유지 (백그라운드에서도 상태 변경 감지)
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        groupStatusListener?.remove()
+        groupStatusListener = null
+    }
+    
+    /**
+     * 그룹 상태를 실시간으로 감지하여 투표 시작 알림 표시
+     */
+    private fun startMonitoringGroupStatus() {
+        if (groupStatusListener != null) {
+            return // 이미 리스너가 등록되어 있음
+        }
+        
+        val db = FirebaseFirestore.getInstance()
+        val groupRef = db.collection("groups").document(groupId)
+        
+        groupStatusListener = groupRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                android.util.Log.e("GroupDetailActivity", "그룹 상태 리스너 오류: ${error.message}")
+                return@addSnapshotListener
+            }
+            
+            if (snapshot == null || !snapshot.exists()) {
+                return@addSnapshotListener
+            }
+            
+            val currentStatus = snapshot.getString("status")
+            val previousStatusValue = previousStatus
+            
+            // 상태가 변경되었는지 확인
+            if (previousStatusValue != null && currentStatus != previousStatusValue) {
+                android.util.Log.d("GroupDetailActivity", 
+                    "📊 그룹 상태 변경 감지: $previousStatusValue → $currentStatus")
+                
+                // GROUP_CREATED에서 TIME_VOTE_REQUIRED로 변경된 경우 (투표 시작)
+                if (previousStatusValue == "GROUP_CREATED" && currentStatus == "TIME_VOTE_REQUIRED") {
+                    // 방장이 아닌 경우에만 팝업 표시 (방장은 이미 투표 시작 버튼을 눌렀으므로)
+                    lifecycleScope.launch {
+                        val group = groupRepository.getGroupById(groupId)
+                        val isHost = group?.hostUid == currentUid
+                        
+                        if (!isHost && !hasShownVotingStartedDialog) {
+                            hasShownVotingStartedDialog = true
+                            showVotingStartedDialog()
+                        }
+                    }
+                }
+                
+                // 상태 변경 시 UI 업데이트
+                lifecycleScope.launch {
+                    loadGroupData()
+                    voteTabView?.let { updateVoteTabUI(it) }
+                }
+            }
+            
+            previousStatus = currentStatus
+        }
+    }
+    
+    /**
+     * 투표 시작 알림 다이얼로그
+     */
+    private fun showVotingStartedDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("투표가 시작되었습니다")
+            .setMessage("방장이 투표를 시작했습니다.\n이제 시간 투표를 진행할 수 있습니다.")
+            .setPositiveButton("확인") { _, _ ->
+                // 투표 탭으로 이동
+                binding.viewPager.currentItem = 0
+                binding.tabGroup.check(R.id.tabPlace)
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun loadGroupData() {
@@ -342,6 +474,11 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
             if (group != null) {
                 val isHost = (group.hostUid == currentUid)
                 binding.tvMemberCount.text = "${group.memberUids.size}명"
+                
+                // 이전 상태 저장 (첫 로드 시)
+                if (previousStatus == null) {
+                    previousStatus = group.status
+                }
 
                 displayConfirmedSchedule(group)
 
@@ -351,6 +488,16 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 // 상태에 따른 버튼 활성화 제어
                 updateButtonsByStatus(group.status)
+                
+                // ⭐ 투표 시작 버튼 (방장만 표시, 그룹 상태가 GROUP_CREATED일 때만)
+                voteTabView?.let { voteView ->
+                    val btnStartVoting = voteView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnStartVoting)
+                    btnStartVoting?.visibility = if (isHost && group.status == "GROUP_CREATED") {
+                        View.VISIBLE
+                    } else {
+                        View.GONE
+                    }
+                }
 
                 // 팀원 목록 표시
                 displayMemberList(group.memberUids, group.hostUid, isHost)
@@ -452,11 +599,18 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
         val btnFilterLocation = findViewById<View>(R.id.btnFilterLocation)
 
         when (status) {
-            "GROUP_CREATED",
+            "GROUP_CREATED" -> {
+                // ⭐ 투표 시작 전 - 모든 버튼 비활성화
+                btnFilterTime?.isEnabled = false
+                btnFilterTime?.alpha = 0.5f
+                btnFilterLocation?.isEnabled = false
+                btnFilterLocation?.alpha = 0.5f
+            }
             "TIME_VOTE_REQUIRED",
             "TIME_FINALIZING" -> {
                 // 시간 투표 단계 - 시간 버튼만 활성화
                 btnFilterTime?.isEnabled = true
+                btnFilterTime?.alpha = 1.0f
                 btnFilterLocation?.isEnabled = false
                 btnFilterLocation?.alpha = 0.5f
             }
@@ -469,12 +623,67 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
                 btnFilterTime?.isEnabled = false
                 btnFilterTime?.alpha = 0.5f
                 btnFilterLocation?.isEnabled = true
+                btnFilterLocation?.alpha = 1.0f
             }
             else -> {
-                // 기본값 - 시간 버튼 활성화
-                btnFilterTime?.isEnabled = true
+                // 기본값 - 투표 시작 전으로 간주하여 비활성화
+                btnFilterTime?.isEnabled = false
+                btnFilterTime?.alpha = 0.5f
                 btnFilterLocation?.isEnabled = false
                 btnFilterLocation?.alpha = 0.5f
+            }
+        }
+    }
+    
+    /**
+     * 투표 시작 확인 다이얼로그
+     */
+    private fun showStartVotingConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("투표 시작")
+            .setMessage("투표를 시작하시겠습니까?\n\n투표가 시작되면 새로운 멤버 초대가 불가능합니다.")
+            .setPositiveButton("시작") { _, _ ->
+                startVoting()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+    
+    /**
+     * 투표 시작 처리
+     */
+    private fun startVoting() {
+        lifecycleScope.launch {
+            try {
+                val success = groupRepository.startVoting(groupId)
+                if (success) {
+                    Toast.makeText(
+                        this@GroupDetailActivity,
+                        "투표가 시작되었습니다.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    // 그룹 데이터 다시 로드하여 UI 업데이트
+                    loadGroupData()
+                    // 투표 탭 UI도 업데이트
+                    voteTabView?.let { 
+                        updateVoteTabUI(it)
+                        // 투표 시작 버튼 숨기기
+                        val btnStartVoting = it.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnStartVoting)
+                        btnStartVoting?.visibility = View.GONE
+                    }
+                } else {
+                    Toast.makeText(
+                        this@GroupDetailActivity,
+                        "투표 시작에 실패했습니다.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@GroupDetailActivity,
+                    "오류 발생: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
