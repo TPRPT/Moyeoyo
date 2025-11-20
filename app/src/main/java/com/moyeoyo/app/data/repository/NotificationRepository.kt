@@ -146,4 +146,18 @@ class NotificationRepository(
         }
     }
 
+    /**
+     * 친구 요청 알림 처리
+     */
+    suspend fun markNotificationAsHandled(id: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        db.collection("users").document(uid)
+            .collection("notifications")
+            .document(id)
+            .update("handled", true)
+            .await()
+    }
+
+
 }

@@ -7,6 +7,7 @@ data class Notification(
     val type: String? = null,
     val groupId: String? = null,
     val senderUid: String? = null,
+    val createdAt: com.google.firebase.Timestamp? = null,
     val read: Boolean = false,
-    val createdAt: com.google.firebase.Timestamp? = null
+    val handled: Boolean = false
 )

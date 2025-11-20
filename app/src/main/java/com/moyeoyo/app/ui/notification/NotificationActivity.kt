@@ -73,6 +73,7 @@ class NotificationActivity : AppCompatActivity() {
                 val sorted = rawList
                     .sortedByDescending { it.createdAt?.toDate()?.time ?: 0L }
                     .map { convertToUi(it) }
+                    .sortedByDescending { it.timestamp }   // 최신순 보장
 
                 tvNotificationCount.text = "${sorted.size}개"
 
@@ -112,7 +113,8 @@ class NotificationActivity : AppCompatActivity() {
             senderUid = n.senderUid,               // 친구 요청이면 senderUid 존재
             time = formatTime(ts),
             timestamp = ts,
-            read = n.read                          // 읽음 여부 반영
+            read = n.read,                          // 읽음 여부 반영
+            handled = n.handled
         )
     }
 
@@ -178,21 +180,21 @@ class NotificationActivity : AppCompatActivity() {
 
             holder.card.setOnClickListener {
 
-                // 이미 처리된 알림은 클릭 비활성화
-                if (item.read) {
-                    Toast.makeText(
-                        this@NotificationActivity,
-                        "이미 처리된 알림입니다.", Toast.LENGTH_SHORT
-                    ).show()
-                    return@setOnClickListener
-                }
-
                 // 알림 타입 분기
                 when (item.type) {
 
                     // 🔵 친구 요청 알림
                     "friend_request" -> {
-                        showFriendRequestDialog(item)
+                        // handled=true 이면 아예 비활성화
+                        if (item.handled) {
+                            Toast.makeText(
+                                this@NotificationActivity,
+                                "이미 처리된 친구 요청입니다.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@setOnClickListener
+                        }
+                        showFriendRequestDialog(item)   // 수락/거절 처리
                     }
 
                     // 🔵 그룹 관련 알림 → 그룹 상세로 이동
@@ -244,6 +246,7 @@ class NotificationActivity : AppCompatActivity() {
                     if (ok) {
                         // 읽음 처리
                         notificationRepository.markNotificationAsRead(item.id)
+                        notificationRepository.markNotificationAsHandled(item.id)
 
                         Toast.makeText(
                             this@NotificationActivity,

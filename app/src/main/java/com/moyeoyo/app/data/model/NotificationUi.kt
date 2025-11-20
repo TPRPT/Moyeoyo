@@ -9,5 +9,6 @@ data class NotificationUi(
     val senderUid: String?,  // 친구 요청이면 포함됨
     val time: String,
     val timestamp: Long,
-    val read: Boolean        // 읽음 상태
+    val read: Boolean,        // 읽음 상태
+    val handled: Boolean     // ⭐ 친구 요청이 수락/거절된 경우 true
 )
