@@ -1,4 +1,3 @@
-// com.moyeoyo.app.ui.friends.AddFriendActivity.kt
 package com.moyeoyo.app.ui.friends
 
 import android.content.Intent
@@ -30,9 +29,14 @@ class AddFriendActivity : AppCompatActivity() {
     private lateinit var editTextEmail: EditText
     private lateinit var btnSearchFriend: Button
     private lateinit var textSearchResult: TextView
-    private lateinit var btnSendRequest: Button
     private lateinit var friendListContainer: LinearLayout
-    private lateinit var btnInviteFriend: Button   // 🔥 NEW: 친구 초대 버튼
+    private lateinit var btnInviteFriend: Button
+
+    // ⭐ 카드뷰 요소
+    private lateinit var cardSearchResult: View
+    private lateinit var tvName: TextView
+    private lateinit var tvEmail: TextView
+    private lateinit var btnSendRequest: Button
 
     private var foundUserUid: String? = null
 
@@ -43,16 +47,20 @@ class AddFriendActivity : AppCompatActivity() {
         editTextEmail = findViewById(R.id.edit_text_email)
         btnSearchFriend = findViewById(R.id.btn_search_friend)
         textSearchResult = findViewById(R.id.text_search_result)
-        btnSendRequest = findViewById(R.id.btn_send_request)
         friendListContainer = findViewById(R.id.friend_list_container)
-        btnInviteFriend = findViewById(R.id.btn_invite_friend)   // 🔥 NEW
+        btnInviteFriend = findViewById(R.id.btn_invite_friend)
+
+        // ⭐ 카드뷰 View 연결
+        cardSearchResult = findViewById(R.id.cardSearchResult)
+        tvName = findViewById(R.id.tvName)
+        tvEmail = findViewById(R.id.tvEmail)
+        btnSendRequest = findViewById(R.id.btn_send_request)
+
+        // 처음에는 카드 숨김
+        cardSearchResult.visibility = View.GONE
 
         btnSearchFriend.setOnClickListener { searchFriend() }
-        btnSendRequest.setOnClickListener {
-            foundUserUid?.let { uid -> sendFriendRequest(uid) }
-        }
-
-        // 🔥 친구 초대 링크 공유 버튼 클릭
+        btnSendRequest.setOnClickListener { foundUserUid?.let { uid -> sendFriendRequest(uid) } }
         btnInviteFriend.setOnClickListener { shareFriendInviteLink() }
 
         loadAndDisplayFriends()
@@ -79,34 +87,43 @@ class AddFriendActivity : AppCompatActivity() {
     }
 
     // =====================================================
-    // 친구 검색
+    // 친구 검색 → 카드뷰 표시
     // =====================================================
     private fun searchFriend() {
         val email = editTextEmail.text.toString().trim()
+
         if (email.isEmpty()) {
             Toast.makeText(this, "이메일을 입력해주세요.", Toast.LENGTH_SHORT).show()
             return
         }
 
+        // 초기화
         textSearchResult.visibility = View.GONE
-        btnSendRequest.visibility = View.GONE
+        cardSearchResult.visibility = View.GONE
         foundUserUid = null
 
         lifecycleScope.launch {
             val (uid, resultStatus) = friendRepository.findUserWithStatus(email)
 
             if (uid != null) {
+                // 사용자 있음 → 카드뷰 표시
                 val nickname = friendRepository.getUserNickname(uid)
+
                 foundUserUid = uid
-                textSearchResult.text = "사용자 찾음: ${nickname ?: "알 수 없음"} ($email)"
-                textSearchResult.visibility = View.VISIBLE
-                btnSendRequest.visibility = View.VISIBLE
+                tvName.text = nickname ?: "알 수 없음"
+                tvEmail.text = email
+
+                cardSearchResult.visibility = View.VISIBLE
+
             } else {
+                // 사용자 없음 → 텍스트 메시지
                 val message = when (resultStatus) {
                     "ALREADY_FRIEND" -> "이미 친구입니다."
                     "SELF" -> "본인은 친구로 추가할 수 없습니다."
                     else -> "사용자를 찾을 수 없습니다."
                 }
+
+                cardSearchResult.visibility = View.GONE
                 textSearchResult.text = "🚨 $message"
                 textSearchResult.visibility = View.VISIBLE
             }
@@ -122,9 +139,15 @@ class AddFriendActivity : AppCompatActivity() {
 
             if (success) {
                 Toast.makeText(this@AddFriendActivity, "친구 요청을 보냈습니다!", Toast.LENGTH_LONG).show()
+
+                // UI 초기화
                 editTextEmail.setText("")
-                textSearchResult.visibility = View.GONE
-                btnSendRequest.visibility = View.GONE
+                //cardSearchResult.visibility = View.GONE
+                //textSearchResult.visibility = View.GONE
+
+                btnSendRequest.isEnabled = false
+                btnSendRequest.backgroundTintList = getColorStateList(R.color.gray_300)
+                btnSendRequest.text = "요청 완료"
             } else {
                 Toast.makeText(this@AddFriendActivity, "친구 요청 실패", Toast.LENGTH_LONG).show()
             }
@@ -132,7 +155,7 @@ class AddFriendActivity : AppCompatActivity() {
     }
 
     // =====================================================
-    // 친구 목록 로드 + 삭제 버튼
+    // 친구 목록 로드 및 삭제 버튼
     // =====================================================
     private fun loadAndDisplayFriends() {
         friendListContainer.removeAllViews()
@@ -185,7 +208,7 @@ class AddFriendActivity : AppCompatActivity() {
         }
     }
 
-    // 삭제 확인
+    // 삭제 팝업
     private fun showDeleteConfirmation(friendUid: String, nickname: String) {
         AlertDialog.Builder(this)
             .setTitle("친구 삭제")
