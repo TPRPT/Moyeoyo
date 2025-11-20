@@ -14,7 +14,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.Timestamp
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
@@ -25,6 +24,8 @@ import com.moyeoyo.app.ui.place.FinalCandidateAdapter
 import com.moyeoyo.app.ui.place.FinalVoteViewModel
 import com.moyeoyo.app.ui.location.LocationInputActivity
 import com.moyeoyo.app.ui.vote.ConfirmActivity
+import com.moyeoyo.app.MainActivity
+import com.moyeoyo.app.R
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -41,18 +42,27 @@ class GroupDetailActivity : AppCompatActivity() {
     @Inject lateinit var groupRepository: GroupRepository
     @Inject lateinit var friendRepository: FriendRepository
 
-
-    @Inject
-    lateinit var groupRepository: GroupRepository
-
-    @Inject
-    lateinit var friendRepository: FriendRepository
-
     private val auth = FirebaseAuth.getInstance()
+    private val voteViewModel: FinalVoteViewModel by viewModels()
 
     private lateinit var groupId: String
     private lateinit var groupName: String
     private lateinit var currentUid: String
+
+    // 투표 탭 관련 변수
+    private lateinit var recyclerFinalCandidates: RecyclerView
+    private lateinit var tvVoteStatus: TextView
+    private lateinit var btnSubmitVote: Button
+    private lateinit var finalVoteAdapter: FinalCandidateAdapter
+    private val finalCandidates = mutableListOf<FinalCandidate>()
+    private var selectedCandidate: FinalCandidate? = null
+    private var isVoteTabInitialized = false
+
+    // 멤버 탭 관련 변수
+    private lateinit var recyclerMemberList: RecyclerView
+    private lateinit var btnInviteMember: View
+    private var isMemberTabInitialized = false
+    private var pendingMemberState: PendingMemberState? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,10 +78,20 @@ class GroupDetailActivity : AppCompatActivity() {
 
         setupToolbar()
         setupTabs()
+        setupButtons()
     }
 
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener { finish() }
+    }
+
+    private fun setupButtons() {
+        binding.btnDeleteGroup.setOnClickListener {
+            showDeleteGroupConfirmationDialog()
+        }
+        binding.btnLeaveGroup.setOnClickListener {
+            showLeaveGroupConfirmationDialog()
+        }
     }
 
     // ---------------------------
@@ -112,28 +132,15 @@ class GroupDetailActivity : AppCompatActivity() {
     //  투표 탭(view_vote_tab.xml)
     // ---------------------------
     private fun bindVoteTab(view: View) {
-        recyclerFinalCandidates = view.findViewById(R.id.rvFinalCandidates)
-        tvVoteStatus = view.findViewById(R.id.tvVoteStatus)
-        btnSubmitVote = view.findViewById(R.id.btnSubmitVote)
+        recyclerFinalCandidates = view.findViewById<RecyclerView>(R.id.rvFinalCandidates)
+        tvVoteStatus = view.findViewById<TextView>(R.id.tvVoteStatus)
+        btnSubmitVote = view.findViewById<Button>(R.id.btnSubmitVote)
 
         recyclerFinalCandidates.layoutManager = LinearLayoutManager(this)
 
-        // 위치 버튼 → LocationInputActivity 이동
+        // 위치 필터 버튼 → LocationInputActivity 이동
         val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
         btnFilterLocation.setOnClickListener {
-            val intent = Intent(this, LocationInputActivity::class.java)
-            intent.putExtra("groupId", groupId)
-        // 시간 투표 버튼 리스너
-        binding.btnTimeVote.setOnClickListener {
-            val intent = Intent(this, com.moyeoyo.app.ui.time.TimeVoteActivity::class.java).apply {
-                putExtra("groupId", groupId)
-            }
-            startActivity(intent)
-        }
-
-        // 장소 투표 버튼 리스너
-        binding.btnPlaceVote.setOnClickListener {
-            // LocationInputActivity로 이동하여 위치 선택 화면 표시
             val intent = Intent(this, LocationInputActivity::class.java).apply {
                 putExtra("groupId", groupId)
             }
@@ -231,10 +238,10 @@ class GroupDetailActivity : AppCompatActivity() {
     //  멤버 탭(view_member_tab.xml)
     // ---------------------------
     private fun bindMemberTab(view: View) {
-        recyclerMemberList = view.findViewById(R.id.recyclerMemberList)
+        recyclerMemberList = view.findViewById<RecyclerView>(R.id.recyclerMemberList)
         recyclerMemberList.layoutManager = LinearLayoutManager(this)
 
-        btnInviteMember = view.findViewById(R.id.btnInviteMember)
+        btnInviteMember = view.findViewById<View>(R.id.btnInviteMember)
         btnInviteMember.setOnClickListener {
             navigateToInviteScreen()
         }
@@ -296,12 +303,9 @@ class GroupDetailActivity : AppCompatActivity() {
         val confirmedTime = group.confirmedTime
         val confirmedPlace = group.confirmedPlace
 
-        if (confirmedTime != null) {
-            // 시간이 확정된 경우: 섹션을 표시하고 텍스트를 업데이트
-            val formattedTime = formatTimestamp(confirmedTime)
         if (confirmedTime != null && confirmedPlace != null) {
+            // 다음 모임 카드 표시
             binding.nextMeetingCard.visibility = View.VISIBLE
-
             binding.tvMeetingDateAndTime.text = formatTimestamp(confirmedTime)
             binding.tvMeetingLocation.text =
                 confirmedPlace["name"] as? String ?: "장소 없음"
@@ -312,19 +316,19 @@ class GroupDetailActivity : AppCompatActivity() {
                 intent.putExtra("GROUP_NAME", groupName)
                 startActivity(intent)
             }
-            binding.confirmedScheduleSection.visibility = View.VISIBLE
-            binding.textConfirmedTime.text = "일시: $formattedTime"
 
-            // 장소 정보가 있으면 표시
-            if (confirmedPlace != null) {
-                val placeName = confirmedPlace["name"] as? String ?: confirmedPlace["address"] as? String ?: "장소 정보 없음"
-                binding.textConfirmedPlace.text = "장소: $placeName"
-                binding.textConfirmedPlace.visibility = View.VISIBLE
-            } else {
-                binding.textConfirmedPlace.visibility = View.GONE
-            }
+            // 확정된 일정 섹션 표시
+            binding.confirmedScheduleSection.visibility = View.VISIBLE
+            binding.textConfirmedTime.text = "일시: ${formatTimestamp(confirmedTime)}"
+
+            val placeName = confirmedPlace["name"] as? String 
+                ?: confirmedPlace["address"] as? String 
+                ?: "장소 정보 없음"
+            binding.textConfirmedPlace.text = "장소: $placeName"
+            binding.textConfirmedPlace.visibility = View.VISIBLE
         } else {
             binding.nextMeetingCard.visibility = View.GONE
+            binding.confirmedScheduleSection.visibility = View.GONE
         }
     }
 
@@ -455,6 +459,42 @@ class GroupDetailActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun showDeleteGroupConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("그룹 삭제")
+            .setMessage("정말로 '$groupName' 그룹을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+            .setPositiveButton("삭제") { _, _ ->
+                deleteGroup()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun showLeaveGroupConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("그룹 나가기")
+            .setMessage("'$groupName' 그룹을 나가시겠습니까?")
+            .setPositiveButton("나가기") { _, _ ->
+                leaveGroup()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun deleteGroup() {
+        lifecycleScope.launch {
+            val success = groupRepository.deleteGroup(groupId)
+
+            if (success) {
+                Toast.makeText(this@GroupDetailActivity, "'$groupName' 그룹을 삭제했습니다.", Toast.LENGTH_LONG).show()
+                startActivity(Intent(this@GroupDetailActivity, MainActivity::class.java))
+                finish()
+            } else {
+                Toast.makeText(this@GroupDetailActivity, "그룹 삭제에 실패했습니다.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun leaveGroup() {
         lifecycleScope.launch {
             val success = groupRepository.leaveGroup(groupId)
@@ -469,3 +509,10 @@ class GroupDetailActivity : AppCompatActivity() {
         }
     }
 }
+
+// 멤버 목록 상태를 저장하는 데이터 클래스
+private data class PendingMemberState(
+    val members: List<Pair<String, String>>, // (uid, nickname) 리스트
+    val hostUid: String,
+    val isHost: Boolean
+)
