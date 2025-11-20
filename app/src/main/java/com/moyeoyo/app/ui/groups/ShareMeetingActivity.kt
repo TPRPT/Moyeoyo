@@ -28,7 +28,6 @@ class ShareMeetingActivity : AppCompatActivity() {
     private var sharePlaceName: String = ""
     private var shareAddress: String = ""
     private var shareTimeFormatted: String = ""
-    private var shareUrl: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,8 +36,6 @@ class ShareMeetingActivity : AppCompatActivity() {
 
         groupId = intent.getStringExtra("GROUP_ID") ?: return finish()
         groupName = intent.getStringExtra("GROUP_NAME") ?: "모임"
-
-        shareUrl = "https://moyeoyo.app/meeting/$groupId"
 
         setupToolbar()
         loadMeetingData()
@@ -89,8 +86,6 @@ class ShareMeetingActivity : AppCompatActivity() {
                         }
                     }
                 }
-
-                binding.tvShareLink.text = shareUrl
             }
     }
 
@@ -131,9 +126,6 @@ class ShareMeetingActivity : AppCompatActivity() {
         📍 장소  
         $sharePlaceName  
         $shareAddress
-        
-        🔗 약속 링크  
-        $shareUrl
                 """.trimIndent()
         }
     }
