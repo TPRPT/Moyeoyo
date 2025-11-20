@@ -159,5 +159,26 @@ class NotificationRepository(
             .await()
     }
 
+    /**
+     * 알림 삭제
+     */
+    suspend fun deleteNotification(notificationId: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        try {
+            db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .document(notificationId)
+                .delete()
+                .await()
+
+            Log.d(TAG, "Notification deleted: $notificationId")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteNotification error: ${e.message}")
+        }
+    }
+
 
 }

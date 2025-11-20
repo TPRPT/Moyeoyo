@@ -13,6 +13,7 @@ import androidx.cardview.widget.CardView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ItemTouchHelper
 import com.moyeoyo.app.R
 import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import com.moyeoyo.app.data.model.Notification
@@ -39,6 +40,7 @@ class NotificationActivity : AppCompatActivity() {
     )
 
     private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: NotificationAdapter
     private lateinit var tvNotificationCount: TextView
     private lateinit var emptyText: TextView
 
@@ -54,6 +56,10 @@ class NotificationActivity : AppCompatActivity() {
         toolbar.setNavigationOnClickListener { finish() }
 
         recyclerView.layoutManager = LinearLayoutManager(this)
+
+        adapter = NotificationAdapter(mutableListOf())
+        recyclerView.adapter = adapter
+        initSwipeToDelete(adapter)
 
         loadNotifications()
     }
@@ -77,15 +83,12 @@ class NotificationActivity : AppCompatActivity() {
 
                 tvNotificationCount.text = "${sorted.size}개"
 
-                if (sorted.isEmpty()) {
-                    emptyText.visibility = View.VISIBLE
-                    recyclerView.adapter = NotificationAdapter(emptyList())
-                } else {
-                    emptyText.visibility = View.GONE
-                    recyclerView.adapter = NotificationAdapter(sorted)
-                }
+                adapter.items.clear()
+                adapter.items.addAll(sorted)
+                adapter.notifyDataSetChanged()
 
-                // 3) UI 표시 후 '읽음 처리'
+                emptyText.visibility = if (sorted.isEmpty()) View.VISIBLE else View.GONE
+
                 if (unreadIds.isNotEmpty()) {
                     notificationRepository.markNotificationsAsRead(unreadIds)
                 }
@@ -146,7 +149,7 @@ class NotificationActivity : AppCompatActivity() {
     // -------------------------------------------------------------------
     // 🔵 RecyclerView Adapter
     // -------------------------------------------------------------------
-    private inner class NotificationAdapter(private val items: List<NotificationUi>) :
+    private inner class NotificationAdapter(val items: MutableList<NotificationUi>) :
         RecyclerView.Adapter<NotificationAdapter.ViewHolder>() {
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -275,5 +278,32 @@ class NotificationActivity : AppCompatActivity() {
 
         dialog.show()
     }
+
+    private fun initSwipeToDelete(adapter: NotificationAdapter) {
+
+        val swipeHelper = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val item = adapter.items[position]
+
+                lifecycleScope.launch {
+                    notificationRepository.deleteNotification(item.id)
+                    adapter.items.removeAt(position)
+                    adapter.notifyItemRemoved(position)
+                    tvNotificationCount.text = "${adapter.items.size}개"
+                }
+            }
+        }
+
+        ItemTouchHelper(swipeHelper).attachToRecyclerView(recyclerView)
+    }
+
 
 }
