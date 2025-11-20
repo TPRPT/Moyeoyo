@@ -114,6 +114,10 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <activity
+            android:name=".ui.groups.GroupManageActivity"
+            android:exported="false" />
+
 
     </application>
 

@@ -34,6 +34,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
+import com.moyeoyo.app.ui.groups.GroupManageActivity
+
 
 @AndroidEntryPoint
 class GroupDetailActivity : AppCompatActivity() {
@@ -90,9 +92,9 @@ class GroupDetailActivity : AppCompatActivity() {
         binding.btnDeleteGroup.setOnClickListener {
             showDeleteGroupConfirmationDialog()
         }
-        binding.btnLeaveGroup.setOnClickListener {
-            showLeaveGroupConfirmationDialog()
-        }
+//        binding.btnLeaveGroup.setOnClickListener {
+//            showLeaveGroupConfirmationDialog()
+//        }
     }
 
     // ---------------------------
@@ -286,9 +288,24 @@ class GroupDetailActivity : AppCompatActivity() {
 
                 displayConfirmedSchedule(group)
 
-                // 삭제/나가기 버튼
-                binding.btnDeleteGroup.visibility = if (isHost) View.VISIBLE else View.GONE
-                binding.btnLeaveGroup.visibility = if (!isHost) View.VISIBLE else View.GONE
+                // 버튼 표시/동작 분기
+                if (isHost) {
+                    // 호스트: "그룹 관리" 버튼만 보이게
+                    binding.btnDeleteGroup.visibility = View.GONE
+                    binding.btnLeaveGroup.visibility = View.VISIBLE
+                    binding.btnLeaveGroup.text = "그룹 관리"
+                    binding.btnLeaveGroup.setOnClickListener {
+                        navigateToGroupManageScreen(group.id, group.groupName)
+                    }
+                } else {
+                    // 일반 멤버: 기존처럼 "그룹 나가기"
+                    binding.btnDeleteGroup.visibility = View.GONE
+                    binding.btnLeaveGroup.visibility = View.VISIBLE
+                    binding.btnLeaveGroup.text = "그룹 나가기"
+                    binding.btnLeaveGroup.setOnClickListener {
+                        showLeaveGroupConfirmationDialog()
+                    }
+                }
 
                 // 상태에 따른 버튼 활성화 제어
                 updateButtonsByStatus(group.status)
@@ -446,6 +463,17 @@ class GroupDetailActivity : AppCompatActivity() {
         val intent = Intent(this, GroupInviteActivity::class.java)
         intent.putExtra("GROUP_ID", groupId)
         intent.putExtra("GROUP_NAME", groupName)
+        startActivity(intent)
+    }
+
+    // ---------------------------
+    //  그룹 관리 화면 이동 (호스트 전용)
+    // ---------------------------
+    private fun navigateToGroupManageScreen(groupId: String, groupName: String) {
+        val intent = Intent(this, GroupManageActivity::class.java).apply {
+            putExtra("GROUP_ID", groupId)
+            putExtra("GROUP_NAME", groupName)
+        }
         startActivity(intent)
     }
 
