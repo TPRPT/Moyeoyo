@@ -388,6 +388,47 @@ class GroupRepository @Inject constructor(
     }
 
     /**
+     * ⭐ NEW: 그룹 이름 수정
+     */
+    suspend fun updateGroupName(groupId: String, newName: String): Boolean {
+        return try {
+            groupsCollection.document(groupId)
+                .update("groupName", newName)
+                .await()
+            Log.d(TAG, "updateGroupName SUCCESS: $newName")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "updateGroupName FAILED: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * ⭐ NEW: 확정된 일정 수정
+     */
+    suspend fun updateConfirmedSchedule(
+        groupId: String,
+        confirmedTime: Timestamp,
+        confirmedPlace: Map<String, Any>
+    ): Boolean {
+        return try {
+            groupsCollection.document(groupId)
+                .update(
+                    mapOf(
+                        "confirmedTime" to confirmedTime,
+                        "confirmedPlace" to confirmedPlace
+                    )
+                ).await()
+
+            Log.d(TAG, "updateConfirmedSchedule SUCCESS")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "updateConfirmedSchedule FAILED: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * 그룹과 그 하위 컬렉션의 모든 데이터를 삭제합니다.
      */
     suspend fun deleteGroup(groupId: String): Boolean {

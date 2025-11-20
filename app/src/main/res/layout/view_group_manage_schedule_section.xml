@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/bg_card_gray">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="확정된 일정 수정"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- 날짜 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="날짜"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary"/>
+
+    <EditText
+        android:id="@+id/fieldDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:focusable="false"
+        android:clickable="true"
+        android:background="@drawable/bg_input_field"
+        android:padding="10dp"
+        android:hint="YYYY-MM-DD"/>
+
+    <!-- 시간 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="시간"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary"/>
+
+    <EditText
+        android:id="@+id/fieldTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:focusable="false"
+        android:clickable="true"
+        android:background="@drawable/bg_input_field"
+        android:padding="10dp"
+        android:hint="HH:mm"/>
+
+    <!-- 장소 이름 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="장소"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary"/>
+
+    <EditText
+        android:id="@+id/editPlaceName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_input_field"
+        android:padding="10dp"
+        android:hint="장소 이름을 입력하세요"/>
+
+    <Button
+        android:id="@+id/btnSaveSchedule"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="16dp"
+        android:text="일정 저장"
+        android:textStyle="bold"
+        android:backgroundTint="#3B82F6"/>
+</LinearLayout>
