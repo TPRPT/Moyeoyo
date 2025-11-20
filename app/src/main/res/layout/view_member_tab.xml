@@ -61,45 +61,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 투표 현황 박스 (그대로 유지) -->
-        <LinearLayout
-            android:id="@+id/layoutVoteStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/bg_card_light_blue"
-            android:layout_marginTop="12dp"
-            android:padding="12dp">
-
-            <TextView
-                android:id="@+id/tvVoteTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="시간 투표 현황"
-                android:textColor="@color/black"
-                android:textStyle="bold"
-                android:textSize="14sp"/>
-
-            <ProgressBar
-                android:id="@+id/progressVote"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="6dp"
-                android:progressTint="@color/brand_blue"
-                android:layout_marginTop="8dp"
-                android:progress="60"/>
-
-            <TextView
-                android:id="@+id/tvVoteCount"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="3/5"
-                android:gravity="end"
-                android:textColor="@color/brand_blue"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
-
         <!-- 멤버 리스트 RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerMemberList"

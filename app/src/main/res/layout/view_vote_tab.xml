@@ -16,96 +16,130 @@
         android:paddingTop="16dp"
         android:paddingBottom="16dp">
 
-        <!-- 제목 + 위치/시간 버튼 -->
+        <!-- 투표 관련 UI 전체 컨테이너 -->
         <LinearLayout
+            android:id="@+id/layoutVoteContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:baselineAligned="false">
+            android:orientation="vertical"
+            android:visibility="visible">
 
-            <TextView
-                android:id="@+id/tvVoteTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="최종 투표"
-                android:textColor="@color/black"
-                android:textStyle="bold"
-                android:textSize="18sp"
-                android:layout_weight="1" />
+        <!-- 제목 -->
+        <TextView
+            android:id="@+id/tvVoteTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="최종 투표"
+            android:textColor="@color/black"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp" />
 
+        <!-- 초기 상태 버튼 컨테이너 (아무것도 투표 안된 상태에서만 표시) -->
+        <LinearLayout
+            android:id="@+id/layoutInitialButtons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="visible">
+
+            <!-- 시간 버튼 -->
             <LinearLayout
+                android:id="@+id/btnFilterTime"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
                 android:orientation="horizontal"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="end">
+                android:gravity="center_vertical"
+                android:paddingHorizontal="20dp"
+                android:background="@drawable/bg_chip_outline"
+                android:layout_marginBottom="12dp"
+                android:clickable="true"
+                android:focusable="true">
 
-                <!-- 위치 버튼 -->
-                <LinearLayout
-                    android:id="@+id/btnFilterLocation"
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_event_24"
+                    app:tint="@color/black"/>
+
+                <TextView
                     android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingHorizontal="10dp"
-                    android:background="@drawable/bg_chip_outline"
-                    android:layout_marginEnd="6dp">
+                    android:layout_height="wrap_content"
+                    android:text="시간"
+                    android:textColor="@color/black"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="8dp"/>
+            </LinearLayout>
 
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_place_24"
-                        app:tint="@color/black"/>
+            <!-- 위치 버튼 -->
+            <LinearLayout
+                android:id="@+id/btnFilterLocation"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="20dp"
+                android:background="@drawable/bg_chip_outline"
+                android:clickable="true"
+                android:focusable="true">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="위치"
-                        android:textColor="@color/black"
-                        android:textSize="12sp"
-                        android:layout_marginStart="4dp"/>
-                </LinearLayout>
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_place_24"
+                    app:tint="@color/black"/>
 
-                <!-- 시간 버튼 -->
-                <LinearLayout
-                    android:id="@+id/btnFilterTime"
+                <TextView
                     android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingHorizontal="10dp"
-                    android:background="@drawable/bg_chip_outline">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_event_24"
-                        app:tint="@color/black"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="시간"
-                        android:textColor="@color/black"
-                        android:textSize="12sp"
-                        android:layout_marginStart="4dp"/>
-                </LinearLayout>
+                    android:layout_height="wrap_content"
+                    android:text="위치"
+                    android:textColor="@color/black"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="8dp"/>
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 설명 문구 -->
-        <TextView
-            android:id="@+id/tvVoteDescription"
+        <!-- 시간 최종 투표 섹션 -->
+        <LinearLayout
+            android:id="@+id/layoutFinalTimeVote"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="상위 3개 장소 중 한 곳을 선택하세요"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            android:gravity="center"
-            android:padding="10dp"
-            android:layout_marginTop="8dp"
-            android:background="@color/gray_100"
-            android:layout_marginBottom="16dp" />
+            android:orientation="vertical"
+            android:layout_marginTop="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="시간을 선택하세요"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- 시간 리스트 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvFinalTimes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:nestedScrollingEnabled="false"
+                android:layout_marginBottom="12dp" />
+
+            <!-- 시간 투표 버튼 -->
+            <Button
+                android:id="@+id/btnSubmitTimeVote"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="시간 투표하기"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@android:color/white"
+                android:background="@drawable/bg_button_primary"
+                android:visibility="gone" />
+        </LinearLayout>
+
 
         <!-- 후보 리스트 -->
         <androidx.recyclerview.widget.RecyclerView
@@ -114,18 +148,6 @@
             android:layout_height="wrap_content"
             android:clipToPadding="false"
             android:nestedScrollingEnabled="false"
-            android:layout_marginBottom="12dp" />
-
-        <!-- 투표 상태 -->
-        <TextView
-            android:id="@+id/tvVoteStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="투표 상태: 0 / 0명 완료"
-            android:textSize="14sp"
-            android:textColor="@color/text_secondary"
-            android:gravity="center"
-            android:layout_marginTop="8dp"
             android:layout_marginBottom="12dp" />
 
         <!-- 투표 버튼 -->
@@ -139,6 +161,49 @@
             android:textColor="@android:color/white"
             android:background="@drawable/bg_button_primary"
             android:visibility="gone" />
+
+        </LinearLayout>
+        <!-- 투표 관련 UI 전체 컨테이너 끝 -->
+
+        <!-- 최종 위치 지도 섹션 (투표 완료 후 표시) -->
+        <LinearLayout
+            android:id="@+id/layoutFinalPlaceMap"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="최종 확정된 장소"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- 지도 프래그먼트 -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="300dp"
+                android:layout_marginBottom="12dp">
+                
+                <fragment
+                    android:id="@+id/mapFragment"
+                    android:name="com.google.android.gms.maps.SupportMapFragment"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+            </FrameLayout>
+
+            <!-- 사용자별 소요시간 리스트 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvMemberDistances"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:nestedScrollingEnabled="false" />
+        </LinearLayout>
 
     </LinearLayout>
 

@@ -24,21 +24,16 @@
             app:menu="@menu/group_detail_menu" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- 전체 스크롤 -->
-    <androidx.core.widget.NestedScrollView
+    <!-- 전체 컨테이너 (스크롤은 ViewPager2 내부 탭에서 처리) -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="40dp">
+        android:orientation="vertical"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="40dp">
 
             <!-- 모임명 -->
             <TextView
@@ -48,7 +43,7 @@
                 android:text="대학 동기들"
                 android:textColor="@color/black"
                 android:textStyle="bold"
-                android:textSize="20sp" />
+                android:textSize="28sp" />
 
             <!-- 멤버 수 -->
             <TextView
@@ -60,11 +55,12 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
-            <!-- 최종 확정된 일정 표시 블록 -->
+            <!-- 확정된 시간 블록 -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/confirmed_schedule_section"
+                android:id="@+id/confirmed_time_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
                 android:layout_marginBottom="16dp"
                 android:visibility="gone"
                 app:cardCornerRadius="12dp"
@@ -80,72 +76,21 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="최종 확정된 일정"
+                        android:text="확정된 시간"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/black"
                         android:layout_marginBottom="8dp"/>
 
                     <TextView
-                        android:id="@+id/text_confirmed_time"
+                        android:id="@+id/text_confirmed_time_only"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="일시: 2025년 11월 20일 (수) 오후 2:00"
                         android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
-                        android:layout_marginBottom="4dp"/>
-
-                    <TextView
-                        android:id="@+id/text_confirmed_place"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="장소: 카페 이름"
-                        android:textSize="14sp"
                         android:textColor="@color/text_secondary"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- 시간/장소 선택 버튼 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="16dp">
-
-                <Button
-                    android:id="@+id/btn_time_vote"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_weight="1"
-                    android:text="시간 투표"
-                    android:backgroundTint="#3B82F6"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:layout_marginEnd="8dp"/>
-
-                <Button
-                    android:id="@+id/btn_place_vote"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_weight="1"
-                    android:text="장소 투표"
-                    android:backgroundTint="#8B5CF6"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:layout_marginStart="8dp"
-                    android:enabled="false"/>
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/btn_start_vote"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:text="투표 시작하기"
-                android:textStyle="bold"
-                android:textSize="18sp"
-                android:backgroundTint="#3B82F6"
-                android:layout_marginBottom="16dp"
-                android:visibility="gone" />
 
             <!-- 그룹 삭제/나가기 버튼 -->
             <LinearLayout
@@ -179,12 +124,13 @@
                     android:visibility="gone" />
             </LinearLayout>
 
-            <!-- 다음 모임 카드 -->
+            <!-- 다음 모임 카드 (최종 확정된 일정 블록 대신 표시) -->
             <LinearLayout
                 android:id="@+id/nextMeetingCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
                 android:orientation="vertical"
                 android:padding="16dp"
                 android:background="@drawable/bg_header_blue"
@@ -322,7 +268,7 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:text="장소"
+                    android:text="투표"
                     android:textColor="@color/black"
                     android:textSize="14sp"
                     android:button="@null"
@@ -346,9 +292,9 @@
             <androidx.viewpager2.widget.ViewPager2
                 android:id="@+id/viewPager"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="1"
                 android:layout_marginTop="12dp" />
 
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+    </LinearLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

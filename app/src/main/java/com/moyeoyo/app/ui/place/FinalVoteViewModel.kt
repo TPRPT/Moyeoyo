@@ -349,10 +349,10 @@ class FinalVoteViewModel @Inject constructor(
                 android.util.Log.d("FinalVoteViewModel", 
                     "📊 총 RankedPlace 수: ${allRankedPlaces.size}")
                 
+                // 순위 데이터가 비어있으면 아직 순위 지정이 완료되지 않은 상태 (정상적인 상황)
                 if (allRankedPlaces.isEmpty()) {
-                    android.util.Log.e("FinalVoteViewModel", 
-                        "❌ 순위 지정 데이터가 비어있습니다")
-                    _error.value = "순위 지정 데이터를 불러올 수 없습니다. 모든 사용자가 순위를 확정했는지 확인해주세요."
+                    android.util.Log.d("FinalVoteViewModel", 
+                        "ℹ️ 순위 지정 데이터가 아직 없습니다. 순위 지정이 완료되면 자동으로 후보가 생성됩니다.")
                     return@launch
                 }
                 

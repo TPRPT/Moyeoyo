@@ -14,17 +14,21 @@ import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.RankedPlace
 import com.moyeoyo.app.databinding.ActivityFinalVoteBinding
-import com.moyeoyo.app.map.MidpointActivity
+import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.place.FinalCandidate
 import com.moyeoyo.app.ui.place.RankedPlaceParcelable
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class FinalVoteActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFinalVoteBinding
     private val viewModel: FinalVoteViewModel by viewModels()
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
     
     private lateinit var adapter: FinalCandidateAdapter
     private val finalCandidates = mutableListOf<FinalCandidate>()
@@ -202,27 +206,63 @@ class FinalVoteActivity : AppCompatActivity() {
         
         val groupId = intent.getStringExtra("groupId") ?: ""
         
-        // ⭐ 다이얼로그를 변수에 저장하여 onDestroy에서 닫을 수 있도록 함
-        winningPlaceDialog = AlertDialog.Builder(this)
-            .setTitle("최종 약속 장소 확정")
-            .setMessage("최종 약속 장소는 \"${winningPlace.name}\"로 선정되었습니다.\n중간값 계산 화면으로 이동하여 소요시간을 확인하시겠습니까?")
-            .setPositiveButton("확인") { _, _ ->
-                // 중간값 계산 화면으로 이동하며 승리한 장소 전달 (주소 포함)
-                val intent = Intent(this, MidpointActivity::class.java).apply {
-                    putExtra("groupId", groupId)
-                    putExtra("selectedPlaceId", winningPlace.placeId)
-                    putExtra("selectedPlaceName", winningPlace.name)
-                    putExtra("selectedPlaceAddress", winningPlace.address)
-                    putExtra("selectedPlaceLat", winningPlace.latLng.lat)
-                    putExtra("selectedPlaceLng", winningPlace.latLng.lng)
-                }
-                startActivity(intent)
-                finish()
+        lifecycleScope.launch {
+            try {
+                val group = groupRepository.getGroupDetail(groupId)
+                val groupName = group?.groupName ?: ""
+                
+                // 장소를 그룹의 confirmedPlace에 저장
+                val placeData = mapOf(
+                    "placeId" to winningPlace.placeId,
+                    "name" to winningPlace.name,
+                    "latitude" to winningPlace.latLng.lat,
+                    "longitude" to winningPlace.latLng.lng,
+                    "address" to (winningPlace.address ?: "")
+                )
+                groupRepository.confirmGroupSchedule(
+                    groupId = groupId,
+                    confirmedPlace = placeData,
+                    confirmedTime = group?.confirmedTime 
+                        ?: com.google.firebase.Timestamp.now(),
+                    newTitle = groupName
+                )
+                
+                // ⭐ 다이얼로그를 변수에 저장하여 onDestroy에서 닫을 수 있도록 함
+                winningPlaceDialog = AlertDialog.Builder(this@FinalVoteActivity)
+                    .setTitle("최종 약속 장소 확정")
+                    .setMessage("최종 약속 장소는 \"${winningPlace.name}\"로 선정되었습니다.")
+                    .setPositiveButton("확인") { _, _ ->
+                        // 그룹 디테일 화면으로 이동
+                        val intent = Intent(this@FinalVoteActivity, com.moyeoyo.app.ui.groups.GroupDetailActivity::class.java).apply {
+                            putExtra("GROUP_ID", groupId)
+                            putExtra("GROUP_NAME", groupName)
+                        }
+                        startActivity(intent)
+                        finish()
+                    }
+                    .setCancelable(false)
+                    .create()
+                
+                winningPlaceDialog?.show()
+            } catch (e: Exception) {
+                android.util.Log.e("FinalVoteActivity", "그룹 정보 조회 실패: ${e.message}", e)
+                // 그룹 이름 없이도 이동
+                winningPlaceDialog = AlertDialog.Builder(this@FinalVoteActivity)
+                    .setTitle("최종 약속 장소 확정")
+                    .setMessage("최종 약속 장소는 \"${winningPlace.name}\"로 선정되었습니다.")
+                    .setPositiveButton("확인") { _, _ ->
+                        val intent = Intent(this@FinalVoteActivity, com.moyeoyo.app.ui.groups.GroupDetailActivity::class.java).apply {
+                            putExtra("GROUP_ID", groupId)
+                        }
+                        startActivity(intent)
+                        finish()
+                    }
+                    .setCancelable(false)
+                    .create()
+                
+                winningPlaceDialog?.show()
             }
-            .setCancelable(false)
-            .create()
-        
-        winningPlaceDialog?.show()
+        }
     }
     
     override fun onDestroy() {
