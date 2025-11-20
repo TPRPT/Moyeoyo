@@ -49,17 +49,83 @@
                 android:textStyle="bold"
                 android:textColor="#3B82F6"
                 android:layout_marginTop="8dp"
-                android:layout_marginBottom="32dp"/>
-
-            <Button
-                android:id="@+id/btn_calculate_midpoint"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:text="중간값 계산하기"
-                android:backgroundTint="#8B5CF6"
-                android:textSize="16sp"
-                android:textStyle="bold"
                 android:layout_marginBottom="16dp"/>
+
+            <!-- 최종 확정된 일정 표시 블록 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/confirmed_schedule_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/white">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="최종 확정된 일정"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/black"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:id="@+id/text_confirmed_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="일시: 2025년 11월 20일 (수) 오후 2:00"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginBottom="4dp"/>
+
+                    <TextView
+                        android:id="@+id/text_confirmed_place"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="장소: 카페 이름"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 시간/장소 선택 버튼 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <Button
+                    android:id="@+id/btn_time_vote"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:text="시간 투표"
+                    android:backgroundTint="#3B82F6"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginEnd="8dp"/>
+
+                <Button
+                    android:id="@+id/btn_place_vote"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:text="장소 투표"
+                    android:backgroundTint="#8B5CF6"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="8dp"
+                    android:enabled="false"/>
+            </LinearLayout>
 
             <Button
                 android:id="@+id/btn_confirm_schedule_now"
@@ -86,46 +152,6 @@
                 android:background="@drawable/bg_input_field"
                 android:padding="8dp"
                 android:layout_marginBottom="32dp"/>
-
-            <LinearLayout
-                android:id="@+id/confirmed_schedule_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:background="@drawable/bg_info_box_blue"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="확정된 약속 정보"
-                    android:textStyle="bold"
-                    android:textColor="#003366"
-                    android:textSize="18sp"
-                    android:layout_marginBottom="8dp"/>
-
-                <TextView
-                    android:id="@+id/text_confirmed_place"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="장소: 미정"
-                    android:textColor="#003366"
-                    android:drawableStart="@drawable/ic_google_calendar"
-                    android:drawablePadding="8dp"
-                    android:textSize="16sp"
-                    android:layout_marginBottom="4dp"/>
-
-                <TextView
-                    android:id="@+id/text_confirmed_time"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="일시: 미정"
-                    android:textColor="#003366"
-                    android:drawableStart="@drawable/ic_calendar_other"
-                    android:drawablePadding="8dp"
-                    android:textSize="16sp"/>
-            </LinearLayout>
 
 
             <TextView

@@ -43,6 +43,9 @@
 
         <activity android:name=".ui.place.RecommendedPlaceActivity" />
         <activity android:name=".ui.place.FinalVoteActivity" />
+        
+        <activity android:name=".ui.time.TimeVoteActivity" />
+        <activity android:name=".ui.time.FinalTimeVoteActivity" />
 
         <activity android:name=".ui.notification.NotificationActivity" />
 

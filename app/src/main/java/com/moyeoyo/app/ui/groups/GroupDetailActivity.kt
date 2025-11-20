@@ -73,8 +73,16 @@ class GroupDetailActivity : AppCompatActivity() {
             showLeaveConfirmationDialog()
         }
 
-        // 중간값 계산 버튼 리스너
-        binding.btnCalculateMidpoint.setOnClickListener {
+        // 시간 투표 버튼 리스너
+        binding.btnTimeVote.setOnClickListener {
+            val intent = Intent(this, com.moyeoyo.app.ui.time.TimeVoteActivity::class.java).apply {
+                putExtra("groupId", groupId)
+            }
+            startActivity(intent)
+        }
+
+        // 장소 투표 버튼 리스너
+        binding.btnPlaceVote.setOnClickListener {
             // LocationInputActivity로 이동하여 위치 선택 화면 표시
             val intent = Intent(this, LocationInputActivity::class.java).apply {
                 putExtra("groupId", groupId)
@@ -127,7 +135,10 @@ class GroupDetailActivity : AppCompatActivity() {
                 binding.btnDeleteGroup.visibility = if (isHost) View.VISIBLE else View.GONE
                 binding.btnLeaveGroup.visibility = if (!isHost) View.VISIBLE else View.GONE
 
-                // 4. 팀원 목록 표시
+                // 4. 상태에 따른 버튼 활성화 제어
+                updateButtonsByStatus(group.status)
+
+                // 5. 팀원 목록 표시
                 displayMemberList(group.memberUids, group.hostUid, isHost)
 
             } else {
@@ -144,16 +155,23 @@ class GroupDetailActivity : AppCompatActivity() {
      */
     private fun displayConfirmedSchedule(group: Group) {
         val confirmedTime = group.confirmedTime
-        val confirmedPlace = group.confirmedPlace
 
-        if (confirmedTime != null && confirmedPlace != null) {
-            // 데이터가 있는 경우: 섹션을 표시하고 텍스트를 업데이트
-            val placeName = confirmedPlace["name"] as? String ?: confirmedPlace["address"] as? String ?: "장소 정보 없음"
+        if (confirmedTime != null) {
+            // 시간이 확정된 경우: 섹션을 표시하고 텍스트를 업데이트
             val formattedTime = formatTimestamp(confirmedTime)
 
             binding.confirmedScheduleSection.visibility = View.VISIBLE
-            binding.textConfirmedPlace.text = "장소: $placeName"
             binding.textConfirmedTime.text = "일시: $formattedTime"
+            
+            // 장소 정보가 있으면 표시
+            val confirmedPlace = group.confirmedPlace
+            if (confirmedPlace != null) {
+                val placeName = confirmedPlace["name"] as? String ?: confirmedPlace["address"] as? String ?: "장소 정보 없음"
+                binding.textConfirmedPlace.text = "장소: $placeName"
+                binding.textConfirmedPlace.visibility = View.VISIBLE
+            } else {
+                binding.textConfirmedPlace.visibility = View.GONE
+            }
         } else {
             // 데이터가 없는 경우: 섹션을 숨김
             binding.confirmedScheduleSection.visibility = View.GONE
@@ -170,6 +188,54 @@ class GroupDetailActivity : AppCompatActivity() {
             timeZone = TimeZone.getDefault()
         }
         return sdf.format(date)
+    }
+
+    /**
+     * 그룹 상태에 따라 버튼 활성화 제어
+     */
+    private fun updateButtonsByStatus(status: String?) {
+        android.util.Log.d("GroupDetailActivity", "📊 그룹 상태: $status")
+        
+        when (status) {
+            "GROUP_CREATED",
+            "TIME_VOTE_REQUIRED" -> {
+                // 시간 투표 단계
+                android.util.Log.d("GroupDetailActivity", "✅ 시간 투표 단계 - 시간 투표 활성화")
+                binding.btnTimeVote.isEnabled = true
+                binding.btnPlaceVote.isEnabled = false
+            }
+            "TIME_FINALIZING" -> {
+                // 시간 확정 단계 - 시간 투표만 활성화 (최종 시간 투표 진행 중)
+                android.util.Log.d("GroupDetailActivity", "⏳ 시간 확정 단계 - 시간 투표만 활성화")
+                binding.btnTimeVote.isEnabled = true
+                binding.btnPlaceVote.isEnabled = false
+            }
+            "LOCATION_INPUT_REQUIRED",
+            "LOCATION_DONE",
+            "PLACE_RANKING",
+            "FINAL_PLACE_VOTE",
+            "FINALIZED" -> {
+                // 장소 투표 단계 (시간 확정 완료)
+                android.util.Log.d("GroupDetailActivity", "✅ 장소 투표 단계 - 장소 투표 활성화")
+                binding.btnTimeVote.isEnabled = false
+                binding.btnPlaceVote.isEnabled = true
+            }
+            null,
+            "" -> {
+                // 상태가 없거나 빈 문자열인 경우 - 기본적으로 시간 투표 활성화
+                android.util.Log.w("GroupDetailActivity", "⚠️ 그룹 상태가 없음 - 기본값으로 시간 투표 활성화")
+                binding.btnTimeVote.isEnabled = true
+                binding.btnPlaceVote.isEnabled = false
+            }
+            else -> {
+                // 예상치 못한 상태 - 기본값으로 시간 투표 활성화
+                android.util.Log.w("GroupDetailActivity", "⚠️ 예상치 못한 그룹 상태: $status - 기본값으로 시간 투표 활성화")
+                binding.btnTimeVote.isEnabled = true
+                binding.btnPlaceVote.isEnabled = false
+            }
+        }
+        
+        android.util.Log.d("GroupDetailActivity", "버튼 상태 - 시간 투표: ${binding.btnTimeVote.isEnabled}, 장소 투표: ${binding.btnPlaceVote.isEnabled}")
     }
 
     /**
