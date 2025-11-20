@@ -193,7 +193,7 @@ class AddFriendActivity : AppCompatActivity() {
                 }
 
                 val nameTextView = TextView(this@AddFriendActivity).apply {
-                    text = "${nickname ?: uid.take(8)} (ID: ${uid.take(4)}...)"
+                    text = "${nickname ?: uid.take(8)}"
                     textSize = 17f
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 }

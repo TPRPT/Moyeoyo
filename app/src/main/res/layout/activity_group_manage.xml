@@ -60,6 +60,17 @@
                 android:textStyle="bold"
                 android:backgroundTint="#3B82F6"/>
 
+            <!-- 그룹 삭제 -->
+            <Button
+                android:id="@+id/btnDeleteGroup"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="@color/light_gray_bg"
+                android:text="그룹 삭제"
+                android:textColor="@color/black"
+                android:textStyle="bold"/>
+
             <!-- 확정 일정 섹션 (있을 때만 보임) -->
             <include
                 android:id="@+id/scheduleSection"
@@ -67,17 +78,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"/>
-
-            <!-- 그룹 삭제 -->
-            <Button
-                android:id="@+id/btnDeleteGroup"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="32dp"
-                android:backgroundTint="@color/light_gray_bg"
-                android:text="그룹 삭제"
-                android:textColor="@color/black"
-                android:textStyle="bold"/>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

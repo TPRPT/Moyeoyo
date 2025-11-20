@@ -390,6 +390,7 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onResume() {
         super.onResume()
         loadGroupData()
+
         // 투표 탭이 현재 표시되어 있으면 UI 업데이트
         val currentPosition = binding.viewPager.currentItem
         if (currentPosition == 0) {
@@ -490,6 +491,8 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
             val group = groupRepository.getGroupById(groupId)
 
             if (group != null) {
+                binding.tvGroupName.text = group.groupName
+                
                 val isHost = (group.hostUid == currentUid)
                 binding.tvMemberCount.text = "${group.memberUids.size}명"
                 
