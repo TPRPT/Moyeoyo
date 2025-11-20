@@ -6,6 +6,8 @@ import android.view.View
 import android.widget.Toast
 import android.widget.TextView
 import android.widget.Button
+import android.net.Uri
+import android.provider.CalendarContract
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -57,6 +59,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 import com.moyeoyo.app.ui.groups.GroupManageActivity
+
 
 
 @AndroidEntryPoint
@@ -117,6 +120,19 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener { finish() }
+
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_share -> {
+                    val intent = Intent(this, ShareMeetingActivity::class.java)
+                    intent.putExtra("GROUP_ID", groupId)
+                    intent.putExtra("GROUP_NAME", groupName)
+                    startActivity(intent)
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     private fun setupButtons() {
@@ -555,11 +571,27 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
                 confirmedPlace["name"] as? String ?: "장소 없음"
 
             binding.btnAddToCalendarWrapper.setOnClickListener {
-                val intent = Intent(this, ConfirmActivity::class.java)
-                intent.putExtra("GROUP_ID", groupId)
-                intent.putExtra("GROUP_NAME", groupName)
+                val confirmedTime = group.confirmedTime ?: return@setOnClickListener
+                val confirmedPlace = group.confirmedPlace ?: return@setOnClickListener
+
+                val beginTime = confirmedTime.toDate().time
+                val endTime = beginTime + 60 * 60 * 1000  // 1시간
+
+                val intent = Intent(Intent.ACTION_INSERT).apply {
+                    data = android.provider.CalendarContract.Events.CONTENT_URI
+                    putExtra(CalendarContract.Events.TITLE, groupName)
+                    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTime)
+                    putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTime)
+                    putExtra(
+                        CalendarContract.Events.EVENT_LOCATION,
+                        confirmedPlace["address"] as? String ?: confirmedPlace["name"] as? String
+                    )
+                    setPackage("com.google.android.calendar")
+                }
+
                 startActivity(intent)
             }
+
         } else {
             binding.nextMeetingCard.visibility = View.GONE
         }

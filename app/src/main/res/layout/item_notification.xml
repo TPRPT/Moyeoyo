@@ -36,11 +36,11 @@
                 android:layout_weight="1" />
 
             <!-- 상태점 -->
-            <View
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:layout_marginStart="4dp"
-                android:background="@drawable/bg_dot" />
+<!--            <View-->
+<!--                android:layout_width="8dp"-->
+<!--                android:layout_height="8dp"-->
+<!--                android:layout_marginStart="4dp"-->
+<!--                android:background="@drawable/bg_dot" />-->
         </LinearLayout>
 
         <!-- 메시지 -->

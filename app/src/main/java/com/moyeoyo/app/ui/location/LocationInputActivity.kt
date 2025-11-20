@@ -331,15 +331,13 @@ class LocationInputActivity : AppCompatActivity() {
                     
                     if (lat != null && lng != null) {
                         withContext(Dispatchers.Main) {
-                            val latLng = LatLng(lat, lng)
+                            selectedLocation = LatLng(lat, lng)
+                            selectedLocationType = "home"
+                            selectedAddress = (home["addressName"] as? String)
+                                ?: (home["address"] as? String)
+                                        ?: ""
 
-                            // ProfileSetupActivity처럼 지도에서 최종 확인하게 처리
-                            val intent = CurrentLocationActivity.newIntent(
-                                this@LocationInputActivity,
-                                latLng,
-                                true   // 집인지 여부 전달
-                            )
-                            confirmLocationLauncher.launch(intent)
+                            updateSelectedLocationUI()
                         }
                     } else {
                         withContext(Dispatchers.Main) {
@@ -396,15 +394,13 @@ class LocationInputActivity : AppCompatActivity() {
                     
                     if (lat != null && lng != null) {
                         withContext(Dispatchers.Main) {
-                            val latLng = LatLng(lat, lng)
+                            selectedLocation = LatLng(lat, lng)
+                            selectedLocationType = "work"
+                            selectedAddress = (work["addressName"] as? String)
+                                ?: (work["address"] as? String)
+                                        ?: ""
 
-                            // 지도에서 최종 확인 가능하게 변경
-                            val intent = CurrentLocationActivity.newIntent(
-                                this@LocationInputActivity,
-                                latLng,
-                                false   // 회사는 isHome = false 전달
-                            )
-                            confirmLocationLauncher.launch(intent)
+                            updateSelectedLocationUI()
                         }
                     } else {
                         withContext(Dispatchers.Main) {
