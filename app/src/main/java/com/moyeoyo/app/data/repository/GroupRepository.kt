@@ -210,6 +210,36 @@ class GroupRepository @Inject constructor(
     }
 
     /**
+     * 투표 시작 (호스트만 가능)
+     * 그룹 상태를 TIME_VOTE_REQUIRED로 변경
+     */
+    suspend fun startVoting(groupId: String): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        val groupRef = groupsCollection.document(groupId)
+
+        return try {
+            db.runTransaction { tx ->
+                val snapshot = tx.get(groupRef)
+                if (!snapshot.exists()) throw IllegalStateException("Group not found")
+
+                val hostUid = snapshot.getString("hostUid")
+                if (hostUid != uid) {
+                    throw IllegalStateException("Only host can start voting")
+                }
+
+                tx.update(groupRef, "status", "TIME_VOTE_REQUIRED")
+                null
+            }.await()
+
+            Log.d(TAG, "Voting STARTED for group: $groupId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "startVoting error: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
      * ⭐ NEW: 확정된 일정 정보(장소/시간)를 Firestore에 저장하고 그룹 상태를 변경합니다.
      */
     suspend fun confirmGroupSchedule(
