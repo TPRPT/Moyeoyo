@@ -21,6 +21,7 @@ import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
+import com.moyeoyo.app.data.repository.NotificationRepository
 import com.moyeoyo.app.ui.auth.LoginActivity
 import com.moyeoyo.app.ui.auth.ProfileSetupActivity
 import com.moyeoyo.app.ui.friends.AddFriendActivity
@@ -37,6 +38,8 @@ class MainFragment : Fragment(R.layout.activity_main) {
 
     @Inject lateinit var friendRepository: FriendRepository
     @Inject lateinit var groupRepository: GroupRepository
+
+    private val notificationRepository = NotificationRepository()
 
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore
@@ -55,7 +58,6 @@ class MainFragment : Fragment(R.layout.activity_main) {
     private lateinit var groupListContainer: LinearLayout
     private lateinit var textNoGroups: TextView
     private lateinit var textGroupCount: TextView
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,7 +85,6 @@ class MainFragment : Fragment(R.layout.activity_main) {
         groupListContainer = view.findViewById(R.id.group_list_container)
         textNoGroups = view.findViewById(R.id.text_no_groups)
         textGroupCount = view.findViewById(R.id.text_group_count)
-
 
         profileCardArea.setOnClickListener {
             startActivity(Intent(activity, ProfileSetupActivity::class.java))
@@ -115,15 +116,26 @@ class MainFragment : Fragment(R.layout.activity_main) {
         updateNotificationBadge()
     }
 
-    // ─ 알림 배지 업데이트 ─
+    // ─────────────────────────────
+    // 🔥 알림 뱃지 업데이트 (최종 정답)
+    // ─────────────────────────────
     private fun updateNotificationBadge() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val pendingRequests = friendRepository.getPendingRequests()
+                val allNotifications = notificationRepository.getNotifications()
+
+                val hasUnread = allNotifications.any { n ->
+                    when (n.type) {
+                        "friend_request" -> !n.handled       // 친구요청: handled=false
+                        else -> !n.read                      // 일반 알림: read=false
+                    }
+                }
+
                 notificationBadge.visibility =
-                    if (pendingRequests.isNotEmpty()) View.VISIBLE else View.GONE
+                    if (hasUnread) View.VISIBLE else View.GONE
+
             } catch (e: Exception) {
-                Log.e("MAIN", "Error checking pending requests: ${e.message}")
+                Log.e("MAIN", "Error checking notifications: ${e.message}")
                 notificationBadge.visibility = View.GONE
             }
         }

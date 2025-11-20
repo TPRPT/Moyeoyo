@@ -1,14 +1,11 @@
-// com.moyeoyo.app.ui.groups/SelectFriendsActivity.kt
 package com.moyeoyo.app.ui.groups
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
-import android.widget.Button
-import android.widget.CheckBox
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
+import android.view.LayoutInflater
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.moyeoyo.app.R
@@ -30,18 +27,15 @@ class SelectFriendsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // R.layout.activity_select_friends 사용을 가정합니다.
         setContentView(R.layout.activity_select_friends)
 
-        val friendsContainer = findViewById<LinearLayout>(R.id.friends_checkbox_container)
+        val container = findViewById<LinearLayout>(R.id.friends_checkbox_container)
         val btnComplete = findViewById<Button>(R.id.btn_complete_selection)
 
-        loadFriends(friendsContainer)
+        loadFriends(container)
 
         btnComplete.setOnClickListener {
-            // 결과를 CreateGroupActivity로 반환
             val resultIntent = Intent().apply {
-                // 선택된 UID 목록을 ArrayList로 변환하여 전달
                 putStringArrayListExtra(EXTRA_SELECTED_UIDS, ArrayList(selectedUids))
             }
             setResult(Activity.RESULT_OK, resultIntent)
@@ -64,25 +58,27 @@ class SelectFriendsActivity : AppCompatActivity() {
                 return@launch
             }
 
+            val inflater = LayoutInflater.from(this@SelectFriendsActivity)
+
             friendUids.forEach { uid ->
                 val nickname = friendRepository.getUserNickname(uid)
+                val itemView = inflater.inflate(R.layout.item_friend_card, container, false)
 
-                // 체크박스 항목 동적 생성
-                val checkBox = CheckBox(this@SelectFriendsActivity).apply {
-                    text = nickname ?: uid.take(8)
-                    tag = uid
-                    textSize = 18f
-                    setPadding(16, 16, 16, 16)
+                val tvInitial = itemView.findViewById<TextView>(R.id.tvInitial)
+                val tvName = itemView.findViewById<TextView>(R.id.tvName)
+                val tvUid = itemView.findViewById<TextView>(R.id.tvUid)
+                val checkbox = itemView.findViewById<CheckBox>(R.id.checkboxSelect)
 
-                    setOnCheckedChangeListener { _, isChecked ->
-                        if (isChecked) {
-                            selectedUids.add(uid)
-                        } else {
-                            selectedUids.remove(uid)
-                        }
-                    }
+                tvInitial.text = (nickname ?: uid.take(1)).uppercase()
+                tvName.text = nickname ?: uid.take(8)
+                tvUid.text = uid.take(8)
+
+                checkbox.setOnCheckedChangeListener { _, isChecked ->
+                    if (isChecked) selectedUids.add(uid)
+                    else selectedUids.remove(uid)
                 }
-                container.addView(checkBox)
+
+                container.addView(itemView)
             }
         }
     }

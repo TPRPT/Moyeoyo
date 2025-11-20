@@ -212,4 +212,18 @@ class FriendRepository @Inject constructor(
             false
         }
     }
+
+    // ===========================
+    // 유저 전체 정보 조회 (nickname, photoUrl 등)
+    // ===========================
+    suspend fun getUserProfile(uid: String): Map<String, Any>? {
+        return try {
+            val doc = usersCollection.document(uid).get().await()
+            doc.data
+        } catch (e: Exception) {
+            Log.e("FriendRepository", "getUserProfile error: ${e.message}")
+            null
+        }
+    }
+
 }
