@@ -52,6 +52,17 @@
                 android:layout_marginBottom="32dp"/>
 
             <Button
+                android:id="@+id/btn_start_vote"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="투표 시작하기"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:backgroundTint="#3B82F6"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
+            <Button
                 android:id="@+id/btn_calculate_midpoint"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
