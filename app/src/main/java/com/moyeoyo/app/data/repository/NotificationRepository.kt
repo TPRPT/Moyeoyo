@@ -83,7 +83,9 @@ class NotificationRepository(
                         title = doc.getString("title"),
                         message = doc.getString("message"),
                         senderUid = doc.getString("senderUid"),
-                        createdAt = doc.getTimestamp("createdAt")
+                        createdAt = doc.getTimestamp("createdAt"),
+                        read = doc.getBoolean("read") ?: false,
+                        id = doc.id
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Mapping error: ${e.message}")
@@ -96,4 +98,50 @@ class NotificationRepository(
             emptyList()
         }
     }
+
+    /**
+     * 특정 알림 하나만 읽음 처리
+     */
+    suspend fun markNotificationAsRead(notificationId: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        try {
+            db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .document(notificationId)
+                .update("read", true)
+                .await()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "markNotificationAsRead error: ${e.message}")
+        }
+    }
+
+    /**
+     * 알림 일괄 읽음 처리
+     */
+    suspend fun markNotificationsAsRead(notificationIds: List<String>) {
+        val uid = auth.currentUser?.uid ?: return
+
+        if (notificationIds.isEmpty()) return
+
+        try {
+            val batch = db.batch()
+            val colRef = db.collection("users")
+                .document(uid)
+                .collection("notifications")
+
+            notificationIds.forEach { id ->
+                val docRef = colRef.document(id)
+                batch.update(docRef, "read", true)
+            }
+
+            batch.commit().await()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "markNotificationsAsRead error: ${e.message}")
+        }
+    }
+
 }

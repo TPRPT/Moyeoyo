@@ -105,8 +105,8 @@ export const onFriendRequestCreated = onDocumentCreated(
       await admin.messaging().sendEachForMulticast({
         tokens: [receiverToken],
         notification: {
-          title: "새 친구 요청",
-          body: `${senderName}님이 친구 요청을 보냈습니다.`
+          title: "🤝 새 친구 요청",
+          body: `${senderName}님이 친구 요청을 보냈습니다!`
         },
         data: { type: "friend_request" }
       });
@@ -115,7 +115,7 @@ export const onFriendRequestCreated = onDocumentCreated(
     // Firestore 저장
     await createNotification(receiverUid, {
       title: "새 친구 요청",
-      message: `${senderName}님이 친구 요청을 보냈습니다.`,
+      message: `${senderName}님이 친구 요청을 보냈습니다!`,
       type: "friend_request"
     });
   }
@@ -147,7 +147,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
       case "TIME_VOTE_REQUIRED":
         await sendPushToMembers(
           memberUids,
-          "시간 투표 요청",
+          "⏰ 시간 투표 요청",
           `${groupName} 모임이 만들어졌습니다! 가능한 시간을 투표해주세요.`,
           { type: "time_vote" }
         );
@@ -156,7 +156,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
       case "TIME_FINALIZING":
         await sendPushToMembers(
           memberUids,
-          "최종 시간 투표",
+          "🕒 최종 시간 투표",
           "최종 약속 일정을 투표해주세요!",
           { type: "location_input" }
         );
@@ -165,7 +165,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
       case "LOCATION_INPUT_REQUIRED":
         await sendPushToMembers(
           memberUids,
-          "시간 투표 완료!",
+          "📍 시간 투표 완료!",
           `${groupName}의 약속 일정이 확정되었습니다. 이제 출발 위치를 입력해주세요.`,
           { type: "location_input" }
         );
@@ -174,8 +174,8 @@ export const onGroupStatusChanged = onDocumentUpdated(
       case "PLACE_RANKING":
         await sendPushToMembers(
           memberUids,
-          "장소 순위 투표 시작",
-          "중간 위치 주변 장소를 보고 순위를 투표해주세요!",
+          "✨ 장소 순위 투표 시작",
+          "중간 지점 계산 완료! 주변 장소를 보고 순위를 투표해주세요.",
           { type: "ranking" }
         );
         break;
@@ -183,7 +183,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
       case "FINAL_PLACE_VOTE":
         await sendPushToMembers(
           memberUids,
-          "최종 장소 투표",
+          "🔥 최종 장소 투표",
           "마지막으로 최종 약속 장소를 투표해주세요!",
           { type: "final_vote" }
         );
@@ -192,7 +192,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
       case "FINALIZED":
         await sendPushToMembers(
           memberUids,
-          "약속 장소 확정!",
+          "🎉 약속 장소 확정!",
           `${groupName}의 약속 장소가 확정되었습니다.`,
           { type: "finalized" }
         );
@@ -222,11 +222,36 @@ export const appointmentReminder = onSchedule("0 9 * * *", async () => {
     const data = doc.data();
     const memberUids = data.memberUids ?? [];
 
+    const groupName = data.groupName ?? "모임";
+
+    // 약속 시간 포맷팅
+    const confirmedTime = data.confirmedTime?.toDate?.() ?? null;
+    let timeText = "";
+    if (confirmedTime) {
+      const hours = confirmedTime.getHours().toString().padStart(2, "0");
+      const minutes = confirmedTime.getMinutes().toString().padStart(2, "0");
+      timeText = `${hours}:${minutes}`;
+    }
+
+    // 장소 정보
+    const placeName =
+          typeof data.confirmedPlace === "string"
+            ? data.confirmedPlace
+            : data.confirmedPlace?.name ?? "장소 미정";
+
+    // 알림 메시지 생성
+    const reminderMessage =
+          `내일 '${groupName}' 일정이 있어요!\n` +
+          `${placeName}` + (timeText ? ` / ${timeText}` : "");
+
     await sendPushToMembers(
-      memberUids,
-      "내일 약속이 있어요!",
-      "내일 모임이 예정되어 있습니다. 잊지 말고 준비해 주세요!",
-      { type: "reminder" }
+          memberUids,
+          "🔔 내일 약속이 있어요!",
+          reminderMessage,
+          {
+            type: "reminder",
+            groupId: doc.id
+          }
     );
   }
 });

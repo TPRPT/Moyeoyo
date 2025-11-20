@@ -53,6 +53,10 @@ class NotificationActivity : AppCompatActivity() {
             try {
                 val rawList = notificationRepository.getNotifications()
 
+                // 1) 읽지 않은 알림 리스트 추출
+                val unreadIds = rawList.filter { !it.read }.map { it.id }
+
+                // 2) UI 먼저 표시 (현재는 모두 선명하게)
                 val sorted = rawList
                     .sortedByDescending { it.createdAt?.toDate()?.time ?: 0L }
                     .map { convertToUi(it) }
@@ -67,6 +71,11 @@ class NotificationActivity : AppCompatActivity() {
                     recyclerView.adapter = NotificationAdapter(sorted)
                 }
 
+                // 3) UI 표시 후 '읽음 처리'
+                if (unreadIds.isNotEmpty()) {
+                    notificationRepository.markNotificationsAsRead(unreadIds)
+                }
+
             } catch (e: Exception) {
                 Log.e("NotificationActivity", "Error: ${e.message}", e)
                 Toast.makeText(this@NotificationActivity, "알림을 불러오지 못했습니다.", Toast.LENGTH_SHORT).show()
@@ -74,17 +83,21 @@ class NotificationActivity : AppCompatActivity() {
         }
     }
 
+
     // -------------------------------------------------------------------
     // 🔵 Notification → NotificationUi 변환
     // -------------------------------------------------------------------
     private fun convertToUi(n: Notification): NotificationUi {
         val ts = n.createdAt?.toDate()?.time ?: 0L
+
         return NotificationUi(
+            id = n.id,
             title = n.title ?: "",
             message = n.message ?: "",
-            type = "friend_request",
+            type = "friend_request",    // 필요하면 type 저장하도록 변경 가능
             time = formatTime(ts),
-            timestamp = ts
+            timestamp = ts,
+            read = n.read               // ⭐ 중요: read 필드 UI 적용
         )
     }
 
@@ -140,6 +153,13 @@ class NotificationActivity : AppCompatActivity() {
             holder.title.text = item.title
             holder.message.text = item.message
             holder.time.text = item.time
+
+            // 읽음/안읽음 시각 효과
+            if (item.read) {
+                holder.card.alpha = 0.4f      // 흐림 효과
+            } else {
+                holder.card.alpha = 1.0f
+            }
 
             holder.card.setOnClickListener {
                 Toast.makeText(this@NotificationActivity, "클릭됨: ${item.title}", Toast.LENGTH_SHORT).show()
