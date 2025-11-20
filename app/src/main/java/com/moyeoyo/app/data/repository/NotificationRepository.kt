@@ -16,7 +16,7 @@ class NotificationRepository(
     private val TAG = "NotificationRepo"
 
     private val functions: FirebaseFunctions =
-        FirebaseFunctions.getInstance("us-central1")
+        FirebaseFunctions.getInstance("asia-east1")
 
     /**
      * FCM Token 저장
