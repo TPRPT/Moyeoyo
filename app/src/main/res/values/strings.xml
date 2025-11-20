@@ -59,7 +59,4 @@
     <string name="location_input_waiting">⏳ 다른 그룹원이 아직 위치를 입력하지 않았습니다. 모든 멤버가 위치를 입력하면 중간 지점을 계산할 수 있습니다.</string>
     <string name="location_input_ready">✅ 모든 멤버의 위치가 입력되었습니다! 중간 지점을 계산할 수 있습니다.</string>
     <string name="btn_go_to_midpoint">중간값 계산하기</string>
-
-    <string name="default_notification_channel_id" translatable="false">moyeoyo_alerts</string>
-    <string name="default_notification_channel_name">모여요 핵심 알림</string>
 </resources>
