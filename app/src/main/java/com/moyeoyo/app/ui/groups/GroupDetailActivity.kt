@@ -18,6 +18,7 @@ import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
+import com.moyeoyo.app.data.repository.MapRepository
 import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
 import com.moyeoyo.app.ui.groups.adapter.MemberListAdapter
 import com.moyeoyo.app.ui.place.FinalCandidate
@@ -25,12 +26,31 @@ import com.moyeoyo.app.ui.place.FinalCandidateAdapter
 import com.moyeoyo.app.ui.place.FinalVoteViewModel
 import com.moyeoyo.app.ui.location.LocationInputActivity
 import com.moyeoyo.app.ui.time.TimeVoteActivity
+import com.moyeoyo.app.ui.time.FinalTimeVoteActivity
+import com.moyeoyo.app.ui.time.FinalTimeAdapter
+import com.moyeoyo.app.data.repository.TimeVoteRepository
 import com.moyeoyo.app.ui.vote.ConfirmActivity
+import com.moyeoyo.app.map.MemberDistanceAdapter
+import com.moyeoyo.app.map.MemberDistanceItem
+import com.moyeoyo.app.data.model.DistanceResult
+import com.moyeoyo.app.data.model.TransportMode
+import com.moyeoyo.app.data.model.InputLocation
+import com.moyeoyo.app.data.model.NearbyPlace
+import com.moyeoyo.app.data.model.LatLngData
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.OnMapReadyCallback
+import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MarkerOptions
 import com.moyeoyo.app.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -38,12 +58,14 @@ import com.moyeoyo.app.ui.groups.GroupManageActivity
 
 
 @AndroidEntryPoint
-class GroupDetailActivity : AppCompatActivity() {
+class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var binding: ActivityGroupDetailBinding
 
     @Inject lateinit var groupRepository: GroupRepository
     @Inject lateinit var friendRepository: FriendRepository
+    @Inject lateinit var timeVoteRepository: TimeVoteRepository
+    @Inject lateinit var mapRepository: MapRepository
 
     private val auth = FirebaseAuth.getInstance()
     private val voteViewModel: FinalVoteViewModel by viewModels()
@@ -52,14 +74,12 @@ class GroupDetailActivity : AppCompatActivity() {
     private lateinit var groupName: String
     private lateinit var currentUid: String
 
-    // 투표 탭 관련 변수
-    private lateinit var recyclerFinalCandidates: RecyclerView
-    private lateinit var tvVoteStatus: TextView
-    private lateinit var btnSubmitVote: Button
-    private lateinit var finalVoteAdapter: FinalCandidateAdapter
-    private val finalCandidates = mutableListOf<FinalCandidate>()
-    private var selectedCandidate: FinalCandidate? = null
-    private var isVoteTabInitialized = false
+    // 최종 위치 지도 관련 변수
+    private var layoutFinalPlaceMap: View? = null
+    private var recyclerMemberDistances: RecyclerView? = null
+    private var memberDistanceAdapter: MemberDistanceAdapter? = null
+    private var googleMap: GoogleMap? = null
+    private var mapFragment: SupportMapFragment? = null
 
     // 멤버 탭 관련 변수
     private lateinit var recyclerMemberList: RecyclerView
@@ -135,113 +155,146 @@ class GroupDetailActivity : AppCompatActivity() {
     //  투표 탭(view_vote_tab.xml)
     // ---------------------------
     private fun bindVoteTab(view: View) {
-        recyclerFinalCandidates = view.findViewById<RecyclerView>(R.id.rvFinalCandidates)
-        tvVoteStatus = view.findViewById<TextView>(R.id.tvVoteStatus)
-        btnSubmitVote = view.findViewById<Button>(R.id.btnSubmitVote)
+        // 최종 위치 지도 UI
+        layoutFinalPlaceMap = view.findViewById<View>(R.id.layoutFinalPlaceMap)
+        recyclerMemberDistances = view.findViewById<RecyclerView>(R.id.rvMemberDistances)
+        recyclerMemberDistances?.layoutManager = LinearLayoutManager(this)
+        memberDistanceAdapter = MemberDistanceAdapter()
+        recyclerMemberDistances?.adapter = memberDistanceAdapter
 
-        recyclerFinalCandidates.layoutManager = LinearLayoutManager(this)
+        // 지도 프래그먼트 초기화
+        mapFragment = supportFragmentManager.findFragmentById(R.id.mapFragment) as? SupportMapFragment
+        mapFragment?.getMapAsync(this)
 
-        // 위치 필터 버튼 → LocationInputActivity 이동
-        val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
-        btnFilterLocation.setOnClickListener {
-            val intent = Intent(this, LocationInputActivity::class.java).apply {
-                putExtra("groupId", groupId)
-            }
-            startActivity(intent)
-        }
-
-        // 시간 버튼 → TimeVoteActivity 이동
+        // 시간 버튼 → 시간 최종투표 화면으로 이동
         val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
         btnFilterTime.setOnClickListener {
-            val intent = Intent(this, TimeVoteActivity::class.java).apply {
-                putExtra("groupId", groupId)
-            }
-            startActivity(intent)
+            startFinalTimeVote()
         }
 
-        // 어댑터 설정
-        finalVoteAdapter = FinalCandidateAdapter { candidate ->
-            // 선택 토글
-            selectedCandidate = if (selectedCandidate == candidate) null else candidate
-
-            // UI에서 선택 상태 반영
-            finalCandidates.forEachIndexed { index, item ->
-                finalCandidates[index] = item.copy(
-                    isSelected = (item.place.placeId == selectedCandidate?.place?.placeId)
-                )
-            }
-
-            finalVoteAdapter.submitList(finalCandidates.toList())
-            btnSubmitVote.visibility =
-                if (selectedCandidate != null) View.VISIBLE else View.GONE
-
-            // 선택된 장소의 대중교통 시간 계산
-            selectedCandidate?.let {
-                voteViewModel.calculateTransitTimeForPlace(it.place)
-            }
+        // 위치 버튼 → 장소 최종투표 화면으로 이동
+        val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
+        btnFilterLocation.setOnClickListener {
+            startFinalPlaceVote()
         }
 
-        recyclerFinalCandidates.adapter = finalVoteAdapter
-
-        if (!isVoteTabInitialized) {
-            observeVoteViewModel()
-            startVoteLoading()
-            isVoteTabInitialized = true
-        }
-
-        btnSubmitVote.setOnClickListener {
-            val candidate = selectedCandidate
-            if (candidate == null) {
-                Toast.makeText(this, "장소를 선택해주세요.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+        // 초기 상태 확인 및 UI 업데이트
+        updateVoteTabUI(view)
+        checkPlaceVoteStatus()
+    }
+    
+    private fun updateVoteTabUI(view: View) {
+        lifecycleScope.launch {
+            val group = groupRepository.getGroupById(groupId)
+            val confirmedTime = group?.confirmedTime
+            val confirmedPlace = group?.confirmedPlace
+            
+            val layoutInitialButtons = view.findViewById<View>(R.id.layoutInitialButtons)
+            val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
+            val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
+            
+            // 초기 상태: 시간과 장소 모두 확정되지 않은 경우
+            val isInitialState = confirmedTime == null && confirmedPlace == null
+            
+            if (isInitialState) {
+                // 초기 상태: 큰 버튼들 모두 표시
+                layoutInitialButtons?.visibility = View.VISIBLE
+                btnFilterTime?.visibility = View.VISIBLE
+                btnFilterLocation?.visibility = View.VISIBLE
+                // 후보 리스트와 투표 버튼은 숨김
+                view.findViewById<RecyclerView>(R.id.rvFinalCandidates)?.visibility = View.GONE
+                view.findViewById<Button>(R.id.btnSubmitVote)?.visibility = View.GONE
+            } else if (confirmedTime != null && confirmedPlace == null) {
+                // 시간만 확정된 경우: 시간 버튼만 숨기고 장소 버튼은 표시
+                layoutInitialButtons?.visibility = View.VISIBLE
+                btnFilterTime?.visibility = View.GONE
+                btnFilterLocation?.visibility = View.VISIBLE
+            } else {
+                // 둘 다 확정된 경우: 초기 버튼 모두 숨기기
+                layoutInitialButtons?.visibility = View.GONE
             }
-            voteViewModel.submitVote(groupId, candidate.place.placeId)
         }
     }
+    
+    private fun startFinalTimeVote() {
+        lifecycleScope.launch {
+            try {
+                val group = groupRepository.getGroupById(groupId)
+                val memberUids = group?.memberUids ?: emptyList()
 
-    private fun startVoteLoading() {
-        voteViewModel.startListeningToVoteStatus(groupId)
-        voteViewModel.loadAllUserRankingsAndCreateCandidates(groupId)
-    }
+                if (memberUids.isEmpty()) {
+                    Toast.makeText(this@GroupDetailActivity, "멤버 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
 
-    private fun observeVoteViewModel() {
-        // 최종 후보 리스트
-        voteViewModel.finalCandidates.observe(this) { candidates ->
-            finalCandidates.clear()
-            finalCandidates.addAll(candidates)
-            finalVoteAdapter.submitList(candidates.toList())
-        }
+                // 현재 주의 모든 날짜 확인
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                
+                val datesToCheck = mutableListOf<String>()
+                for (i in 0 until 7) {
+                    val dateStr = dateFormat.format(calendar.time)
+                    datesToCheck.add(dateStr)
+                    calendar.add(Calendar.DAY_OF_MONTH, 1)
+                }
+                
+                // 모든 멤버가 투표한 날짜 찾기
+                var dateWithAllVoted: String? = null
+                for (dateStr in datesToCheck) {
+                    val allVoted = timeVoteRepository.checkAllMembersVoted(groupId, dateStr, memberUids)
+                    if (allVoted) {
+                        dateWithAllVoted = dateStr
+                        break
+                    }
+                }
 
-        // 투표 상태
-        voteViewModel.voteStatus.observe(this) { status ->
-            tvVoteStatus.text = "투표 상태: ${status.completed}/${status.total} 명 완료"
-        }
+                if (dateWithAllVoted == null) {
+                    // 아직 모든 멤버가 투표하지 않았으면 TimeVoteActivity로 이동
+                    val intent = Intent(this@GroupDetailActivity, TimeVoteActivity::class.java).apply {
+                        putExtra("groupId", groupId)
+                    }
+                    startActivity(intent)
+                    return@launch
+                }
 
-        // 대중교통 시간
-        voteViewModel.transitTimes.observe(this) { transitTimes ->
-            finalVoteAdapter.updateTransitTimes(transitTimes)
-        }
-
-        // 투표 성공
-        voteViewModel.voteSuccess.observe(this) { success ->
-            if (success) {
-                Toast.makeText(this, "투표를 완료했습니다.", Toast.LENGTH_SHORT).show()
+                // 최종 시간 투표 화면으로 이동
+                val intent = Intent(this@GroupDetailActivity, FinalTimeVoteActivity::class.java).apply {
+                    putExtra("groupId", groupId)
+                    putExtra("date", dateWithAllVoted)
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this@GroupDetailActivity, "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
-
-        // 에러
-        voteViewModel.error.observe(this) { msg ->
-            msg?.let { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() }
-        }
-
-        // 승리 장소
-        voteViewModel.winningPlace.observe(this) { place ->
-            place?.let {
-                AlertDialog.Builder(this)
-                    .setTitle("최종 약속 장소 확정")
-                    .setMessage("최종 약속 장소는 \"${it.name}\"로 결정되었습니다.")
-                    .setPositiveButton("확인", null)
-                    .show()
+    }
+    
+    private fun startFinalPlaceVote() {
+        lifecycleScope.launch {
+            try {
+                val group = groupRepository.getGroupById(groupId)
+                when (group?.status) {
+                    "LOCATION_INPUT_REQUIRED" -> {
+                        // 위치 입력 화면으로 이동
+                        val intent = Intent(this@GroupDetailActivity, LocationInputActivity::class.java).apply {
+                            putExtra("groupId", groupId)
+                        }
+                        startActivity(intent)
+                    }
+                    "LOCATION_DONE", "PLACE_RANKING", "FINAL_PLACE_VOTE" -> {
+                        // 장소 최종 투표 화면으로 이동
+                        val intent = Intent(this@GroupDetailActivity, com.moyeoyo.app.ui.place.FinalVoteActivity::class.java).apply {
+                            putExtra("groupId", groupId)
+                        }
+                        startActivity(intent)
+                    }
+                    else -> {
+                        Toast.makeText(this@GroupDetailActivity, "현재 장소 투표를 진행할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@GroupDetailActivity, "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -274,6 +327,12 @@ class GroupDetailActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadGroupData()
+        // 투표 탭이 현재 표시되어 있으면 UI 업데이트
+        val currentPosition = binding.viewPager.currentItem
+        if (currentPosition == 0) {
+            val voteTabView = binding.viewPager.getChildAt(0)
+            voteTabView?.let { updateVoteTabUI(it) }
+        }
     }
 
     private fun loadGroupData() {
@@ -329,8 +388,20 @@ class GroupDetailActivity : AppCompatActivity() {
         val confirmedTime = group.confirmedTime
         val confirmedPlace = group.confirmedPlace
 
+        // 장소가 확정되면 확정된 시간 블록 숨기기
+        if (confirmedPlace != null) {
+            binding.confirmedTimeSection.visibility = View.GONE
+        } else if (confirmedTime != null) {
+            // 시간만 확정된 경우
+            binding.confirmedTimeSection.visibility = View.VISIBLE
+            binding.textConfirmedTimeOnly.text = "일시: ${formatTimestamp(confirmedTime)}"
+        } else {
+            binding.confirmedTimeSection.visibility = View.GONE
+        }
+
+        // 장소 확정 블록 표시 (시간 확정 후에만 표시)
         if (confirmedTime != null && confirmedPlace != null) {
-            // 다음 모임 카드 표시
+            // 다음 모임 카드 표시 (최종 확정된 일정 블록 대신)
             binding.nextMeetingCard.visibility = View.VISIBLE
             binding.tvMeetingDateAndTime.text = formatTimestamp(confirmedTime)
             binding.tvMeetingLocation.text =
@@ -342,19 +413,39 @@ class GroupDetailActivity : AppCompatActivity() {
                 intent.putExtra("GROUP_NAME", groupName)
                 startActivity(intent)
             }
-
-            // 확정된 일정 섹션 표시
-            binding.confirmedScheduleSection.visibility = View.VISIBLE
-            binding.textConfirmedTime.text = "일시: ${formatTimestamp(confirmedTime)}"
-
-            val placeName = confirmedPlace["name"] as? String
-                ?: confirmedPlace["address"] as? String
-                ?: "장소 정보 없음"
-            binding.textConfirmedPlace.text = "장소: $placeName"
-            binding.textConfirmedPlace.visibility = View.VISIBLE
         } else {
             binding.nextMeetingCard.visibility = View.GONE
-            binding.confirmedScheduleSection.visibility = View.GONE
+        }
+    }
+
+    private fun displayConfirmedSchedule(confirmedTime: Timestamp?, confirmedPlace: Map<String, Any>?) {
+        // 장소가 확정되면 확정된 시간 블록 숨기기
+            if (confirmedPlace != null) {
+            binding.confirmedTimeSection.visibility = View.GONE
+        } else if (confirmedTime != null) {
+            // 시간만 확정된 경우
+            binding.confirmedTimeSection.visibility = View.VISIBLE
+            binding.textConfirmedTimeOnly.text = "일시: ${formatTimestamp(confirmedTime)}"
+            } else {
+            binding.confirmedTimeSection.visibility = View.GONE
+        }
+
+        // 장소 확정 블록 표시
+        if (confirmedTime != null && confirmedPlace != null) {
+            // 다음 모임 카드 표시 (최종 확정된 일정 블록 대신)
+            binding.nextMeetingCard.visibility = View.VISIBLE
+            binding.tvMeetingDateAndTime.text = formatTimestamp(confirmedTime)
+            binding.tvMeetingLocation.text =
+                confirmedPlace["name"] as? String ?: "장소 없음"
+
+            binding.btnAddToCalendarWrapper.setOnClickListener {
+                val intent = Intent(this, ConfirmActivity::class.java)
+                intent.putExtra("GROUP_ID", groupId)
+                intent.putExtra("GROUP_NAME", groupName)
+                startActivity(intent)
+            }
+        } else {
+            binding.nextMeetingCard.visibility = View.GONE
         }
     }
 
@@ -372,46 +463,37 @@ class GroupDetailActivity : AppCompatActivity() {
     private fun updateButtonsByStatus(status: String?) {
         android.util.Log.d("GroupDetailActivity", "📊 그룹 상태: $status")
 
+        // 시간/장소 투표 버튼은 제거되었으므로 이 함수는 더 이상 사용하지 않음
+        // 대신 시간/위치 필터 버튼의 활성화를 제어
+        val btnFilterTime = findViewById<View>(R.id.btnFilterTime)
+        val btnFilterLocation = findViewById<View>(R.id.btnFilterLocation)
+
         when (status) {
             "GROUP_CREATED",
-            "TIME_VOTE_REQUIRED" -> {
-                // 시간 투표 단계
-                android.util.Log.d("GroupDetailActivity", "✅ 시간 투표 단계 - 시간 투표 활성화")
-                binding.btnTimeVote.isEnabled = true
-                binding.btnPlaceVote.isEnabled = false
-            }
+            "TIME_VOTE_REQUIRED",
             "TIME_FINALIZING" -> {
-                // 시간 확정 단계 - 시간 투표만 활성화 (최종 시간 투표 진행 중)
-                android.util.Log.d("GroupDetailActivity", "⏳ 시간 확정 단계 - 시간 투표만 활성화")
-                binding.btnTimeVote.isEnabled = true
-                binding.btnPlaceVote.isEnabled = false
+                // 시간 투표 단계 - 시간 버튼만 활성화
+                btnFilterTime?.isEnabled = true
+                btnFilterLocation?.isEnabled = false
+                btnFilterLocation?.alpha = 0.5f
             }
             "LOCATION_INPUT_REQUIRED",
             "LOCATION_DONE",
             "PLACE_RANKING",
             "FINAL_PLACE_VOTE",
             "FINALIZED" -> {
-                // 장소 투표 단계 (시간 확정 완료)
-                android.util.Log.d("GroupDetailActivity", "✅ 장소 투표 단계 - 장소 투표 활성화")
-                binding.btnTimeVote.isEnabled = false
-                binding.btnPlaceVote.isEnabled = true
-            }
-            null,
-            "" -> {
-                // 상태가 없거나 빈 문자열인 경우 - 기본적으로 시간 투표 활성화
-                android.util.Log.w("GroupDetailActivity", "⚠️ 그룹 상태가 없음 - 기본값으로 시간 투표 활성화")
-                binding.btnTimeVote.isEnabled = true
-                binding.btnPlaceVote.isEnabled = false
+                // 장소 투표 단계 (시간 확정 완료) - 위치 버튼 활성화
+                btnFilterTime?.isEnabled = false
+                btnFilterTime?.alpha = 0.5f
+                btnFilterLocation?.isEnabled = true
             }
             else -> {
-                // 예상치 못한 상태 - 기본값으로 시간 투표 활성화
-                android.util.Log.w("GroupDetailActivity", "⚠️ 예상치 못한 그룹 상태: $status - 기본값으로 시간 투표 활성화")
-                binding.btnTimeVote.isEnabled = true
-                binding.btnPlaceVote.isEnabled = false
+                // 기본값 - 시간 버튼 활성화
+                btnFilterTime?.isEnabled = true
+                btnFilterLocation?.isEnabled = false
+                btnFilterLocation?.alpha = 0.5f
             }
         }
-
-        android.util.Log.d("GroupDetailActivity", "버튼 상태 - 시간 투표: ${binding.btnTimeVote.isEnabled}, 장소 투표: ${binding.btnPlaceVote.isEnabled}")
     }
 
     /**
@@ -544,6 +626,162 @@ class GroupDetailActivity : AppCompatActivity() {
                 Toast.makeText(this@GroupDetailActivity, "그룹 나가기에 실패했습니다.", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    fun startLocationInput() {
+        val intent = Intent(this, LocationInputActivity::class.java).apply {
+            putExtra("groupId", groupId)
+        }
+        startActivity(intent)
+    }
+
+    private fun checkPlaceVoteStatus() {
+        lifecycleScope.launch {
+            val group = groupRepository.getGroupById(groupId)
+            val confirmedPlace = group?.confirmedPlace
+            val confirmedTime = group?.confirmedTime
+            
+            // finalize된 그룹 (시간과 장소 모두 확정)인 경우
+            if (confirmedPlace != null && confirmedTime != null) {
+                val placeName = confirmedPlace["name"] as? String ?: ""
+                val placeAddress = confirmedPlace["address"] as? String
+                val placeLat = (confirmedPlace["latitude"] as? Number)?.toDouble() 
+                    ?: (confirmedPlace["lat"] as? Number)?.toDouble() ?: 0.0
+                val placeLng = (confirmedPlace["longitude"] as? Number)?.toDouble()
+                    ?: (confirmedPlace["lng"] as? Number)?.toDouble() ?: 0.0
+                
+                if (placeLat != 0.0 && placeLng != 0.0) {
+                    val place = NearbyPlace(
+                        placeId = confirmedPlace["placeId"] as? String ?: "",
+                        name = placeName,
+                        address = placeAddress,
+                        latLng = LatLngData(placeLat, placeLng),
+                        categories = emptyList(),
+                        rating = null,
+                        distanceMeters = 0.0
+                    )
+                    showFinalPlaceMap(place)
+                    
+                    // 투표 UI 숨기기
+                    val voteTabView = binding.viewPager.getChildAt(0)
+                    voteTabView?.findViewById<View>(R.id.layoutVoteContainer)?.visibility = View.GONE
+                }
+            }
+        }
+    }
+
+    private fun showFinalPlaceMap(place: NearbyPlace) {
+        layoutFinalPlaceMap?.visibility = View.VISIBLE
+        
+        // 지도에 마커 표시
+        googleMap?.let { map ->
+            map.clear()
+            
+            val builder = LatLngBounds.Builder()
+            var hasPoint = false
+            
+            // 모든 멤버의 입력 위치 가져와서 지도에 표시
+            lifecycleScope.launch {
+                try {
+                    val inputLocations = mapRepository.getInputLocations(groupId)
+                    
+                    // 멤버 위치 마커 표시 (주황색)
+                    inputLocations.forEach { inputLocation ->
+                        val position = LatLng(inputLocation.latLng.lat, inputLocation.latLng.lng)
+                        val displayName = inputLocation.nickname ?: inputLocation.uid.take(8)
+                        map.addMarker(
+                            MarkerOptions()
+                                .position(position)
+                                .title(displayName)
+                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE))
+                        )
+                        builder.include(position)
+                        hasPoint = true
+                    }
+                    
+                    // 최종 확정된 장소 마커 표시 (빨간색)
+                    val finalPosition = LatLng(place.latLng.lat, place.latLng.lng)
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(finalPosition)
+                            .title(place.name)
+                            .snippet(place.address ?: "최종 확정된 장소")
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                    )
+                    builder.include(finalPosition)
+                    hasPoint = true
+                    
+                    // 모든 마커가 보이도록 카메라 조정
+                    if (hasPoint) {
+                        val bounds = builder.build()
+                        val padding = 100 // 패딩 (픽셀)
+                        map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+                    } else {
+                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(finalPosition, 15f))
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("GroupDetailActivity", "지도 마커 표시 중 오류: ${e.message}", e)
+                    // 오류 발생 시 최종 장소만 표시
+                    val finalPosition = LatLng(place.latLng.lat, place.latLng.lng)
+                    map.addMarker(
+                        MarkerOptions()
+                            .position(finalPosition)
+                            .title(place.name)
+                            .snippet(place.address ?: "최종 확정된 장소")
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                    )
+                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(finalPosition, 15f))
+                }
+            }
+        }
+
+        // 사용자별 소요시간 계산 및 표시
+        calculateMemberDistances(place)
+    }
+
+    private fun calculateMemberDistances(place: NearbyPlace) {
+        lifecycleScope.launch {
+            try {
+                // 모든 멤버의 입력 위치 가져오기
+                val inputLocations = mapRepository.getInputLocations(groupId)
+                
+                if (inputLocations.isEmpty()) {
+                    memberDistanceAdapter?.submitList(emptyList())
+                    return@launch
+                }
+                
+                // Distance Matrix API를 사용하여 실제 소요시간 계산
+                val distanceResults = mapRepository.fetchDistanceMatrix(
+                    origins = inputLocations,
+                    destination = place.latLng
+                )
+                
+                // DistanceResult를 MemberDistanceItem으로 변환
+                val distances = distanceResults.map { result ->
+                    val inputLocation = inputLocations.firstOrNull { it.uid == result.uid }
+                    MemberDistanceItem(
+                        uid = result.uid,
+                        displayName = inputLocation?.nickname ?: result.uid.take(8),
+                        transportMode = inputLocation?.transportMode ?: TransportMode.TRANSIT,
+                        distanceMeters = result.distanceMeters,
+                        durationSeconds = result.durationSeconds
+                    )
+                }
+
+                memberDistanceAdapter?.submitList(distances)
+            } catch (e: Exception) {
+                android.util.Log.e("GroupDetailActivity", "거리 계산 중 오류: ${e.message}", e)
+                memberDistanceAdapter?.submitList(emptyList())
+            }
+        }
+    }
+
+    override fun onMapReady(map: GoogleMap) {
+        googleMap = map
+        // 지도 확대/축소 버튼 활성화
+        map.uiSettings.isZoomControlsEnabled = true
+        map.uiSettings.isZoomGesturesEnabled = true
+        checkPlaceVoteStatus()
     }
 }
 

@@ -29,14 +29,19 @@ import com.moyeoyo.app.data.model.RankedPlace
 import com.moyeoyo.app.databinding.ActivityRecommendedPlaceBinding
 import com.moyeoyo.app.databinding.DialogRankSelectionBinding
 import com.moyeoyo.app.ui.place.RankedPlaceParcelable
+import com.moyeoyo.app.data.repository.GroupRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var binding: ActivityRecommendedPlaceBinding
     private val viewModel: RecommendedPlaceViewModel by viewModels()
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
     
     private lateinit var adapter: RecommendedPlaceAdapter
     private var googleMap: GoogleMap? = null
@@ -604,11 +609,9 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     /**
-     * 최종 투표 화면으로 이동
+     * 최종 투표 화면으로 이동 (후보 3개 띄우는 화면)
      */
     private fun navigateToFinalVote() {
-        // FinalVoteActivity는 Firestore에서 모든 사용자의 순위를 불러와서 집계하므로
-        // groupId만 전달하면 됨 (더 안전하고 확실한 방식)
         val groupId = intent.getStringExtra("groupId") ?: ""
         if (groupId.isEmpty()) {
             Toast.makeText(this, "그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -618,13 +621,11 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
         android.util.Log.d("RecommendedPlaceActivity", 
             "🚀 최종 투표 화면으로 이동 - groupId: $groupId")
         
-        val intent = Intent(this, FinalVoteActivity::class.java).apply {
+        val intent = Intent(this@RecommendedPlaceActivity, FinalVoteActivity::class.java).apply {
             putExtra("groupId", groupId)
-            // 중복 실행 방지 플래그
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         startActivity(intent)
-        // 현재 화면은 닫지 않음 (사용자가 뒤로가기를 눌러 돌아올 수 있도록)
+        finish()
     }
 
     private fun proceedToFinalVote() {
