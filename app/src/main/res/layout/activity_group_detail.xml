@@ -135,6 +135,7 @@
                     android:layout_marginStart="8dp"
                     android:enabled="false"/>
             </LinearLayout>
+
             <Button
                 android:id="@+id/btn_start_vote"
                 android:layout_width="match_parent"

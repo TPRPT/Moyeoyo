@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
@@ -23,9 +24,9 @@ import com.moyeoyo.app.ui.place.FinalCandidate
 import com.moyeoyo.app.ui.place.FinalCandidateAdapter
 import com.moyeoyo.app.ui.place.FinalVoteViewModel
 import com.moyeoyo.app.ui.location.LocationInputActivity
+import com.moyeoyo.app.ui.time.TimeVoteActivity
 import com.moyeoyo.app.ui.vote.ConfirmActivity
 import com.moyeoyo.app.MainActivity
-import com.moyeoyo.app.R
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -77,8 +78,8 @@ class GroupDetailActivity : AppCompatActivity() {
         binding.tvGroupName.text = groupName
 
         setupToolbar()
-        setupTabs()
         setupButtons()
+        setupTabs()
     }
 
     private fun setupToolbar() {
@@ -142,6 +143,15 @@ class GroupDetailActivity : AppCompatActivity() {
         val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
         btnFilterLocation.setOnClickListener {
             val intent = Intent(this, LocationInputActivity::class.java).apply {
+                putExtra("groupId", groupId)
+            }
+            startActivity(intent)
+        }
+
+        // 시간 버튼 → TimeVoteActivity 이동
+        val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
+        btnFilterTime.setOnClickListener {
+            val intent = Intent(this, TimeVoteActivity::class.java).apply {
                 putExtra("groupId", groupId)
             }
             startActivity(intent)
@@ -280,11 +290,10 @@ class GroupDetailActivity : AppCompatActivity() {
                 binding.btnDeleteGroup.visibility = if (isHost) View.VISIBLE else View.GONE
                 binding.btnLeaveGroup.visibility = if (!isHost) View.VISIBLE else View.GONE
 
-                // 팀원 표시
-                // 4. 상태에 따른 버튼 활성화 제어
+                // 상태에 따른 버튼 활성화 제어
                 updateButtonsByStatus(group.status)
 
-                // 5. 팀원 목록 표시
+                // 팀원 목록 표시
                 displayMemberList(group.memberUids, group.hostUid, isHost)
             } else {
                 Toast.makeText(
@@ -321,8 +330,8 @@ class GroupDetailActivity : AppCompatActivity() {
             binding.confirmedScheduleSection.visibility = View.VISIBLE
             binding.textConfirmedTime.text = "일시: ${formatTimestamp(confirmedTime)}"
 
-            val placeName = confirmedPlace["name"] as? String 
-                ?: confirmedPlace["address"] as? String 
+            val placeName = confirmedPlace["name"] as? String
+                ?: confirmedPlace["address"] as? String
                 ?: "장소 정보 없음"
             binding.textConfirmedPlace.text = "장소: $placeName"
             binding.textConfirmedPlace.visibility = View.VISIBLE
