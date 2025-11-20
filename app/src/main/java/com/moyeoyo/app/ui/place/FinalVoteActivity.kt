@@ -30,6 +30,9 @@ class FinalVoteActivity : AppCompatActivity() {
     private val finalCandidates = mutableListOf<FinalCandidate>()
     private var selectedCandidate: FinalCandidate? = null
     private val auth = FirebaseAuth.getInstance()
+    
+    // ⭐ 다이얼로그 메모리 누수 방지를 위한 변수
+    private var winningPlaceDialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,27 +40,16 @@ class FinalVoteActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         val groupId = intent.getStringExtra("groupId") ?: ""
-        val rankedPlaceParcelables = intent.getParcelableArrayListExtra<RankedPlaceParcelable>("rankedPlaces") ?: arrayListOf()
 
         setupViews()
         setupRecyclerView()
         observeViewModel()
 
-        // Parcelable을 RankedPlace로 변환
-        val rankedPlaces = rankedPlaceParcelables.map { it.toRankedPlace() }
+        // ⭐ vote 문서 실시간 리스너 시작 (finalCandidates 자동 업데이트)
+        viewModel.startListeningToVoteStatus(groupId)
 
-        // 순위별 점수 합산하여 상위 3개 선정
-        val top3Candidates = calculateTop3Candidates(rankedPlaces)
-        
-        finalCandidates.clear()
-        finalCandidates.addAll(top3Candidates)
-        adapter.submitList(finalCandidates)
-
-        // Firestore에 후보 저장
-        viewModel.savePlaceCandidates(groupId, rankedPlaces)
-
-        // 투표 상태 확인
-        viewModel.loadVoteStatus(groupId)
+        // Firestore에서 모든 사용자의 순위 지정 불러와서 점수 합산하여 vote 문서 업데이트
+        viewModel.loadAllUserRankingsAndCreateCandidates(groupId)
     }
 
     private fun setupViews() {
@@ -84,6 +76,14 @@ class FinalVoteActivity : AppCompatActivity() {
                 candidate
             }
             
+            // 클릭 시 대중교통 시간 계산 (현재 사용자 위치 기준)
+            if (selectedCandidate != null) {
+                viewModel.calculateTransitTimeForPlace(candidate.place)
+            } else {
+                // 선택 해제 시 대중교통 시간 제거
+                viewModel.calculateTransitTimeForPlace(candidate.place) // 같은 장소를 다시 클릭하면 제거됨
+            }
+            
             // 어댑터 업데이트
             finalCandidates.forEachIndexed { index, item ->
                 finalCandidates[index] = item.copy(isSelected = item == selectedCandidate)
@@ -99,20 +99,76 @@ class FinalVoteActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
+        viewModel.finalCandidates.observe(this) { candidates ->
+            android.util.Log.d("FinalVoteActivity", 
+                "🔍 finalCandidates observer 트리거 - 후보 수: ${candidates.size}")
+            
+            if (candidates.isEmpty()) {
+                android.util.Log.w("FinalVoteActivity", 
+                    "⚠️ 최종 후보 목록이 비어있습니다.")
+                // 빈 리스트도 어댑터에 전달 (기존 데이터 클리어)
+                finalCandidates.clear()
+                adapter.submitList(emptyList())
+                return@observe
+            }
+            
+            // 로그 출력: 각 후보 정보
+            candidates.forEachIndexed { index, candidate ->
+                android.util.Log.d("FinalVoteActivity", 
+                    "  [${index + 1}] ${candidate.place.name} - 총점: ${candidate.totalScore}점, placeId: ${candidate.place.placeId}")
+            }
+            
+            // 기존 데이터 업데이트
+            finalCandidates.clear()
+            finalCandidates.addAll(candidates)
+            
+            android.util.Log.d("FinalVoteActivity", 
+                "✅ 어댑터에 ${candidates.size}개 후보 전달 시작")
+            
+            // ⚠️ 중요: ListAdapter는 새 리스트 인스턴스를 요구하므로 toList()로 복사본 생성
+            adapter.submitList(candidates.toList()) {
+                // submitList 완료 후 콜백
+                android.util.Log.d("FinalVoteActivity", 
+                    "✅ RecyclerView 어댑터 업데이트 완료 - 아이템 수: ${adapter.itemCount}")
+                
+                // RecyclerView가 제대로 업데이트되었는지 확인
+                if (adapter.itemCount > 0) {
+                    android.util.Log.d("FinalVoteActivity", 
+                        "✅ RecyclerView에 ${adapter.itemCount}개 아이템 표시됨")
+                } else {
+                    android.util.Log.e("FinalVoteActivity", 
+                        "❌ RecyclerView 어댑터에 아이템이 없습니다!")
+                }
+            }
+        }
+
+        // 대중교통 소요시간 업데이트
+        viewModel.transitTimes.observe(this) { transitTimes ->
+            // 소요시간 업데이트 시 어댑터 데이터만 업데이트 (스크롤 위치 유지)
+            adapter.updateTransitTimes(transitTimes)
+        }
+
         viewModel.voteStatus.observe(this) { status ->
             binding.tvVoteStatus.text = "투표 상태: ${status.completed}/${status.total} 명 완료"
+            
+            // 모든 그룹원이 투표했는지 확인 (이미 loadVoteStatus에서 승리한 장소 확인 후 winningPlace LiveData 업데이트)
+            // 이 observer는 단순히 투표 상태만 표시
         }
 
         viewModel.voteSuccess.observe(this) { success ->
             if (success) {
-                Toast.makeText(this, "투표가 완료되었습니다.", Toast.LENGTH_SHORT).show()
+                android.util.Log.d("FinalVoteActivity", 
+                    "✅ 투표 완료 - 승리 장소 결정은 ViewModel에서 처리됨")
+                // ⚠️ loadVoteStatus 호출 제거 - submitVote에서 이미 처리됨
             }
         }
 
         viewModel.winningPlace.observe(this) { winningPlace ->
             winningPlace?.let { place ->
                 // 승리한 장소가 확인되면 팝업 표시 (중복 방지)
-                if (!isFinishing) {
+                if (!isFinishing && !isDestroyed) {
+                    android.util.Log.d("FinalVoteActivity", 
+                        "🏆 승리한 장소 확인: ${place.name}")
                     showWinningPlaceDialog(place)
                 }
             }
@@ -123,20 +179,40 @@ class FinalVoteActivity : AppCompatActivity() {
                 Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
             }
         }
+        
+        // ⚠️ saveComplete observer에서 loadVoteStatus 호출 제거
+        // 이전 테스트의 finalVotedUsers가 남아있어서 잘못된 판단이 발생할 수 있음
+        // finalCandidates는 startListeningToVoteStatus에서 자동으로 업데이트됨
+        viewModel.saveComplete.observe(this) { saved ->
+            if (saved) {
+                android.util.Log.d("FinalVoteActivity", 
+                    "✅ 후보 저장 완료 - finalCandidates는 vote 문서 리스너에서 자동 업데이트됨")
+            }
+        }
     }
     
     private fun showWinningPlaceDialog(winningPlace: NearbyPlace) {
+        // ⭐ Activity가 종료 중이면 다이얼로그를 띄우지 않음 (메모리 누수 방지)
+        if (isFinishing || isDestroyed) {
+            return
+        }
+        
+        // ⭐ 기존 다이얼로그가 있으면 먼저 닫기
+        winningPlaceDialog?.dismiss()
+        
         val groupId = intent.getStringExtra("groupId") ?: ""
         
-        AlertDialog.Builder(this)
+        // ⭐ 다이얼로그를 변수에 저장하여 onDestroy에서 닫을 수 있도록 함
+        winningPlaceDialog = AlertDialog.Builder(this)
             .setTitle("최종 약속 장소 확정")
             .setMessage("최종 약속 장소는 \"${winningPlace.name}\"로 선정되었습니다.\n중간값 계산 화면으로 이동하여 소요시간을 확인하시겠습니까?")
             .setPositiveButton("확인") { _, _ ->
-                // 중간값 계산 화면으로 이동하며 승리한 장소 전달
+                // 중간값 계산 화면으로 이동하며 승리한 장소 전달 (주소 포함)
                 val intent = Intent(this, MidpointActivity::class.java).apply {
                     putExtra("groupId", groupId)
                     putExtra("selectedPlaceId", winningPlace.placeId)
                     putExtra("selectedPlaceName", winningPlace.name)
+                    putExtra("selectedPlaceAddress", winningPlace.address)
                     putExtra("selectedPlaceLat", winningPlace.latLng.lat)
                     putExtra("selectedPlaceLng", winningPlace.latLng.lng)
                 }
@@ -144,33 +220,17 @@ class FinalVoteActivity : AppCompatActivity() {
                 finish()
             }
             .setCancelable(false)
-            .show()
-    }
-
-    private fun calculateTop3Candidates(rankedPlaces: List<RankedPlace>): List<FinalCandidate> {
-        // placeId별로 점수 합산
-        val scoreMap = mutableMapOf<String, Int>()
+            .create()
         
-        rankedPlaces.forEach { rankedPlace ->
-            val currentScore = scoreMap[rankedPlace.place.placeId] ?: 0
-            scoreMap[rankedPlace.place.placeId] = currentScore + rankedPlace.score
-        }
-
-        // 점수 높은 순으로 정렬하여 상위 3개 선택
-        val top3 = scoreMap.entries
-            .sortedByDescending { it.value }
-            .take(3)
-
-        // FinalCandidate 리스트 생성
-        return top3.mapNotNull { (placeId, totalScore) ->
-            rankedPlaces.firstOrNull { it.place.placeId == placeId }?.let { rankedPlace ->
-                FinalCandidate(
-                    place = rankedPlace.place,
-                    totalScore = totalScore,
-                    isSelected = false
-                )
-            }
-        }
+        winningPlaceDialog?.show()
     }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // ⭐ Activity가 파괴될 때 다이얼로그가 열려있다면 반드시 닫아줌 (메모리 누수 방지)
+        winningPlaceDialog?.dismiss()
+        winningPlaceDialog = null
+    }
+
 }
 

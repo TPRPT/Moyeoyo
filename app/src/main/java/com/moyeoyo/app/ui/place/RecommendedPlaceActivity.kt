@@ -1,5 +1,6 @@
 package com.moyeoyo.app.ui.place
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -42,6 +43,8 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
     private var isMapReady = false
     private var selectedLocation: LatLngData? = null
     private var isRankMode = false
+    private var hasConfirmedRanking = false // 순위를 확정했는지 여부
+    private var hasShownAllCompletedDialog = false // 모든 사용자 완료 팝업 표시 여부 (중복 방지)
     private val selectedRanks = mutableMapOf<String, Int>() // placeId -> rank (1, 2, 3)
     private var currentRank = 1 // 다음 선택할 순위
 
@@ -80,6 +83,31 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
         selectedLocation?.let {
             viewModel.loadNearbyPlaces(it)
         }
+        
+        // ⚠️ 중요: onCreate에서 hasConfirmedRanking은 항상 false로 시작
+        // 이전 세션의 Firestore 데이터와 현재 세션의 상태를 구분하기 위함
+        hasConfirmedRanking = false
+        
+        // Firestore에 이전 세션 데이터가 있는지만 확인 (hasUserRanking 설정용)
+        // 하지만 hasConfirmedRanking은 현재 세션에서 실제로 확정할 때만 true가 됨
+        viewModel.checkUserRankingStatus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // ⚠️ 중요: onResume에서도 hasConfirmedRanking을 false로 유지
+        // 현재 세션에서 실제로 확정하지 않았으면, Firestore에 데이터가 있어도 무시
+        // (사용자가 다른 기기에서 확정했을 수 있으므로 checkUserRankingStatus는 호출하되,
+        //  hasConfirmedRanking은 confirmAndSaveRankings()에서만 true로 설정됨)
+        
+        // 현재 사용자가 이미 순위를 확정했는지 다시 확인 (다른 기기에서 확정했을 수 있음)
+        // 단, hasConfirmedRanking은 현재 세션에서 확정했을 때만 true이므로
+        // 이전 세션 데이터가 있어도 현재 세션 상태를 유지
+        if (!hasConfirmedRanking) {
+            // 현재 세션에서 아직 확정하지 않았으면 Firestore 확인 (다른 기기에서 확정했을 수 있음)
+            // 하지만 hasConfirmedRanking은 변경하지 않음
+            viewModel.checkUserRankingStatus()
+        }
     }
 
     private fun setupViews() {
@@ -97,9 +125,15 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         binding.btnProceedToVote.setOnClickListener {
+            if (!binding.btnProceedToVote.isEnabled) {
+                // 버튼이 비활성화되어 있으면 (다른 그룹원 완료 대기 중)
+                showWaitingDialog()
+                return@setOnClickListener
+            }
+            
             if (selectedRanks.size == 3) {
-                // 최종 투표 화면으로 이동
-                proceedToFinalVote()
+                // 3순위까지 모두 지정했으면 확정 팝업 표시
+                showConfirmRankingDialog()
             } else {
                 Toast.makeText(this, "3개 장소를 모두 선택해주세요.", Toast.LENGTH_SHORT).show()
             }
@@ -218,6 +252,75 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
                 Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
             }
         }
+
+        viewModel.rankingSaveSuccess.observe(this) { success ->
+            if (success) {
+                Toast.makeText(this, "순위 지정이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 1. 현재 "나"의 투표 상태만 관찰 (UI 업데이트용)
+        viewModel.hasUserRanking.observe(this) { hasRanking ->
+            // ⚠️ 핵심: hasUserRanking은 Firestore에 데이터가 있는지만 확인하는 용도
+            // 여기서는 checkAllUsersCompleted()를 호출하지 않음!
+            // checkAllUsersCompleted()는 오직 saveUserRankings() 내부에서만 호출됨
+            
+            android.util.Log.d("RecommendedPlaceActivity", 
+                "🔍 hasUserRanking 변경 - hasRanking: $hasRanking, hasConfirmedRanking: $hasConfirmedRanking")
+            
+            // 내가 투표를 확정한 경우에만 UI 업데이트
+            if (hasRanking && hasConfirmedRanking) {
+                // 내가 확정했고, Firestore에도 저장된 상태
+                binding.tvSelectedCount.text = "다른 그룹원의 순위 확정을 기다리는 중..."
+                binding.btnProceedToVote.isEnabled = false // 다른 사람이 끝날 때까지 비활성화
+                binding.btnProceedToVote.alpha = 0.5f
+                binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary_disabled)
+                binding.btnRankMode.isEnabled = false // 순위 재선택 방지
+                binding.btnRankMode.alpha = 0.5f
+                
+                android.util.Log.d("RecommendedPlaceActivity", 
+                    "✅ 내 투표 확정 완료 - UI 업데이트 (버튼 비활성화)")
+            } else {
+                // 아직 확정하지 않았거나, Firestore에 데이터가 없는 경우
+                android.util.Log.d("RecommendedPlaceActivity", 
+                    "⏸️ 아직 확정하지 않음 - hasRanking: $hasRanking, hasConfirmedRanking: $hasConfirmedRanking")
+                binding.btnProceedToVote.isEnabled = false
+                binding.btnProceedToVote.alpha = 0.5f
+                binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary_disabled)
+            }
+        }
+
+        // 2. "모든 사용자"의 완료 상태를 관찰 (화면 전환 트리거용)
+        viewModel.allUsersCompleted.observe(this) { allCompleted ->
+            android.util.Log.d("RecommendedPlaceActivity", 
+                "🔍 allUsersCompleted 변경 - allCompleted: $allCompleted, hasConfirmedRanking: $hasConfirmedRanking")
+            
+            // ⚠️ 핵심 조건: 모든 사용자가 완료했고, "나 자신도" 투표를 확정한 상태일 때만!
+            if (allCompleted && hasConfirmedRanking) {
+                // 버튼 활성화
+                binding.btnProceedToVote.isEnabled = true
+                binding.btnProceedToVote.alpha = 1.0f
+                binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary)
+                
+                // ⚠️ 중요: Activity가 죽지 않았을 때만 팝업 표시
+                if (!isFinishing && !isDestroyed) {
+                    // 한 번만 팝업을 띄우기 위한 플래그
+                    if (!hasShownAllCompletedDialog) {
+                        hasShownAllCompletedDialog = true
+                        android.util.Log.d("RecommendedPlaceActivity", 
+                            "✅ 모든 사용자 완료! 확인 팝업 표시 및 화면 전환 준비")
+                        showAllCompletedDialog()
+                    }
+                }
+            } else {
+                // 아직 모든 사용자가 완료하지 않았거나, 내가 확정하지 않은 경우
+                android.util.Log.d("RecommendedPlaceActivity", 
+                    "⏸️ 아직 완료되지 않음 - allCompleted: $allCompleted, hasConfirmedRanking: $hasConfirmedRanking")
+                binding.btnProceedToVote.isEnabled = false
+                binding.btnProceedToVote.alpha = 0.5f
+                binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary_disabled)
+            }
+        }
     }
 
     override fun onMapReady(map: GoogleMap) {
@@ -292,6 +395,12 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun toggleRankMode() {
+        // 이미 순위를 확정했다면 순위 선택 모드로 다시 들어갈 수 없음
+        if (hasConfirmedRanking) {
+            Toast.makeText(this, "이미 순위를 확정하셨습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
         isRankMode = !isRankMode
         
         if (isRankMode) {
@@ -299,17 +408,25 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
             binding.btnRankMode.visibility = View.VISIBLE
             selectedRanks.clear()
             currentRank = 1
+            // 순위 선택 모드 시작 시 하단 버튼 표시
+            binding.layoutBottomButton.visibility = View.VISIBLE
+            binding.btnProceedToVote.isEnabled = false
+            binding.btnProceedToVote.alpha = 0.5f
+            binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary_disabled)
         } else {
             binding.btnRankMode.text = "순위 선택"
+            binding.btnRankMode.visibility = View.VISIBLE // 버튼은 계속 보이도록
             selectedRanks.clear()
             currentRank = 1
+            // 순위 선택 모드 종료 시 하단 버튼 숨김 (확정하지 않은 상태에서만)
+            if (!hasConfirmedRanking) {
+                binding.layoutBottomButton.visibility = View.GONE
+            }
         }
 
-        // 어댑터 업데이트 (스크롤 위치 유지)
-        adapter.updateRankMode(isRankMode, selectedRanks)
+        // 어댑터 업데이트 (스크롤 위치 유지) - 선택된 순위 초기화
+        adapter.updateRankMode(isRankMode, emptyMap())
         
-        // 하단 버튼 표시/숨김
-        binding.layoutBottomButton.visibility = if (isRankMode) View.VISIBLE else View.GONE
         updateSelectedCount()
     }
 
@@ -346,6 +463,11 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
             
             updateSelectedCount()
             dialog.dismiss()
+            
+            // 3순위까지 모두 지정했으면 확정 팝업 표시
+            if (selectedRanks.size == 3) {
+                showConfirmRankingDialog()
+            }
         }
 
         dialogBinding.btnCancel.setOnClickListener {
@@ -359,14 +481,63 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
         val count = selectedRanks.size
         binding.tvSelectedCount.text = "$count/3개 장소 선택됨"
         
-        binding.btnProceedToVote.isEnabled = count == 3
+        // 3개 선택되었고, 아직 확정하지 않은 상태에서만 버튼 활성화
+        // 확정 후에는 allUsersCompleted에 따라 활성화/비활성화
+        if (isRankMode && count == 3) {
+            // 순위 선택 모드 중이고 3개 선택했을 때만 활성화
+            val allCompleted = viewModel.allUsersCompleted.value ?: false
+            binding.btnProceedToVote.isEnabled = true
+            binding.btnProceedToVote.alpha = 1.0f
+            binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary)
+        } else if (isRankMode) {
+            // 순위 선택 모드 중이지만 3개 미만 선택
+            binding.btnProceedToVote.isEnabled = false
+            binding.btnProceedToVote.alpha = 0.5f
+            binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary_disabled)
+        }
+        // isRankMode가 false일 때는 confirmAndSaveRankings에서 이미 설정함
     }
 
-    private fun proceedToFinalVote() {
+    private fun showConfirmRankingDialog() {
+        // 선택된 장소 목록 만들기
+        val allPlaces = viewModel.places.value ?: emptyList()
+        val rankedPlacesList = mutableListOf<Pair<String, Int>>()
+        
+        allPlaces.forEach { place ->
+            val rank = selectedRanks[place.placeId]
+            if (rank != null) {
+                rankedPlacesList.add(place.name to rank)
+            }
+        }
+        
+        val sortedByRank = rankedPlacesList.sortedBy { it.second }
+        val message = sortedByRank.joinToString("\n") { (name, rank) ->
+            "${rank}순위: $name"
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("순위 확정")
+            .setMessage("다음과 같이 순위를 지정하시겠습니까?\n\n$message\n\n확정하시면 다른 그룹원들이 순위 지정을 완료할 때까지 대기합니다.")
+            .setPositiveButton("확정") { _, _ ->
+                confirmAndSaveRankings()
+            }
+            .setNegativeButton("취소", null)
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun confirmAndSaveRankings() {
         // 선택된 장소들로 RankedPlace 생성
+        val allPlaces = viewModel.places.value
+        if (allPlaces.isNullOrEmpty()) {
+            Toast.makeText(this, "장소 정보를 불러올 수 없습니다. 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
         val rankedPlaces = mutableListOf<RankedPlace>()
         
-        viewModel.filteredPlaces.value?.forEach { place ->
+        // 전체 장소 목록에서 사용자가 선택한 장소 찾기
+        allPlaces.forEach { place ->
             val rank = selectedRanks[place.placeId]
             if (rank != null) {
                 val score = when (rank) {
@@ -379,15 +550,93 @@ class RecommendedPlaceActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
 
-        // 최종 투표 화면으로 이동
+        if (rankedPlaces.size != 3) {
+            Toast.makeText(this, "선택된 3개 장소 정보를 찾을 수 없습니다. 다시 선택해주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Firestore에 저장 (모든 사용자 완료 확인은 ViewModel의 saveUserRankings 내부에서 처리)
+        viewModel.saveUserRankings(rankedPlaces.sortedBy { it.rank })
+        
+        // 순위 확정 완료
+        hasConfirmedRanking = true
+        
+        // 순위 선택 모드 해제 (버튼은 숨기지 않고 비활성화 상태 유지)
+        isRankMode = false
+        binding.btnRankMode.text = "순위 선택"
+        adapter.updateRankMode(false, emptyMap())
+        
+        // 선택된 순위 초기화
+        selectedRanks.clear()
+        currentRank = 1
+        
+        // 하단 버튼은 계속 표시하되 비활성화 상태로 변경
+        binding.layoutBottomButton.visibility = View.VISIBLE
+        binding.btnProceedToVote.isEnabled = false
+        binding.btnProceedToVote.alpha = 0.5f
+        binding.btnProceedToVote.background = ContextCompat.getDrawable(this, R.drawable.bg_button_primary_disabled)
+        binding.tvSelectedCount.text = "다른 그룹원의 순위 확정을 기다리는 중..."
+        
+        // checkAllUsersCompleted는 saveUserRankings 내부에서 호출되므로 여기서는 중복 호출 제거
+    }
+
+    private fun showWaitingDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("대기 중")
+            .setMessage("현재 다른 그룹원의 최종 순위 확정을 기다리는 중입니다.\n모든 그룹원이 순위를 확정하면 최종 투표를 진행할 수 있습니다.")
+            .setPositiveButton("확인", null)
+            .show()
+    }
+
+    /**
+     * 모든 그룹원이 순위를 확정했을 때 자동으로 표시되는 확인 팝업
+     */
+    private fun showAllCompletedDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("모든 그룹원 완료")
+            .setMessage("모든 그룹원이 순위를 확정했습니다.\n최종 투표를 진행하시겠습니까?")
+            .setPositiveButton("진행하기") { _, _ ->
+                navigateToFinalVote()
+            }
+            .setNegativeButton("나중에", null)
+            .setCancelable(false)
+            .show()
+    }
+
+    /**
+     * 최종 투표 화면으로 이동
+     */
+    private fun navigateToFinalVote() {
+        // FinalVoteActivity는 Firestore에서 모든 사용자의 순위를 불러와서 집계하므로
+        // groupId만 전달하면 됨 (더 안전하고 확실한 방식)
         val groupId = intent.getStringExtra("groupId") ?: ""
-        val intent = android.content.Intent(this, FinalVoteActivity::class.java).apply {
+        if (groupId.isEmpty()) {
+            Toast.makeText(this, "그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        android.util.Log.d("RecommendedPlaceActivity", 
+            "🚀 최종 투표 화면으로 이동 - groupId: $groupId")
+        
+        val intent = Intent(this, FinalVoteActivity::class.java).apply {
             putExtra("groupId", groupId)
-            putParcelableArrayListExtra("rankedPlaces", ArrayList(rankedPlaces.map { 
-                RankedPlaceParcelable.from(it) 
-            }))
+            // 중복 실행 방지 플래그
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         startActivity(intent)
+        // 현재 화면은 닫지 않음 (사용자가 뒤로가기를 눌러 돌아올 수 있도록)
+    }
+
+    private fun proceedToFinalVote() {
+        // 모든 사용자가 완료했는지 확인
+        val allCompleted = viewModel.allUsersCompleted.value ?: false
+        if (!allCompleted) {
+            showWaitingDialog()
+            return
+        }
+        
+        // 이미 모든 사용자가 완료한 상태이므로 바로 이동 (확인 팝업은 이미 표시됨)
+        navigateToFinalVote()
     }
 }
 

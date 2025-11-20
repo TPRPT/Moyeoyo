@@ -28,6 +28,13 @@ class MapViewModel @Inject constructor(
     private val _state = MutableLiveData(MapState())
     val state: LiveData<MapState> = _state
 
+    // 최종 확정 모드 여부 (최종 투표로 확정된 장소 표시 모드)
+    private val _isFinalized = MutableLiveData<Boolean>(false)
+    val isFinalized: LiveData<Boolean> = _isFinalized
+
+    private var isMapReady = false
+    private var isLoadingMembers = false // 멤버 로드 중복 호출 방지 플래그
+
     // 상태 업데이트 헬퍼
     // - 기존 상태를 받아 변경된 상태를 생성해 LiveData에 반영
     private fun update(block: (MapState) -> MapState) {
@@ -361,6 +368,77 @@ class MapViewModel @Inject constructor(
         }
         update { it.copy(selectedPlace = place, error = null) }
         computeDistancesByMode(members, place.latLng)
+    }
+
+    /**
+     * 최종 확정 모드로 전환 (최종 투표로 확정된 장소 표시)
+     * @param place 최종 확정된 장소
+     */
+    fun setFinalizedMode(place: NearbyPlace) {
+        _isFinalized.value = true
+        update { it.copy(selectedPlace = place, error = null) }
+        Log.d("MapViewModel", "✅ 최종 장소 모드 설정: ${place.name}")
+        
+        // 멤버가 이미 로드되어 있으면 거리 계산
+        val currentState = _state.value
+        val members = currentState?.members ?: emptyList()
+        if (members.isNotEmpty()) {
+            computeDistancesByMode(members, place.latLng)
+        }
+        // ⚠️ 멤버가 없어도 여기서는 로드하지 않음 - onMapReady에서 처리
+        // 이렇게 하면 setFinalizedMode와 onMapReady의 중복 호출을 방지할 수 있음
+    }
+
+    /**
+     * 지도 준비 완료 알림
+     */
+    fun onMapReady() {
+        isMapReady = true
+        // 지도가 준비되면 최종 모드인 경우 멤버 로드 및 거리 계산
+        val currentState = _state.value
+        if (_isFinalized.value == true && currentState?.selectedPlace != null) {
+            val groupId = currentState.groupId
+            val place = currentState.selectedPlace!!
+            if (!groupId.isNullOrBlank()) {
+                // 멤버가 없으면 로드, 있으면 거리만 계산
+                if (currentState.members.isEmpty()) {
+                    loadGroupMembersAndComputeDistances(groupId, place.latLng)
+                } else {
+                    computeDistancesByMode(currentState.members, place.latLng)
+                }
+            }
+        }
+    }
+
+    /**
+     * 그룹 멤버 로드 후 특정 목적지까지의 거리 계산
+     */
+    private fun loadGroupMembersAndComputeDistances(groupId: String, destination: LatLngData) {
+        // 중복 호출 방지
+        if (isLoadingMembers) {
+            Log.d("MapViewModel", "⏸️ 이미 멤버 로드 중 - 중복 호출 방지")
+            return
+        }
+        
+        isLoadingMembers = true
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val members = repo.getInputLocations(groupId)
+                Log.d("MapViewModel", "Firestore에서 가져온 멤버 수: ${members.size}명")
+                
+                withContext(Dispatchers.Main) {
+                    update { it.copy(members = members) }
+                    computeDistancesByMode(members, destination)
+                    isLoadingMembers = false
+                }
+            } catch (e: Exception) {
+                Log.e("MapViewModel", "멤버 로드 실패: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    update { it.copy(error = e.message, isLoading = false) }
+                    isLoadingMembers = false
+                }
+            }
+        }
     }
 
     fun computeTravelTimesForSelectedPlace() {

@@ -47,10 +47,10 @@ class RecommendedPlaceAdapter(
      */
     fun updateRankMode(isRankMode: Boolean, selectedRanks: Map<String, Int>) {
         val oldIsRankMode = this.isRankMode
-        val oldSelectedRanks = this.selectedRanks
+        val oldSelectedRanks = this.selectedRanks.toMap() // 복사본 생성
         
         this.isRankMode = isRankMode
-        this.selectedRanks = selectedRanks
+        this.selectedRanks = selectedRanks.toMap() // 복사본으로 저장
         
         // 순위 모드가 변경되었거나, 선택된 순위가 변경된 아이템만 업데이트
         if (oldIsRankMode != isRankMode) {
@@ -58,15 +58,14 @@ class RecommendedPlaceAdapter(
             notifyItemRangeChanged(0, itemCount)
         } else {
             // 순위 모드가 같으면 변경된 아이템만 업데이트
-            val allPlaceIds = (oldSelectedRanks.keys + selectedRanks.keys).toSet()
             for (i in 0 until itemCount) {
                 val place = getItem(i)
-                if (place.placeId in allPlaceIds) {
-                    val oldRank = oldSelectedRanks[place.placeId]
-                    val newRank = selectedRanks[place.placeId]
-                    if (oldRank != newRank) {
-                        notifyItemChanged(i)
-                    }
+                val placeId = place.placeId
+                val oldRank = oldSelectedRanks[placeId]
+                val newRank = selectedRanks[placeId]
+                // 순위가 변경되었거나 새로 선택/해제된 경우 업데이트
+                if (oldRank != newRank) {
+                    notifyItemChanged(i)
                 }
             }
         }
@@ -115,40 +114,17 @@ class RecommendedPlaceAdapter(
                 binding.tvTransitTime.visibility = View.GONE
             }
 
-            // 순위 모드인 경우 순위 표시
-            if (isRankMode) {
-                val rank = selectedRanks[place.placeId]
-                if (rank != null) {
-                    binding.tvRankBadge.visibility = View.VISIBLE
-                    binding.tvRankBadge.text = rank.toString()
-                    // 순위별 색상 변경
-                    binding.root.background = ContextCompat.getDrawable(
-                        binding.root.context,
-                        when (rank) {
-                            1 -> R.drawable.bg_rank_badge
-                            2 -> R.drawable.bg_rank_badge
-                            3 -> R.drawable.bg_rank_badge
-                            else -> R.drawable.bg_card
-                        }
-                    )
-                    // 순위 배지 색상
-                    binding.tvRankBadge.background = ContextCompat.getDrawable(
-                        binding.root.context,
-                        when (rank) {
-                            1 -> R.drawable.bg_rank_badge // 1순위 - 파란색
-                            2 -> R.drawable.bg_rank_badge // 2순위 - 초록색
-                            3 -> R.drawable.bg_rank_badge // 3순위 - 노란색
-                            else -> R.drawable.bg_rank_badge
-                        }
-                    )
-                } else {
-                    binding.tvRankBadge.visibility = View.GONE
-                    binding.root.background = ContextCompat.getDrawable(
-                        binding.root.context,
-                        R.drawable.bg_card
-                    )
-                }
+            // 순위 모드인 경우 순위 표시 및 배경 변경
+            val rank = if (isRankMode) selectedRanks[place.placeId] else null
+            if (rank != null) {
+                // 선택된 장소: 선택 효과 배경 적용 (진한 파란색 배경 + 파란색 테두리)
+                binding.cardContainer.setBackgroundResource(R.drawable.bg_card_selected)
+                binding.tvRankBadge.visibility = View.VISIBLE
+                binding.tvRankBadge.text = rank.toString()
+                binding.tvRankBadge.setBackgroundResource(R.drawable.bg_rank_badge)
             } else {
+                // 선택되지 않은 장소: 기본 배경
+                binding.cardContainer.setBackgroundResource(R.drawable.bg_card)
                 binding.tvRankBadge.visibility = View.GONE
             }
 

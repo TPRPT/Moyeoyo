@@ -10,6 +10,7 @@
     android:foreground="?attr/selectableItemBackground">
 
     <LinearLayout
+        android:id="@+id/cardContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_card"

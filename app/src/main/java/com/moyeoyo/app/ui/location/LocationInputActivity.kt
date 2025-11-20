@@ -106,26 +106,46 @@ class LocationInputActivity : AppCompatActivity() {
 
         // 현재 위치 버튼
         findViewById<View>(R.id.btn_use_current_location).setOnClickListener {
+            if (isLocationInputLocked()) {
+                Toast.makeText(this, "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             requestLocationPermission()
         }
 
         // 집 버튼
         findViewById<View>(R.id.btn_use_home).setOnClickListener {
+            if (isLocationInputLocked()) {
+                Toast.makeText(this, "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             loadHomeLocation()
         }
 
         // 회사 버튼
         findViewById<View>(R.id.btn_use_work).setOnClickListener {
+            if (isLocationInputLocked()) {
+                Toast.makeText(this, "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             loadWorkLocation()
         }
 
         // 검색창 클릭
         findViewById<View>(R.id.layoutSearchBar).setOnClickListener {
+            if (isLocationInputLocked()) {
+                Toast.makeText(this, "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             openPlacesAutocomplete()
         }
 
         // 위치 저장 버튼
         findViewById<View>(R.id.btn_save_location).setOnClickListener {
+            if (isLocationInputLocked()) {
+                Toast.makeText(this, "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             if (selectedLocation != null) {
                 saveMyLocationToFirestore()
             } else {
@@ -507,7 +527,13 @@ class LocationInputActivity : AppCompatActivity() {
                 val missingUids = memberUids.filter { it !in inputtedUids }
 
                 withContext(Dispatchers.Main) {
+                    // 모든 사용자가 위치를 저장했으면 위치 입력 잠금
+                    if (allInputted) {
+                        isLocationLocked = true
+                    }
                     updateUIForInputStatus(allInputted, missingUids)
+                    // 잠금 상태에 따라 UI 업데이트
+                    updateUIForLockedState(isLocationLocked)
                 }
             } catch (e: Exception) {
                 Log.e("LocationInput", "입력 상태 확인 실패: ${e.message}")
@@ -581,6 +607,58 @@ class LocationInputActivity : AppCompatActivity() {
                     Toast.makeText(this@LocationInputActivity, "위치 저장에 실패했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private var isLocationLocked = false // 위치 입력 잠금 상태
+
+    /**
+     * 중간값 계산이 완료되어 위치 입력이 잠겨있는지 확인
+     * vote 문서의 상태가 RANKING 이상이면 위치 변경 불가
+     */
+    private fun isLocationInputLocked(): Boolean {
+        return isLocationLocked
+    }
+
+
+    /**
+     * 위치 입력이 잠겨있을 때 UI 업데이트
+     */
+    private fun updateUIForLockedState(isLocked: Boolean) {
+        val currentLocationBtn = findViewById<View>(R.id.btn_use_current_location)
+        val homeBtn = findViewById<View>(R.id.btn_use_home)
+        val workBtn = findViewById<View>(R.id.btn_use_work)
+        val searchBar = findViewById<View>(R.id.layoutSearchBar)
+        val saveBtn = findViewById<View>(R.id.btn_save_location)
+        val infoTextView = findViewById<android.widget.TextView>(R.id.location_input_info)
+        
+        if (isLocked) {
+            // 버튼 비활성화
+            currentLocationBtn.isEnabled = false
+            currentLocationBtn.alpha = 0.5f
+            homeBtn.isEnabled = false
+            homeBtn.alpha = 0.5f
+            workBtn.isEnabled = false
+            workBtn.alpha = 0.5f
+            searchBar.isEnabled = false
+            searchBar.alpha = 0.5f
+            saveBtn.isEnabled = false
+            saveBtn.alpha = 0.5f
+            
+            // 안내 메시지 표시
+            infoTextView.text = "중간값 계산이 완료되어 위치를 변경할 수 없습니다."
+        } else {
+            // 버튼 활성화
+            currentLocationBtn.isEnabled = true
+            currentLocationBtn.alpha = 1f
+            homeBtn.isEnabled = true
+            homeBtn.alpha = 1f
+            workBtn.isEnabled = true
+            workBtn.alpha = 1f
+            searchBar.isEnabled = true
+            searchBar.alpha = 1f
+            saveBtn.isEnabled = true
+            saveBtn.alpha = 1f
         }
     }
 }
