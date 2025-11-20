@@ -44,6 +44,9 @@ class AddFriendActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_friend)
 
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbarFriend)
+        toolbar.setNavigationOnClickListener { finish() }
+
         editTextEmail = findViewById(R.id.edit_text_email)
         btnSearchFriend = findViewById(R.id.btn_search_friend)
         textSearchResult = findViewById(R.id.text_search_result)

@@ -2,31 +2,35 @@ package com.moyeoyo.app.ui.groups
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
+import android.widget.TextView
+import android.widget.Button
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.firebase.auth.FirebaseAuth
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
+import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
-import com.moyeoyo.app.ui.vote.ConfirmActivity
 import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
-import com.moyeoyo.app.MainActivity
+import com.moyeoyo.app.ui.groups.adapter.MemberListAdapter
+import com.moyeoyo.app.ui.place.FinalCandidate
+import com.moyeoyo.app.ui.place.FinalCandidateAdapter
+import com.moyeoyo.app.ui.place.FinalVoteViewModel
 import com.moyeoyo.app.ui.location.LocationInputActivity
+import com.moyeoyo.app.ui.vote.ConfirmActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
+import java.util.*
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -34,17 +38,44 @@ class GroupDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityGroupDetailBinding
 
-    @Inject
-    lateinit var groupRepository: GroupRepository
-
-    @Inject
-    lateinit var friendRepository: FriendRepository
+    @Inject lateinit var groupRepository: GroupRepository
+    @Inject lateinit var friendRepository: FriendRepository
 
     private val auth = FirebaseAuth.getInstance()
 
     private lateinit var groupId: String
     private lateinit var groupName: String
     private lateinit var currentUid: String
+
+    // ---------------------------
+    //  멤버 탭 관련
+    // ---------------------------
+    private lateinit var recyclerMemberList: RecyclerView
+    private lateinit var btnInviteMember: View
+
+    // 멤버 탭 초기화 여부 + 대기 중 데이터
+    private var isMemberTabInitialized: Boolean = false
+
+    private data class PendingMemberState(
+        val members: List<Pair<String, String>>,
+        val hostUid: String,
+        val isHost: Boolean
+    )
+
+    private var pendingMemberState: PendingMemberState? = null
+
+    // ---------------------------
+    //  투표 탭 관련
+    // ---------------------------
+    private lateinit var recyclerFinalCandidates: RecyclerView
+    private lateinit var tvVoteStatus: TextView
+    private lateinit var btnSubmitVote: Button
+
+    private val voteViewModel: FinalVoteViewModel by viewModels()
+    private lateinit var finalVoteAdapter: FinalCandidateAdapter
+    private val finalCandidates = mutableListOf<FinalCandidate>()
+    private var selectedCandidate: FinalCandidate? = null
+    private var isVoteTabInitialized = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,263 +87,305 @@ class GroupDetailActivity : AppCompatActivity() {
         groupName = intent.getStringExtra("GROUP_NAME") ?: "Unknown Group"
         currentUid = auth.currentUser?.uid ?: return finish()
 
-        binding.groupNameText.text = groupName
+        binding.tvGroupName.text = groupName
 
-        // 친구 초대
-        binding.btnInviteFriends.setOnClickListener {
-            navigateToInviteScreen()
+        setupToolbar()
+        setupTabs()
+    }
+
+    private fun setupToolbar() {
+        binding.toolbar.setNavigationOnClickListener { finish() }
+    }
+
+    // ---------------------------
+    //  ViewPager2 / 탭 설정
+    // ---------------------------
+    private fun setupTabs() {
+        val views = listOf(
+            R.layout.view_vote_tab,      // 0: 투표 탭
+            R.layout.view_member_tab     // 1: 멤버 탭
+        )
+
+        binding.viewPager.adapter = GroupDetailPagerAdapter(
+            this,
+            views
+        ) { view, position ->
+            if (position == 0) bindVoteTab(view)
+            else bindMemberTab(view)
         }
 
-        // 그룹 삭제 (방장)
-        binding.btnDeleteGroup.setOnClickListener {
-            showDeleteConfirmationDialog()
+        // 탭 전환
+        binding.tabGroup.setOnCheckedChangeListener { _, checkedId ->
+            binding.viewPager.currentItem =
+                if (checkedId == R.id.tabPlace) 0 else 1
         }
 
-        // 그룹 나가기 (멤버)
-        binding.btnLeaveGroup.setOnClickListener {
-            showLeaveConfirmationDialog()
-        }
+        binding.viewPager.registerOnPageChangeCallback(
+            object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+                override fun onPageSelected(position: Int) {
+                    binding.tabGroup.check(
+                        if (position == 0) R.id.tabPlace else R.id.tabMember
+                    )
+                }
+            }
+        )
+    }
 
-        // 중간값 계산
-        binding.btnCalculateMidpoint.setOnClickListener {
+    // ---------------------------
+    //  투표 탭(view_vote_tab.xml)
+    // ---------------------------
+    private fun bindVoteTab(view: View) {
+        recyclerFinalCandidates = view.findViewById(R.id.rvFinalCandidates)
+        tvVoteStatus = view.findViewById(R.id.tvVoteStatus)
+        btnSubmitVote = view.findViewById(R.id.btnSubmitVote)
+
+        recyclerFinalCandidates.layoutManager = LinearLayoutManager(this)
+
+        // 위치 버튼 → LocationInputActivity 이동
+        val btnFilterLocation = view.findViewById<View>(R.id.btnFilterLocation)
+        btnFilterLocation.setOnClickListener {
             val intent = Intent(this, LocationInputActivity::class.java)
             intent.putExtra("groupId", groupId)
             startActivity(intent)
         }
 
-        // 일정 확정
-        binding.btnConfirmScheduleNow.setOnClickListener {
-            val intent = Intent(this, ConfirmActivity::class.java)
-            intent.putExtra("GROUP_ID", groupId)
-            intent.putExtra("GROUP_NAME", groupName)
-            startActivity(intent)
+        // 어댑터 설정
+        finalVoteAdapter = FinalCandidateAdapter { candidate ->
+            // 선택 토글
+            selectedCandidate = if (selectedCandidate == candidate) null else candidate
+
+            // UI에서 선택 상태 반영
+            finalCandidates.forEachIndexed { index, item ->
+                finalCandidates[index] = item.copy(
+                    isSelected = (item.place.placeId == selectedCandidate?.place?.placeId)
+                )
+            }
+
+            finalVoteAdapter.submitList(finalCandidates.toList())
+            btnSubmitVote.visibility =
+                if (selectedCandidate != null) View.VISIBLE else View.GONE
+
+            // 선택된 장소의 대중교통 시간 계산
+            selectedCandidate?.let {
+                voteViewModel.calculateTransitTimeForPlace(it.place)
+            }
         }
 
-        // ⭐ NEW: 투표 시작 버튼 클릭
-        binding.btnStartVote.setOnClickListener {
-            startVoting()
+        recyclerFinalCandidates.adapter = finalVoteAdapter
+
+        if (!isVoteTabInitialized) {
+            observeVoteViewModel()
+            startVoteLoading()
+            isVoteTabInitialized = true
+        }
+
+        btnSubmitVote.setOnClickListener {
+            val candidate = selectedCandidate
+            if (candidate == null) {
+                Toast.makeText(this, "장소를 선택해주세요.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            voteViewModel.submitVote(groupId, candidate.place.placeId)
         }
     }
 
+    private fun startVoteLoading() {
+        voteViewModel.startListeningToVoteStatus(groupId)
+        voteViewModel.loadAllUserRankingsAndCreateCandidates(groupId)
+    }
+
+    private fun observeVoteViewModel() {
+        // 최종 후보 리스트
+        voteViewModel.finalCandidates.observe(this) { candidates ->
+            finalCandidates.clear()
+            finalCandidates.addAll(candidates)
+            finalVoteAdapter.submitList(candidates.toList())
+        }
+
+        // 투표 상태
+        voteViewModel.voteStatus.observe(this) { status ->
+            tvVoteStatus.text = "투표 상태: ${status.completed}/${status.total} 명 완료"
+        }
+
+        // 대중교통 시간
+        voteViewModel.transitTimes.observe(this) { transitTimes ->
+            finalVoteAdapter.updateTransitTimes(transitTimes)
+        }
+
+        // 투표 성공
+        voteViewModel.voteSuccess.observe(this) { success ->
+            if (success) {
+                Toast.makeText(this, "투표를 완료했습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 에러
+        voteViewModel.error.observe(this) { msg ->
+            msg?.let { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() }
+        }
+
+        // 승리 장소
+        voteViewModel.winningPlace.observe(this) { place ->
+            place?.let {
+                AlertDialog.Builder(this)
+                    .setTitle("최종 약속 장소 확정")
+                    .setMessage("최종 약속 장소는 \"${it.name}\"로 결정되었습니다.")
+                    .setPositiveButton("확인", null)
+                    .show()
+            }
+        }
+    }
+
+    // ---------------------------
+    //  멤버 탭(view_member_tab.xml)
+    // ---------------------------
+    private fun bindMemberTab(view: View) {
+        recyclerMemberList = view.findViewById(R.id.recyclerMemberList)
+        recyclerMemberList.layoutManager = LinearLayoutManager(this)
+
+        btnInviteMember = view.findViewById(R.id.btnInviteMember)
+        btnInviteMember.setOnClickListener {
+            navigateToInviteScreen()
+        }
+
+        // 멤버 탭이 이제 준비됨
+        isMemberTabInitialized = true
+
+        // 데이터가 먼저 로딩되어 pending된 경우 → 지금 적용
+        pendingMemberState?.let { state ->
+            applyMemberList(state)
+            pendingMemberState = null
+        }
+    }
+
+    // ---------------------------
+    //  그룹 데이터 로딩
+    // ---------------------------
     override fun onResume() {
         super.onResume()
         loadGroupData()
     }
 
-    /**
-     * 그룹 상세 데이터 로드
-     */
     private fun loadGroupData() {
-        binding.memberCountText.text = "로딩 중..."
-        binding.memberListContainer.removeAllViews()
-        binding.confirmedScheduleSection.visibility = View.GONE
+        binding.tvMemberCount.text = "로딩 중..."
 
         lifecycleScope.launch {
             val group = groupRepository.getGroupById(groupId)
 
             if (group != null) {
                 val isHost = (group.hostUid == currentUid)
-                val memberCount = group.memberUids.size
-                binding.memberCountText.text = "$memberCount 명"
+                binding.tvMemberCount.text = "${group.memberUids.size}명"
 
-                // 확정 일정 표시
                 displayConfirmedSchedule(group)
-
-                // 삭제/나가기 버튼
-                binding.btnDeleteGroup.visibility = if (isHost) View.VISIBLE else View.GONE
-                binding.btnLeaveGroup.visibility = if (!isHost) View.VISIBLE else View.GONE
-
-                // 팀원 표시
                 displayMemberList(group.memberUids, group.hostUid, isHost)
-
-                // ⭐ NEW: 투표 시작 버튼 표시 여부
-                updateStartVoteButton(group, isHost)
-
-                // ⭐ NEW: 초대 버튼 표시 여부
-                updateInviteButton(group, isHost)
-
             } else {
-                binding.memberCountText.text = "오류 발생"
-                Toast.makeText(this@GroupDetailActivity, "그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
-                finish()
+                Toast.makeText(
+                    this@GroupDetailActivity,
+                    "그룹 정보를 불러올 수 없습니다.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
 
-    /**
-     * ⭐ NEW: 투표 시작 버튼 표시/숨기기
-     */
-    private fun updateStartVoteButton(group: Group, isHost: Boolean) {
-        // 방장 + GROUP_CREATED 상태에서만 표시
-        if (isHost && group.status == "GROUP_CREATED") {
-            binding.btnStartVote.visibility = View.VISIBLE
-        } else {
-            binding.btnStartVote.visibility = View.GONE
-        }
-    }
-
-    /**
-     * ⭐ NEW: 초대 버튼 표시/숨기기
-     * 투표 시작 후에는 멤버 추가 불가 → 버튼 숨김
-     */
-    private fun updateInviteButton(group: Group, isHost: Boolean) {
-        if (group.status == "GROUP_CREATED") {
-            binding.btnInviteFriends.visibility = View.VISIBLE
-        } else {
-            binding.btnInviteFriends.visibility = View.GONE
-        }
-    }
-
-    /**
-     * ⭐ NEW: 투표 시작 처리
-     */
-    private fun startVoting() {
-        lifecycleScope.launch {
-            val success = groupRepository.startVoting(groupId)
-
-            if (success) {
-                Toast.makeText(this@GroupDetailActivity, "투표를 시작했습니다!", Toast.LENGTH_SHORT).show()
-                loadGroupData() // UI 갱신
-            } else {
-                Toast.makeText(this@GroupDetailActivity, "투표 시작에 실패했습니다.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    /**
-     * 확정 일정 표시
-     */
+    // ---------------------------
+    //  확정된 일정(다음 모임)
+    // ---------------------------
     private fun displayConfirmedSchedule(group: Group) {
         val confirmedTime = group.confirmedTime
         val confirmedPlace = group.confirmedPlace
 
         if (confirmedTime != null && confirmedPlace != null) {
-            val placeName = confirmedPlace["name"] as? String
-                ?: confirmedPlace["address"] as? String ?: "장소 정보 없음"
+            binding.nextMeetingCard.visibility = View.VISIBLE
 
-            val formattedTime = formatTimestamp(confirmedTime)
+            binding.tvMeetingDateAndTime.text = formatTimestamp(confirmedTime)
+            binding.tvMeetingLocation.text =
+                confirmedPlace["name"] as? String ?: "장소 없음"
 
-            binding.confirmedScheduleSection.visibility = View.VISIBLE
-            binding.textConfirmedPlace.text = "장소: $placeName"
-            binding.textConfirmedTime.text = "일시: $formattedTime"
+            binding.btnAddToCalendarWrapper.setOnClickListener {
+                val intent = Intent(this, ConfirmActivity::class.java)
+                intent.putExtra("GROUP_ID", groupId)
+                intent.putExtra("GROUP_NAME", groupName)
+                startActivity(intent)
+            }
         } else {
-            binding.confirmedScheduleSection.visibility = View.GONE
+            binding.nextMeetingCard.visibility = View.GONE
         }
     }
 
     private fun formatTimestamp(timestamp: Timestamp): String {
-        val date = timestamp.toDate()
         val sdf = SimpleDateFormat("yyyy년 M월 d일 (E) a h:mm", Locale.getDefault())
-        sdf.timeZone = TimeZone.getDefault()
-        return sdf.format(date)
+        return sdf.format(timestamp.toDate())
     }
 
+    // ---------------------------
+    //  멤버 리스트 (데이터 로딩)
+    // ---------------------------
     private fun displayMemberList(memberUids: List<String>, hostUid: String, isHost: Boolean) {
-        val container = binding.memberListContainer
-        container.removeAllViews()
-        val inflater = LayoutInflater.from(this)
-
         lifecycleScope.launch {
-            val memberDetails = memberUids.map { uid ->
-                async {
-                    Pair(uid, friendRepository.getUserNickname(uid) ?: uid.take(8))
-                }
+            val nicknames = memberUids.map { uid ->
+                async { uid to (friendRepository.getUserNickname(uid) ?: uid.take(8)) }
             }.awaitAll()
 
-            memberDetails.forEach { (uid, nickname) ->
-                val isCurrentMemberHost = (uid == hostUid)
-                val memberView = inflater.inflate(com.moyeoyo.app.R.layout.item_member_list, container, false)
+            val state = PendingMemberState(
+                members = nicknames,
+                hostUid = hostUid,
+                isHost = isHost
+            )
 
-                val nameText = memberView.findViewById<TextView>(com.moyeoyo.app.R.id.member_name)
-                val statusText = memberView.findViewById<TextView>(com.moyeoyo.app.R.id.member_status)
-                val kickButton = memberView.findViewById<Button>(com.moyeoyo.app.R.id.btn_kick_member)
-
-                nameText.text = nickname
-                statusText.text = if (isCurrentMemberHost) "(방장)" else ""
-
-                if (isHost && uid != currentUid) {
-                    kickButton.visibility = View.VISIBLE
-                    kickButton.setOnClickListener {
-                        showKickConfirmationDialog(uid, nickname)
-                    }
-                } else {
-                    kickButton.visibility = View.GONE
-                }
-
-                container.addView(memberView)
+            // 멤버 탭이 아직 초기화되지 않았다면 → 나중에 적용
+            if (!isMemberTabInitialized || !this@GroupDetailActivity::recyclerMemberList.isInitialized) {
+                pendingMemberState = state
+                return@launch
             }
+
+            // 이미 탭이 준비된 상태라면 바로 적용
+            applyMemberList(state)
         }
     }
 
+    // ---------------------------
+    //  멤버 리스트 실제 UI 반영
+    // ---------------------------
+    private fun applyMemberList(state: PendingMemberState) {
+        if (!this::recyclerMemberList.isInitialized) return
+
+        recyclerMemberList.adapter = MemberListAdapter(
+            state.members,
+            state.hostUid,
+            currentUid,
+            state.isHost
+        ) { uid, name ->
+            showKickConfirmationDialog(uid, name)
+        }
+    }
+
+    // ---------------------------
+    //  초대 화면 이동
+    // ---------------------------
     private fun navigateToInviteScreen() {
-        val intent = Intent(this, com.moyeoyo.app.ui.groups.GroupInviteActivity::class.java)
+        val intent = Intent(this, GroupInviteActivity::class.java)
         intent.putExtra("GROUP_ID", groupId)
         intent.putExtra("GROUP_NAME", groupName)
         startActivity(intent)
     }
 
-    private fun showDeleteConfirmationDialog() {
+    // ---------------------------
+    //  강퇴 처리
+    // ---------------------------
+    private fun showKickConfirmationDialog(uid: String, nickname: String) {
         AlertDialog.Builder(this)
-            .setTitle("그룹 삭제 확인")
-            .setMessage("정말로 그룹 '$groupName'을 삭제하시겠습니까?")
-            .setPositiveButton("삭제") { _, _ -> deleteGroup() }
+            .setTitle("강퇴")
+            .setMessage("${nickname} 님을 강퇴할까요?")
+            .setPositiveButton("강퇴") { _, _ ->
+                lifecycleScope.launch {
+                    if (groupRepository.removeMember(groupId, uid)) {
+                        Toast.makeText(this@GroupDetailActivity, "강퇴 완료", Toast.LENGTH_SHORT).show()
+                        loadGroupData()
+                    }
+                }
+            }
             .setNegativeButton("취소", null)
             .show()
-    }
-
-    private fun deleteGroup() {
-        lifecycleScope.launch {
-            val success = groupRepository.deleteGroup(groupId)
-            if (success) {
-                Toast.makeText(this@GroupDetailActivity, "'$groupName' 그룹이 삭제되었습니다.", Toast.LENGTH_LONG).show()
-                startActivity(Intent(this@GroupDetailActivity, MainActivity::class.java))
-                finish()
-            } else {
-                Toast.makeText(this@GroupDetailActivity, "그룹 삭제에 실패했습니다.", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun showKickConfirmationDialog(memberUid: String, nickname: String) {
-        AlertDialog.Builder(this)
-            .setTitle("멤버 강퇴 확인")
-            .setMessage("${nickname} 님을 그룹에서 강퇴하시겠습니까?")
-            .setPositiveButton("강퇴") { _, _ -> kickMember(memberUid, nickname) }
-            .setNegativeButton("취소", null)
-            .show()
-    }
-
-    private fun kickMember(memberUid: String, nickname: String) {
-        lifecycleScope.launch {
-            val success = groupRepository.removeMember(groupId, memberUid)
-            if (success) {
-                Toast.makeText(this@GroupDetailActivity, "${nickname} 님을 강퇴했습니다.", Toast.LENGTH_LONG).show()
-                loadGroupData()
-            } else {
-                Toast.makeText(this@GroupDetailActivity, "강퇴에 실패했습니다.", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun showLeaveConfirmationDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("그룹 나가기 확인")
-            .setMessage("정말로 그룹 '$groupName'을 나가시겠습니까?")
-            .setPositiveButton("나가기") { _, _ -> leaveGroup() }
-            .setNegativeButton("취소", null)
-            .show()
-    }
-
-    private fun leaveGroup() {
-        lifecycleScope.launch {
-            val success = groupRepository.leaveGroup(groupId)
-            if (success) {
-                Toast.makeText(this@GroupDetailActivity, "'$groupName' 그룹을 나왔습니다.", Toast.LENGTH_LONG).show()
-                startActivity(Intent(this@GroupDetailActivity, MainActivity::class.java))
-                finish()
-            } else {
-                Toast.makeText(this@GroupDetailActivity, "그룹 나가기에 실패했습니다.", Toast.LENGTH_LONG).show()
-            }
-        }
     }
 }
