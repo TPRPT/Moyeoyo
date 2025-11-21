@@ -169,17 +169,6 @@
                         android:textColor="@color/white"
                         android:textSize="16sp"
                         android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvDDay"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="D-5"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="2dp"
-                        android:background="@drawable/bg_badge_blue"
-                        android:textColor="@color/badge_blue_text"
-                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <LinearLayout

@@ -492,7 +492,7 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
 
             if (group != null) {
                 binding.tvGroupName.text = group.groupName
-                
+
                 val isHost = (group.hostUid == currentUid)
                 binding.tvMemberCount.text = "${group.memberUids.size}명"
                 
@@ -589,7 +589,6 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
                         CalendarContract.Events.EVENT_LOCATION,
                         confirmedPlace["address"] as? String ?: confirmedPlace["name"] as? String
                     )
-                    setPackage("com.google.android.calendar")
                 }
 
                 startActivity(intent)
