@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -43,17 +44,14 @@ class TimeVoteActivity : AppCompatActivity() {
     @Inject
     lateinit var groupRepository: GroupRepository
     
+    private val viewModel: TimeVoteViewModel by viewModels()
+    
     private val auth = FirebaseAuth.getInstance()
 
     private lateinit var groupId: String
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
     private var selectedDate: Date = Date()
     private val calendar = Calendar.getInstance()
-
-    // 날짜별로 선택된 시간 관리 (날짜 문자열 -> 시간 Set)
-    private val selectedTimesByDate = mutableMapOf<String, MutableSet<String>>()
-    private val selectedTimes: MutableSet<String>
-        get() = selectedTimesByDate.getOrPut(dateFormat.format(selectedDate)) { mutableSetOf() }
     
     private var selectedDayButton: View? = null
 
@@ -122,9 +120,12 @@ class TimeVoteActivity : AppCompatActivity() {
         if (isAlreadySelected) return  // 이미 선택된 버튼이면 무시
 
         val time = button.text.toString()
-        button.tag = true
-        selectedTimes.add(time)
+        val dateStr = dateFormat.format(selectedDate)
+        
+        // ViewModel의 장바구니에 추가
+        viewModel.toggleTimeSelection(dateStr, time)
 
+        button.tag = true
         button.backgroundTintList =
             ContextCompat.getColorStateList(this, R.color.brand_blue)
         button.setTextColor(ContextCompat.getColor(this, R.color.white))
@@ -145,21 +146,35 @@ class TimeVoteActivity : AppCompatActivity() {
 
         binding.btnPrevWeek.setOnClickListener {
             calendar.add(Calendar.WEEK_OF_YEAR, -1)
-            setupWeekDays()
-            updateWeekTitle()
-            // 주 변경 시 모든 날짜 관찰 다시 시작
-            observeFirestoreVotes()
+            // ⭐ 주 변경 시 장바구니는 유지되고, UI만 업데이트
+            updateWeekUI()
         }
 
         binding.btnNextWeek.setOnClickListener {
             calendar.add(Calendar.WEEK_OF_YEAR, 1)
-            setupWeekDays()
-            updateWeekTitle()
-            // 주 변경 시 모든 날짜 관찰 다시 시작
-            observeFirestoreVotes()
+            // ⭐ 주 변경 시 장바구니는 유지되고, UI만 업데이트
+            updateWeekUI()
         }
 
         setupWeekDays()
+    }
+    
+    /**
+     * 주 변경 시 UI만 업데이트 (장바구니는 유지)
+     */
+    private fun updateWeekUI() {
+        val tempCal = calendar.clone() as Calendar
+        tempCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        
+        // 현재 선택된 날짜를 현재 주의 첫 번째 날짜(월요일)로 변경
+        selectedDate = tempCal.time
+        
+        setupWeekDays()
+        updateWeekTitle()
+        setupTimeGrid()
+        
+        // 주 변경 시 모든 날짜 관찰 다시 시작 (Firestore에서 현재 주 데이터 로드)
+        observeFirestoreVotes()
     }
 
     private fun updateWeekTitle() {
@@ -246,9 +261,9 @@ class TimeVoteActivity : AppCompatActivity() {
         grid.removeAllViews()
         timeButtons.clear()
         
-        // 현재 선택된 날짜의 선택된 시간 가져오기
+        // 현재 선택된 날짜의 선택된 시간 가져오기 (ViewModel의 장바구니에서)
         val dateStr = dateFormat.format(selectedDate)
-        val currentDateSelectedTimes = selectedTimesByDate.getOrPut(dateStr) { mutableSetOf() }
+        val currentDateSelectedTimes = viewModel.getSelectedTimesForDate(dateStr)
 
         val times = (0..23).map { String.format(Locale.KOREA, "%02d시", it) }
 
@@ -283,9 +298,11 @@ class TimeVoteActivity : AppCompatActivity() {
 
                 setOnClickListener {
                     val wasSelected = tag as Boolean
+                    // ViewModel의 장바구니에 추가/제거
+                    viewModel.toggleTimeSelection(dateStr, time)
+                    
                     tag = !wasSelected
                     if (!wasSelected) {
-                        selectedTimes.add(time)
                         backgroundTintList =
                             ContextCompat.getColorStateList(this@TimeVoteActivity, R.color.brand_blue)
                         setTextColor(
@@ -295,7 +312,6 @@ class TimeVoteActivity : AppCompatActivity() {
                             )
                         )
                     } else {
-                        selectedTimes.remove(time)
                         backgroundTintList =
                             ContextCompat.getColorStateList(this@TimeVoteActivity, R.color.white)
                         setTextColor(
@@ -350,6 +366,13 @@ class TimeVoteActivity : AppCompatActivity() {
             }
             .debounce(500) // 500ms debounce로 중복 호출 방지
             .collectLatest { allDatesData ->
+                // 모든 날짜의 Firestore 데이터를 selectedTimesByDate에 동기화
+                datesToObserve.forEachIndexed { index, dateStr ->
+                    if (index < allDatesData.size) {
+                        updateSelectedTimesFromFirestore(dateStr, allDatesData[index], uid)
+                    }
+                }
+                
                 // 현재 선택된 날짜의 데이터로 그리드 업데이트
                 val currentDateStr = dateFormat.format(selectedDate)
                 val currentDateIndex = datesToObserve.indexOf(currentDateStr)
@@ -370,35 +393,46 @@ class TimeVoteActivity : AppCompatActivity() {
     }
     
 
+    /**
+     * Firestore 데이터를 기반으로 ViewModel의 장바구니를 초기화 (모든 날짜에 대해)
+     */
+    private fun updateSelectedTimesFromFirestore(dateStr: String, data: Map<String, List<String>>, uid: String) {
+        // ViewModel의 장바구니에 Firestore 데이터 반영
+        viewModel.initializeSelectionsFromFirestore(dateStr, data, uid)
+    }
+    
+    /**
+     * 현재 선택된 날짜의 그리드를 Firestore 데이터로 업데이트
+     */
     private fun updateGridFromFirestore(data: Map<String, List<String>>, uid: String) {
         val grid = binding.gridTimeSlots
         val dateStr = dateFormat.format(selectedDate)
-        val currentDateSelectedTimes = selectedTimesByDate.getOrPut(dateStr) { mutableSetOf() }
+        
+        // ViewModel의 장바구니에 Firestore 데이터 반영
+        viewModel.initializeSelectionsFromFirestore(dateStr, data, uid)
+
+        // UI 업데이트: ViewModel의 장바구니 상태를 반영
+        val currentDateSelectedTimes = viewModel.getSelectedTimesForDate(dateStr)
 
         for (i in 0 until grid.childCount) {
             val button = grid.getChildAt(i) as MaterialButton
             val timeKey = button.text.toString().replace("시", ":00")
             val voters = data[timeKey] ?: emptyList()
             val isMyVote = voters.contains(uid)
+            val timeText = button.text.toString()
+            val isSelected = currentDateSelectedTimes.contains(timeText)
 
-            if (isMyVote) {
+            // 장바구니에 있는 시간은 선택된 것으로 표시
+            if (isSelected) {
                 button.tag = true
                 button.backgroundTintList =
                     ContextCompat.getColorStateList(this, R.color.brand_blue)
                 button.setTextColor(ContextCompat.getColor(this, R.color.white))
-                // ⚠️ selectedTimes에도 추가해야 함 (중복 방지)
-                val timeText = button.text.toString()
-                if (!currentDateSelectedTimes.contains(timeText)) {
-                    currentDateSelectedTimes.add(timeText)
-                }
             } else {
                 button.tag = false
                 button.backgroundTintList =
                     ContextCompat.getColorStateList(this, R.color.white)
                 button.setTextColor(ContextCompat.getColor(this, R.color.black))
-                // ⚠️ selectedTimes에서도 제거해야 함
-                val timeText = button.text.toString()
-                currentDateSelectedTimes.remove(timeText)
             }
         }
 
@@ -408,9 +442,10 @@ class TimeVoteActivity : AppCompatActivity() {
     // ----------------------- 하단 버튼 -----------------------
 
     private fun updateButtonState() {
-        // 모든 날짜의 선택된 시간 개수 계산
-        val totalCount = selectedTimesByDate.values.sumOf { it.size }
-        val dateCount = selectedTimesByDate.count { it.value.isNotEmpty() }
+        // ViewModel의 장바구니에서 모든 날짜의 선택된 시간 개수 계산
+        val pendingSelections = viewModel.pendingSelections.value
+        val totalCount = pendingSelections.values.sumOf { it.size }
+        val dateCount = pendingSelections.count { it.value.isNotEmpty() }
         
         if (dateCount > 0) {
             binding.btnCompleteVote.text = "저장 (${dateCount}개 날짜, ${totalCount}개 시간)"
@@ -429,8 +464,9 @@ class TimeVoteActivity : AppCompatActivity() {
 
     private fun setupButton() {
         binding.btnCompleteVote.setOnClickListener {
-            // 모든 날짜의 선택된 시간 확인
-            val datesWithTimes = selectedTimesByDate.filter { it.value.isNotEmpty() }
+            // ViewModel의 장바구니에서 모든 날짜의 선택된 시간 확인
+            val pendingSelections = viewModel.pendingSelections.value
+            val datesWithTimes = pendingSelections.filter { it.value.isNotEmpty() }
             
             if (datesWithTimes.isEmpty()) {
                 Toast.makeText(this, "선택된 시간이 없습니다", Toast.LENGTH_SHORT).show()
@@ -459,7 +495,7 @@ class TimeVoteActivity : AppCompatActivity() {
                 .setTitle("시간 저장 확인")
                 .setMessage(message)
                 .setPositiveButton("저장") { _, _ ->
-                    saveAllSelectedTimes(datesWithTimes)
+                    saveAllSelectedTimes()
                 }
                 .setNegativeButton("취소", null)
                 .show()
@@ -467,9 +503,9 @@ class TimeVoteActivity : AppCompatActivity() {
     }
     
     /**
-     * 모든 날짜의 선택된 시간을 한 번에 저장
+     * ViewModel의 장바구니에 담긴 모든 시간을 Firestore에 저장
      */
-    private fun saveAllSelectedTimes(datesWithTimes: Map<String, MutableSet<String>>) {
+    private fun saveAllSelectedTimes() {
         val uid = auth.currentUser?.uid ?: return
 
         lifecycleScope.launch {
@@ -477,27 +513,20 @@ class TimeVoteActivity : AppCompatActivity() {
                 // 중복 클릭 방지
                 binding.btnCompleteVote.isEnabled = false
                 
-                android.util.Log.d("TimeVoteActivity", "📝 저장 시작: ${datesWithTimes.size}개 날짜의 시간 투표 저장")
+                val pendingSelections = viewModel.pendingSelections.value
+                val dateCount = pendingSelections.count { it.value.isNotEmpty() }
+                val totalCount = pendingSelections.values.sumOf { it.size }
                 
-                // ⚠️ 모든 날짜의 모든 시간 저장 작업을 병렬로 실행하고 완료될 때까지 대기
-                coroutineScope {
-                    val allTasks = mutableListOf<kotlinx.coroutines.Deferred<Unit>>()
-                    
-                    datesWithTimes.forEach { (dateStr, times) ->
-                        times.forEach { time ->
-                            val task = async(Dispatchers.IO) {
-                                val formattedTime = time.replace("시", ":00")
-                                timeVoteRepository.voteTime(groupId, dateStr, formattedTime, uid)
-                            }
-                            allTasks.add(task)
-                        }
-                    }
-                    
-                    allTasks.awaitAll() // 모든 저장 작업이 완료될 때까지 여기서 대기
+                android.util.Log.d("TimeVoteActivity", "📝 저장 시작: ${dateCount}개 날짜의 시간 투표 저장")
+                
+                // ViewModel의 saveAllPendingSelections 호출
+                val result = viewModel.saveAllPendingSelections(groupId, uid)
+                
+                if (result.isFailure) {
+                    throw result.exceptionOrNull() ?: Exception("저장 실패")
                 }
                 
-                val totalCount = datesWithTimes.values.sumOf { it.size }
-                android.util.Log.d("TimeVoteActivity", "✅ 모든 시간 저장 작업 완료 (${datesWithTimes.size}개 날짜, ${totalCount}개 시간). 이제 멤버 투표 완료 여부를 확인합니다.")
+                android.util.Log.d("TimeVoteActivity", "✅ 모든 시간 저장 작업 완료 (${dateCount}개 날짜, ${totalCount}개 시간). 이제 멤버 투표 완료 여부를 확인합니다.")
                 
                 // 그룹 상태 확인 및 업데이트
                 val group = groupRepository.getGroupDetail(groupId)
@@ -506,7 +535,7 @@ class TimeVoteActivity : AppCompatActivity() {
                     groupRepository.updateGroupStatus(groupId, "TIME_VOTE_REQUIRED")
                 }
 
-                Toast.makeText(this@TimeVoteActivity, "${datesWithTimes.size}개 날짜의 시간이 저장되었습니다 ✅", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@TimeVoteActivity, "${dateCount}개 날짜의 시간이 저장되었습니다 ✅", Toast.LENGTH_SHORT).show()
                 
                 // Firestore 동기화를 위해 잠시 대기 (1초)
                 delay(1000)
@@ -527,9 +556,9 @@ class TimeVoteActivity : AppCompatActivity() {
                         android.util.Log.d("TimeVoteActivity", "✅ 겹치는 시간이 하나만 있음 - 자동 확정: ${allVoted.second[0]}")
                         autoConfirmFinalTime(allVoted.first, allVoted.second[0])
                     } else {
-                        // 모든 멤버가 투표 완료하고 겹치는 시간이 여러 개 -> 최종 투표 확인 팝업 표시
-                        android.util.Log.d("TimeVoteActivity", "✅ 저장 직후 모든 멤버 투표 완료 확인! (겹치는 시간: ${allVoted.second.size}개)")
-                        showFinalVoteConfirmationDialog(allVoted.first, allVoted.second)
+                        // 모든 멤버가 투표 완료하고 겹치는 시간이 여러 개 -> 바로 최종 투표 화면으로 이동
+                        android.util.Log.d("TimeVoteActivity", "✅ 저장 직후 모든 멤버 투표 완료 확인! 바로 최종 투표로 이동 (겹치는 시간: ${allVoted.second.size}개)")
+                        navigateToFinalVote(allVoted.first)
                     }
                 } else {
                     // 아직 다른 멤버가 남았다면 대기 다이얼로그 표시
@@ -768,56 +797,30 @@ class TimeVoteActivity : AppCompatActivity() {
     }
     
     /**
-     * 최종 투표 확인 팝업 표시
+     * 최종 투표 화면으로 바로 이동 (팝업 없이)
      */
-    private fun showFinalVoteConfirmationDialog(dateWithAllVoted: String, overlappingTimes: List<String>) {
+    private fun navigateToFinalVote(dateWithAllVoted: String) {
         if (hasNavigatedToFinalVote) return
+        hasNavigatedToFinalVote = true
         
-        // 기존 다이얼로그가 있으면 닫기
-        finalVoteConfirmationDialog?.dismiss()
-        
-        val dateDisplayFormat = SimpleDateFormat("yyyy년 MM월 dd일 (E)", Locale.KOREA)
-        val date = dateFormat.parse(dateWithAllVoted)
-        val dateDisplay = date?.let { dateDisplayFormat.format(it) } ?: dateWithAllVoted
-        
-        val message = buildString {
-            append("모든 멤버의 시간 투표가 완료되었습니다.\n\n")
-            append("겹치는 시간:\n")
-            overlappingTimes.forEach { time ->
-                append("• $time\n")
-            }
-            append("\n최종 시간 투표로 넘어가시겠습니까?")
-        }
-        
-        finalVoteConfirmationDialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("최종 시간 투표")
-            .setMessage(message)
-            .setPositiveButton("이동") { _, _ ->
-                hasNavigatedToFinalVote = true
+        lifecycleScope.launch {
+            try {
+                // 그룹 상태를 TIME_FINALIZING으로 변경
+                groupRepository.updateGroupStatus(groupId, "TIME_FINALIZING")
                 
-                lifecycleScope.launch {
-                    try {
-                        // 그룹 상태를 TIME_FINALIZING으로 변경
-                        groupRepository.updateGroupStatus(groupId, "TIME_FINALIZING")
-                        
-                        // 최종 시간 투표 화면으로 이동
-                        val intent = android.content.Intent(this@TimeVoteActivity, FinalTimeVoteActivity::class.java).apply {
-                            putExtra("groupId", groupId)
-                            putExtra("date", dateWithAllVoted)
-                        }
-                        startActivity(intent)
-                        finish()
-                    } catch (e: Exception) {
-                        android.util.Log.e("TimeVoteActivity", "최종 투표 화면 이동 중 오류: ${e.message}", e)
-                        Toast.makeText(this@TimeVoteActivity, "오류가 발생했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
+                // 최종 시간 투표 화면으로 이동
+                val intent = android.content.Intent(this@TimeVoteActivity, FinalTimeVoteActivity::class.java).apply {
+                    putExtra("groupId", groupId)
+                    putExtra("date", dateWithAllVoted)
                 }
+                startActivity(intent)
+                finish()
+            } catch (e: Exception) {
+                android.util.Log.e("TimeVoteActivity", "최종 투표 화면 이동 중 오류: ${e.message}", e)
+                Toast.makeText(this@TimeVoteActivity, "오류가 발생했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                hasNavigatedToFinalVote = false // 오류 발생 시 플래그 리셋
             }
-            .setNegativeButton("취소", null)
-            .setOnDismissListener { finalVoteConfirmationDialog = null }
-            .create()
-        
-        finalVoteConfirmationDialog?.show()
+        }
     }
     
     /**
@@ -890,9 +893,9 @@ class TimeVoteActivity : AppCompatActivity() {
                         android.util.Log.d("TimeVoteActivity", "✅ 겹치는 시간이 하나만 있음 - 자동 확정: ${overlappingTimes[0]}")
                         autoConfirmFinalTime(dateWithAllVoted, overlappingTimes[0])
                     } else {
-                        // 겹치는 시간이 여러 개 있으면 최종 투표 확인 팝업 표시
-                        android.util.Log.d("TimeVoteActivity", "✅ 모든 멤버 투표 완료 확인! 최종 투표 확인 팝업 표시. (날짜: $dateWithAllVoted, 겹치는 시간: ${overlappingTimes.size}개)")
-                        showFinalVoteConfirmationDialog(dateWithAllVoted, overlappingTimes)
+                        // 겹치는 시간이 여러 개 있으면 바로 최종 투표 화면으로 이동
+                        android.util.Log.d("TimeVoteActivity", "✅ 모든 멤버 투표 완료 확인! 바로 최종 투표로 이동. (날짜: $dateWithAllVoted, 겹치는 시간: ${overlappingTimes.size}개)")
+                        navigateToFinalVote(dateWithAllVoted)
                     }
                 } else if (hasAllVotedButNoOverlap) {
                     // 모든 멤버가 투표했지만 겹치는 시간이 없음

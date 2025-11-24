@@ -125,8 +125,10 @@ class FinalTimeVoteActivity : AppCompatActivity() {
                 overlappingTimes.clear()
                 overlappingTimes.addAll(overlapping.toList().sortedByDescending { it.second })
                 
-                // 어댑터에 데이터 전달
-                adapter.submitList(overlappingTimes.map { it.first })
+                // 어댑터에 데이터 전달 (날짜 정보 포함)
+                adapter.submitList(overlappingTimes.map { 
+                    com.moyeoyo.app.ui.time.FinalTimeItem(it.first, date) 
+                })
                 
                 binding.tvEmptyMessage.visibility = View.GONE
                 binding.rvFinalTimes.visibility = View.VISIBLE
@@ -155,35 +157,41 @@ class FinalTimeVoteActivity : AppCompatActivity() {
                     val allVoted = memberUids.all { it in finalVotedUsers }
                     
                     if (allVoted && finalVotedUsers.isNotEmpty()) {
-                        android.util.Log.d("FinalTimeVoteActivity", "✅ 모든 멤버 최종 투표 완료! 시간 확정합니다.")
+                        android.util.Log.d("FinalTimeVoteActivity", "✅ 모든 멤버 최종 투표 완료! 만장일치 검사 시작.")
                         
-                        // 최종 시간 가져오기: 최종 투표에서 가장 많이 선택된 시간
+                        // ⭐ 핵심 수정: 만장일치 검사
                         val finalVotes = timeVoteRepository.getFinalVotes(groupId, date)
-                        val finalTime = if (finalVotes.isNotEmpty()) {
-                            // 최종 투표에서 가장 많이 선택된 시간 찾기
-                            val voteCounts = finalVotes.groupingBy { it }.eachCount()
-                            voteCounts.maxByOrNull { it.value }?.key ?: overlappingTimes.firstOrNull()?.first
-                        } else {
-                            // 최종 투표가 없으면 겹치는 시간 중 첫 번째
-                            overlappingTimes.firstOrNull()?.first
-                        }
+                        val totalMembers = memberUids.size
                         
-                        if (finalTime == null) {
-                            android.util.Log.e("FinalTimeVoteActivity", "최종 시간을 결정할 수 없습니다.")
-                            return@collectLatest
-                        }
+                        // 득표 수 계산
+                        val voteCounts = finalVotes.groupingBy { it }.eachCount()
+                        android.util.Log.d("FinalTimeVoteActivity", "📊 최종 투표 득표 현황: $voteCounts, 전체 멤버 수: $totalMembers")
                         
-                        // 최종 시간 확정
-                        val success = groupRepository.setFinalTime(groupId, date, finalTime)
+                        // 만장일치로 선택된 시간 찾기 (득표 수가 전체 멤버 수와 같은 시간)
+                        val unanimouslyVotedTime = voteCounts.entries.find { it.value == totalMembers }?.key
                         
-                        if (success) {
-                            // 그룹 상태를 LOCATION_INPUT_REQUIRED로 변경
-                            groupRepository.updateGroupStatus(groupId, "LOCATION_INPUT_REQUIRED")
+                        if (unanimouslyVotedTime != null) {
+                            // [시나리오 1: 만장일치 성공]
+                            android.util.Log.d("FinalTimeVoteActivity", "✅ 만장일치 성공! 최종 시간 확정: $unanimouslyVotedTime")
                             
-                            // 승리한 시간 다이얼로그 표시
-                            showWinningTimeDialog(finalTime)
+                            // 최종 시간 확정
+                            val success = groupRepository.setFinalTime(groupId, date, unanimouslyVotedTime)
+                            
+                            if (success) {
+                                // 그룹 상태를 LOCATION_INPUT_REQUIRED로 변경
+                                groupRepository.updateGroupStatus(groupId, "LOCATION_INPUT_REQUIRED")
+                                
+                                // 승리한 시간 다이얼로그 표시
+                                showWinningTimeDialog(unanimouslyVotedTime)
+                            } else {
+                                Toast.makeText(this@FinalTimeVoteActivity, "시간 확정에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                            }
                         } else {
-                            Toast.makeText(this@FinalTimeVoteActivity, "시간 확정에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                            // [시나리오 2: 만장일치 실패]
+                            android.util.Log.d("FinalTimeVoteActivity", "❌ 만장일치 실패! 득표 현황: $voteCounts")
+                            
+                            // 사용자에게 알리고 투표를 리셋
+                            showVoteFailedDialog()
                         }
                     }
                 }
@@ -239,6 +247,41 @@ class FinalTimeVoteActivity : AppCompatActivity() {
                 .create()
             
             winningTimeDialog?.show()
+        }
+    }
+
+    /**
+     * 만장일치 실패 시 사용자에게 알리는 다이얼로그
+     */
+    private fun showVoteFailedDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("의견 불일치")
+            .setMessage("모든 멤버의 의견이 일치하지 않아 시간이 확정되지 못했습니다.\n다시 투표를 진행해주세요.")
+            .setPositiveButton("확인") { _, _ ->
+                // 최종 투표 데이터를 리셋하고 이전 화면으로 돌아가기
+                resetFinalVote()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    /**
+     * 최종 투표를 리셋하는 함수
+     */
+    private fun resetFinalVote() {
+        lifecycleScope.launch {
+            try {
+                // Firestore의 최종 투표 기록 삭제
+                timeVoteRepository.clearFinalVotes(groupId, date)
+                
+                android.util.Log.d("FinalTimeVoteActivity", "✅ 최종 투표 리셋 완료")
+                
+                // Activity를 닫아 이전 화면으로 돌아가기
+                finish()
+            } catch (e: Exception) {
+                android.util.Log.e("FinalTimeVoteActivity", "❌ 최종 투표 리셋 실패: ${e.message}", e)
+                Toast.makeText(this@FinalTimeVoteActivity, "투표 리셋에 실패했습니다.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

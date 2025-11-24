@@ -349,5 +349,32 @@ class TimeVoteRepository @Inject constructor(
 
         awaitClose { listenerRegistration.remove() }
     }
+
+    /**
+     * 최종 시간 투표 데이터 초기화 (만장일치 실패 시 사용)
+     * @param groupId 그룹 ID
+     * @param date 날짜
+     */
+    suspend fun clearFinalVotes(groupId: String, date: String) {
+        try {
+            val finalVoteRef = db.collection("groups")
+                .document(groupId)
+                .collection("timeVotes")
+                .document(date)
+
+            // finalVotes와 finalVotedUsers 필드 삭제
+            finalVoteRef.update(
+                mapOf(
+                    "finalVotes" to FieldValue.delete(),
+                    "finalVotedUsers" to FieldValue.delete()
+                )
+            ).await()
+
+            Log.d(TAG, "✅ 최종 시간 투표 데이터 초기화 완료: groupId=$groupId, date=$date")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 최종 시간 투표 데이터 초기화 실패: ${e.message}", e)
+            throw e
+        }
+    }
 }
 
