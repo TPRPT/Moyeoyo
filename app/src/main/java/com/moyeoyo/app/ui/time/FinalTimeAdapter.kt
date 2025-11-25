@@ -10,9 +10,14 @@ import androidx.recyclerview.widget.RecyclerView
 import com.moyeoyo.app.R
 import com.moyeoyo.app.databinding.ItemFinalTimeBinding
 
+data class FinalTimeItem(
+    val time: String,
+    val date: String
+)
+
 class FinalTimeAdapter(
     private val onTimeClick: (String) -> Unit
-) : ListAdapter<String, FinalTimeAdapter.ViewHolder>(TimeDiffCallback()) {
+) : ListAdapter<FinalTimeItem, FinalTimeAdapter.ViewHolder>(TimeDiffCallback()) {
 
     private var selectedTime: String? = null
 
@@ -35,7 +40,7 @@ class FinalTimeAdapter(
         
         // 이전 선택 항목과 현재 선택 항목 업데이트
         currentList.forEachIndexed { index, item ->
-            if (item == previousSelected || item == selectedTime) {
+            if (item.time == previousSelected || item.time == selectedTime) {
                 notifyItemChanged(index)
             }
         }
@@ -45,10 +50,18 @@ class FinalTimeAdapter(
         private val binding: ItemFinalTimeBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(time: String) {
-            binding.tvTime.text = time.replace(":00", "시")
+        fun bind(item: FinalTimeItem) {
+            // 날짜 포맷팅
+            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+            val dateDisplayFormat = java.text.SimpleDateFormat("yyyy년 MM월 dd일 (E)", java.util.Locale.KOREA)
+            val dateObj = dateFormat.parse(item.date)
+            val formattedDate = dateObj?.let { dateDisplayFormat.format(it) } ?: item.date
             
-            val isSelected = time == selectedTime
+            // 날짜와 시간을 함께 표시
+            val timeDisplay = item.time.replace(":00", "시")
+            binding.tvTime.text = "$formattedDate $timeDisplay"
+            
+            val isSelected = item.time == selectedTime
             binding.root.isSelected = isSelected
             
             // 선택 상태에 따라 배경색 및 체크 아이콘 변경
@@ -71,17 +84,17 @@ class FinalTimeAdapter(
             }
             
             binding.root.setOnClickListener {
-                onTimeClick(time)
+                onTimeClick(item.time)
             }
         }
     }
 
-    private class TimeDiffCallback : DiffUtil.ItemCallback<String>() {
-        override fun areItemsTheSame(oldItem: String, newItem: String): Boolean {
-            return oldItem == newItem
+    private class TimeDiffCallback : DiffUtil.ItemCallback<FinalTimeItem>() {
+        override fun areItemsTheSame(oldItem: FinalTimeItem, newItem: FinalTimeItem): Boolean {
+            return oldItem.time == newItem.time && oldItem.date == newItem.date
         }
 
-        override fun areContentsTheSame(oldItem: String, newItem: String): Boolean {
+        override fun areContentsTheSame(oldItem: FinalTimeItem, newItem: FinalTimeItem): Boolean {
             return oldItem == newItem
         }
     }
