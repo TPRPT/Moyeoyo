@@ -74,7 +74,8 @@ class NextMeetingWidgetProvider : AppWidgetProvider() {
             CoroutineScope(Dispatchers.IO).launch {
 
                 val dao = AppDatabase.getInstance(context).nextMeetingDao()
-                val meeting = dao.getNextMeeting()
+                val now = System.currentTimeMillis()
+                val meeting = dao.getNextUpcomingMeeting(now)
 
                 if (meeting == null) {
                     // 확정된 모임이 없을 때
