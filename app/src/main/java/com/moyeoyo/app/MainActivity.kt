@@ -23,6 +23,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.moyeoyo.app.R
+import com.moyeoyo.app.data.repository.MeetingRepository
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -80,6 +81,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // Firestore → Room 동기화
+        val userId = auth.currentUser!!.uid
+        MeetingRepository(this).syncFromFirestore(userId)
+
         // FCM 토큰 저장
         saveFCMToken()
 
@@ -92,7 +97,7 @@ class MainActivity : AppCompatActivity() {
 
         // 딥링크 처리
         deeplinkHandler.handle(intent)
-        //DeepLinkHandler(this).handle(intent)
+        DeepLinkHandler(this).handle(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
