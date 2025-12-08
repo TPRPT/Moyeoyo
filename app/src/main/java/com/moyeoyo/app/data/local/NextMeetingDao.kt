@@ -18,4 +18,10 @@ interface NextMeetingDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(meeting: NextMeetingEntity)
+
+    @Query("DELETE FROM next_meeting WHERE groupId = :groupId")
+    suspend fun deleteByGroupId(groupId: String)
+
+    @Query("SELECT groupId FROM next_meeting")
+    suspend fun getAllGroupIds(): List<String>
 }

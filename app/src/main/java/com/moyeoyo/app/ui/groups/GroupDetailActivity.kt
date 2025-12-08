@@ -845,17 +845,29 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun deleteGroup() {
         lifecycleScope.launch {
-            val success = groupRepository.deleteGroup(groupId)
+            val success = groupRepository.deleteGroup(
+                context = this@GroupDetailActivity,
+                groupId = groupId
+            )
 
             if (success) {
-                Toast.makeText(this@GroupDetailActivity, "'$groupName' 그룹을 삭제했습니다.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@GroupDetailActivity,
+                    "'$groupName' 그룹을 삭제했습니다.",
+                    Toast.LENGTH_LONG
+                ).show()
                 startActivity(Intent(this@GroupDetailActivity, MainActivity::class.java))
                 finish()
             } else {
-                Toast.makeText(this@GroupDetailActivity, "그룹 삭제에 실패했습니다.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@GroupDetailActivity,
+                    "그룹 삭제에 실패했습니다.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
+
 
     private fun leaveGroup() {
         lifecycleScope.launch {

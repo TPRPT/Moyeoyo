@@ -3,6 +3,7 @@ package com.moyeoyo.app.widget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.view.View
@@ -18,17 +19,16 @@ import java.util.*
 
 class NextMeetingWidgetProvider : AppWidgetProvider() {
 
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
 
-        for (id in appWidgetIds) {
-            updateWidget(context, appWidgetManager, id)
+        CoroutineScope(Dispatchers.IO).launch {
+            appWidgetIds.forEach { id ->
+                updateWidget(context, appWidgetManager, id)
+            }
         }
     }
+
 
     companion object {
 
@@ -54,14 +54,17 @@ class NextMeetingWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.tvWidgetTime, View.GONE)
             views.setViewVisibility(R.id.tvWidgetPlace, View.GONE)
 
-            // 기본: 클릭하면 앱 홈으로 이동
+            // 🔥 PendingIntent 캐싱 문제 해결 → requestCode를 항상 다르게 생성
+            val uniqueRequestCode = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
+
+            // 기본 클릭 → 앱 실행
             val baseIntent = Intent(context, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
 
             val basePendingIntent = PendingIntent.getActivity(
                 context,
-                appWidgetId,
+                uniqueRequestCode, // ← 핵심!
                 baseIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
@@ -69,7 +72,7 @@ class NextMeetingWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_root, basePendingIntent)
 
             // -------------------------------
-            // 🔥 여기부터 Room DB 읽기
+            // 🔥 Room DB 읽기 (가장 가까운 미래 모임)
             // -------------------------------
             CoroutineScope(Dispatchers.IO).launch {
 
@@ -78,14 +81,12 @@ class NextMeetingWidgetProvider : AppWidgetProvider() {
                 val meeting = dao.getNextUpcomingMeeting(now)
 
                 if (meeting == null) {
-                    // 확정된 모임이 없을 때
                     views.setTextViewText(R.id.tvWidgetDate, "다가오는 확정 모임이 없어요")
-
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                     return@launch
                 }
 
-                // 확정된 모임 있을 때 UI 구성
+                // UI 표시
                 views.setViewVisibility(R.id.iconDate, View.VISIBLE)
                 views.setViewVisibility(R.id.iconTime, View.VISIBLE)
                 views.setViewVisibility(R.id.iconPlace, View.VISIBLE)
@@ -101,7 +102,7 @@ class NextMeetingWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.tvWidgetTime, timeFmt.format(date))
                 views.setTextViewText(R.id.tvWidgetPlace, meeting.finalMeetingPlace)
 
-                // 🔗 위젯 클릭 → 해당 그룹 상세로 이동
+                // 🔗 상세 이동 PendingIntent
                 val detailIntent = Intent(context, MainActivity::class.java).apply {
                     putExtra("from_widget", true)
                     putExtra("widget_group_id", meeting.groupId)
@@ -111,14 +112,26 @@ class NextMeetingWidgetProvider : AppWidgetProvider() {
 
                 val detailPendingIntent = PendingIntent.getActivity(
                     context,
-                    appWidgetId,
+                    uniqueRequestCode + 1, // ← requestCode 다르게!
                     detailIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
                 views.setOnClickPendingIntent(R.id.widget_root, detailPendingIntent)
 
+                // 🔥 최종 UI 갱신
                 appWidgetManager.updateAppWidget(appWidgetId, views)
+            }
+        }
+
+        // 🔥 Firestore/Room 변화 시 강제 전체 위젯 업데이트 (MeetingRepository에서 호출)
+        fun requestUpdateAll(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(
+                ComponentName(context, NextMeetingWidgetProvider::class.java)
+            )
+            ids.forEach { id ->
+                updateWidget(context, manager, id)
             }
         }
     }

@@ -83,7 +83,10 @@ class MainActivity : AppCompatActivity() {
 
         // Firestore → Room 동기화
         val userId = auth.currentUser!!.uid
-        MeetingRepository(this).syncFromFirestore(userId)
+        val meetingRepo = MeetingRepository(this)
+
+        meetingRepo.syncFromFirestore(userId)       // 앱 켤 때 1회 실행
+        meetingRepo.observeGroupsRealtime(userId)   // 앱 살아 있는 동안 실시간 반영
 
         // FCM 토큰 저장
         saveFCMToken()

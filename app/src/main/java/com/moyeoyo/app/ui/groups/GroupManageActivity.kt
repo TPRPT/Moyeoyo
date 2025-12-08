@@ -6,8 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -19,9 +17,11 @@ import com.google.android.libraries.places.widget.Autocomplete
 import com.google.android.libraries.places.widget.model.AutocompleteActivityMode
 import com.google.firebase.Timestamp
 import com.moyeoyo.app.MainActivity
+import com.moyeoyo.app.data.local.deleteMeetingFromLocal
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.databinding.ActivityGroupManageBinding
+import com.moyeoyo.app.widget.NextMeetingWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -42,7 +42,9 @@ class GroupManageActivity : AppCompatActivity() {
 
     // ⭐ 주소 검색 런처
     private val placeSearchLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+        ) { result ->
             handlePlaceResult(result)
         }
 
@@ -57,7 +59,7 @@ class GroupManageActivity : AppCompatActivity() {
             return
         }
 
-        // ⭐ Google Places 초기화 (ProfileSetup 방식 그대로)
+        // ⭐ Google Places 초기화
         if (!Places.isInitialized()) {
             val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
             val apiKey = appInfo.metaData.getString("com.google.android.geo.API_KEY")
@@ -93,6 +95,9 @@ class GroupManageActivity : AppCompatActivity() {
         binding.scheduleSection.btnSaveSchedule.setOnClickListener { saveSchedule() }
     }
 
+    // ----------------------------------------------------
+    // 그룹 정보 불러오기
+    // ----------------------------------------------------
     private fun loadGroupInfo() {
         lifecycleScope.launch {
             val group = groupRepository.getGroupById(groupId)
@@ -138,7 +143,7 @@ class GroupManageActivity : AppCompatActivity() {
     }
 
     // ----------------------------------------------------
-    // ⭐ 주소 검색 로직: ProfileSetupActivity와 100% 동일
+    // ⭐ 주소 검색 로직
     // ----------------------------------------------------
     private fun startPlaceAutocomplete() {
         try {
@@ -181,12 +186,12 @@ class GroupManageActivity : AppCompatActivity() {
                 "longitude" to (latLng?.longitude ?: 0.0),
                 "placeId" to (place.id ?: "")
             )
-
         }
     }
 
-    // 날짜/시간 picker 그대로 유지 -----------------------------------------------
-
+    // ----------------------------------------------------
+    // 날짜/시간 picker
+    // ----------------------------------------------------
     private fun showDatePicker() {
         val cal = Calendar.getInstance()
         editedTimestamp?.let { cal.time = it.toDate() }
@@ -234,7 +239,7 @@ class GroupManageActivity : AppCompatActivity() {
     }
 
     // ----------------------------------------------------
-    // 일정 저장
+    // ⭐ 일정 저장 (수정)
     // ----------------------------------------------------
     private fun saveSchedule() {
         if (editedTimestamp == null) {
@@ -247,14 +252,21 @@ class GroupManageActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
+
+            // ⭐ 여기서 context 넣어서 호출해야함!
             val success = groupRepository.updateConfirmedSchedule(
-                groupId,
-                editedTimestamp!!,
-                editedPlaceMap!!
+                context = this@GroupManageActivity,
+                groupId = groupId,
+                confirmedTime = editedTimestamp!!,
+                confirmedPlace = editedPlaceMap!!
             )
 
             if (success) {
                 Toast.makeText(this@GroupManageActivity, "일정을 수정했습니다.", Toast.LENGTH_SHORT).show()
+
+                // ⭐ 위젯 갱신
+                NextMeetingWidgetProvider.requestUpdateAll(this@GroupManageActivity)
+
             } else {
                 Toast.makeText(this@GroupManageActivity, "일정 수정 실패", Toast.LENGTH_SHORT).show()
             }
@@ -273,9 +285,6 @@ class GroupManageActivity : AppCompatActivity() {
             .show()
     }
 
-    // ---------------------------
-    // 그룹 이름 저장
-    // ---------------------------
     private fun saveGroupName() {
         val newName = binding.editGroupName.text.toString().trim()
         if (newName.isEmpty()) {
@@ -288,20 +297,28 @@ class GroupManageActivity : AppCompatActivity() {
             if (success) {
                 Toast.makeText(this@GroupManageActivity, "그룹 이름을 수정했습니다.", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this@GroupManageActivity, "그룹 이름 수정에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@GroupManageActivity, "그룹 이름 수정 실패", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-
     private fun deleteGroup() {
         lifecycleScope.launch {
-            val success = groupRepository.deleteGroup(groupId)
+            val success = groupRepository.deleteGroup(this@GroupManageActivity, groupId)
+
             if (success) {
+
+                // ⭐ Room 삭제 추가
+                deleteMeetingFromLocal(this@GroupManageActivity, groupId)
+
+                // ⭐ 위젯 갱신
+                NextMeetingWidgetProvider.requestUpdateAll(this@GroupManageActivity)
+
                 Toast.makeText(this@GroupManageActivity, "그룹이 삭제되었습니다.", Toast.LENGTH_LONG).show()
                 startActivity(Intent(this@GroupManageActivity, MainActivity::class.java))
                 finishAffinity()
             }
         }
     }
+
 }
