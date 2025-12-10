@@ -2,6 +2,7 @@ package com.moyeoyo.app.ui.location
 
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -96,6 +97,9 @@ class CurrentLocationFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnCame
         googleMap.setOnCameraIdleListener(this)
 
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(receivedLatLng, 17f))
+        // Activity 버전과 동일: onCameraIdle이 자동으로 호출되어 초기 위치 정보 로드
+        // 하지만 안전을 위해 초기 위치 정보도 즉시 로드
+        fetchLocationDetails(receivedLatLng)
     }
 
     override fun onCameraIdle() {
@@ -129,7 +133,8 @@ class CurrentLocationFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnCame
         textLocationName.text = finalName
         textAddress.text = addressLine
 
-        // LatLng는 Serializable이 아니므로 lat/lng를 분리해서 저장
+        // Fragment Result의 Bundle은 Serializable만 지원하므로 lat/lng를 분리해서 저장
+        // (Activity 버전에서는 Intent에 Bundle을 넣을 수 있어 Parcelable도 가능했음)
         confirmedLocationMap = mapOf(
             "name" to finalName,
             "address" to addressLine,
@@ -268,20 +273,31 @@ class CurrentLocationFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnCame
     }
 
     private fun returnConfirmedLocation() {
+        // Activity 버전과 동일: null 체크만 수행
         if (confirmedLocationMap == null) {
             finishWithToast("위치 정보가 유효하지 않습니다.")
             return
         }
 
-        // Fragment Result로 데이터 전달
-        // LatLng는 Parcelable이므로 Bundle에 직접 넣을 수 없으므로 Map으로 전달
+        Log.d("CurrentLocation", "returnConfirmedLocation: confirmedLocationMap = $confirmedLocationMap")
+        Log.d("CurrentLocation", "returnConfirmedLocation: isHomeLocation = $isHomeLocation")
+
+        // Activity 버전과 동일한 방식으로 Bundle 생성
         val result = Bundle().apply {
-            // LatLng를 포함한 Map을 Serializable로 전달
             putSerializable(EXTRA_LOCATION_DATA, confirmedLocationMap as Serializable)
             putBoolean(EXTRA_IS_HOME, isHomeLocation)
         }
-        parentFragmentManager.setFragmentResult(RESULT_KEY, result)
         
+        Log.d("CurrentLocation", "returnConfirmedLocation: Setting fragment result with key = $RESULT_KEY")
+        
+        // 여러 방법으로 Fragment Result 전달 시도
+        // 1. Activity의 supportFragmentManager 사용
+        requireActivity().supportFragmentManager.setFragmentResult(RESULT_KEY, result)
+        
+        // 2. Navigation의 savedStateHandle에도 저장 (onResume에서 확인 가능)
+        findNavController().previousBackStackEntry?.savedStateHandle?.set(RESULT_KEY, result)
+        
+        Log.d("CurrentLocation", "returnConfirmedLocation: Fragment result set via both methods, popping back")
         findNavController().popBackStack()
     }
 
