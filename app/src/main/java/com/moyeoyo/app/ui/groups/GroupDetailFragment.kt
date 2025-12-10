@@ -297,9 +297,10 @@ class GroupDetailFragment : Fragment() {
                     putExtra(CalendarContract.Events.TITLE, groupName)
                     putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTime)
                     putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTime)
+                    // ⭐ 장소명을 우선 사용하고, 없으면 주소 사용
                     putExtra(
                         CalendarContract.Events.EVENT_LOCATION,
-                        confirmedPlace["address"] as? String ?: confirmedPlace["name"] as? String
+                        confirmedPlace["name"] as? String ?: confirmedPlace["address"] as? String
                     )
                 }
 

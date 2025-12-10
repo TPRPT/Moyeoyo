@@ -273,7 +273,11 @@ class ConfirmFragment : Fragment() {
             putExtra(CalendarContract.Events.TITLE, binding.inputTitle.text.toString())
             putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTime)
             putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTime)
-            putExtra(CalendarContract.Events.EVENT_LOCATION, confirmedPlaceData?.get("address") as? String)
+            // ⭐ 장소명을 우선 사용하고, 없으면 주소 사용
+            putExtra(
+                CalendarContract.Events.EVENT_LOCATION,
+                confirmedPlaceData?.get("name") as? String ?: confirmedPlaceData?.get("address") as? String
+            )
             putExtra(CalendarContract.Events.DESCRIPTION, binding.inputMemo.text.toString())
         }
 

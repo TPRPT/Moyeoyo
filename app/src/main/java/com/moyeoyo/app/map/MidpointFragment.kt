@@ -9,7 +9,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -33,7 +32,6 @@ import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.databinding.ActivityMidpointBinding
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.moyeoyo.app.data.repository.GroupRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -114,10 +112,6 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
             }
             pendingNearbyDialog = true
             viewModel.loadNearbyPlaces()
-        }
-
-        binding.btnOpenFilter.setOnClickListener {
-            showTransportFilterDialog(viewModel.state.value)
         }
     }
 
@@ -367,80 +361,6 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
         val minDistance = distances.minOrNull() ?: 0.0
         val maxDeviation = (maxDistance - minDistance) / 2.0
         binding.tvMaxDeviation.text = "최대 편차: ±%.1fkm (공평한 위치)".format(maxDeviation)
-    }
-
-    private fun showTransportFilterDialog(state: MapState?) {
-        val dialog = BottomSheetDialog(requireContext())
-        val content = layoutInflater.inflate(R.layout.dialog_transport_filter, null)
-        dialog.setContentView(content)
-
-        val btnWalk = content.findViewById<TextView>(R.id.btnWalk)
-        val btnTransit = content.findViewById<TextView>(R.id.btnTransit)
-        val btnCar = content.findViewById<TextView>(R.id.btnCar)
-        val tvMaxDistanceValue = content.findViewById<TextView>(R.id.tvMaxDistanceValue)
-        val distanceSeek = content.findViewById<SeekBar>(R.id.seekBarDistance)
-        val btnApply = content.findViewById<View>(R.id.btnApplyFilter)
-        content.findViewById<View>(R.id.btnCloseFilter).setOnClickListener { dialog.dismiss() }
-
-        var selectedMode = state?.transportFilterMode ?: TransportMode.TRANSIT
-
-        fun updateModeSelection() {
-            listOf(btnWalk, btnTransit, btnCar).forEach { button ->
-                val mode = when (button.id) {
-                    R.id.btnWalk -> TransportMode.WALK
-                    R.id.btnCar -> TransportMode.DRIVE
-                    else -> TransportMode.TRANSIT
-                }
-                val selected = selectedMode == mode
-                val backgroundRes = if (selected) {
-                    R.drawable.bg_transport_selected
-                } else {
-                    R.drawable.bg_transport_unselected
-                }
-                button.background = ContextCompat.getDrawable(requireContext(), backgroundRes)
-                val colorRes = if (selected) android.R.color.white else R.color.black
-                button.setTextColor(ContextCompat.getColor(requireContext(), colorRes))
-            }
-        }
-        updateModeSelection()
-
-        btnWalk.setOnClickListener {
-            selectedMode = TransportMode.WALK
-            updateModeSelection()
-        }
-        btnTransit.setOnClickListener {
-            selectedMode = TransportMode.TRANSIT
-            updateModeSelection()
-        }
-        btnCar.setOnClickListener {
-            selectedMode = TransportMode.DRIVE
-            updateModeSelection()
-        }
-
-        val initialDistance = ((state?.maxDistanceKm ?: 5.0) * 10).roundToInt().coerceIn(1, 100)
-
-        fun updateDistanceLabel(progress: Int) {
-            val km = progress.coerceAtLeast(1) / 10.0
-            tvMaxDistanceValue.text = String.format(Locale.getDefault(), "%.1fkm", km)
-        }
-
-        distanceSeek.progress = initialDistance
-        updateDistanceLabel(initialDistance)
-        distanceSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                updateDistanceLabel(progress)
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        btnApply.setOnClickListener {
-            val distanceKm = max(distanceSeek.progress / 10.0, 0.5)
-            viewModel.applyTransportFilter(selectedMode, distanceKm)
-            dialog.dismiss()
-        }
-
-        dialog.show()
     }
 
     private fun showNearbyPlacesDialog(state: MapState) {
