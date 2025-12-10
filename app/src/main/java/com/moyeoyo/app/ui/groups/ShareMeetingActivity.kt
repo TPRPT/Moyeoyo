@@ -86,6 +86,9 @@ class ShareMeetingActivity : AppCompatActivity() {
                         }
                     }
                 }
+
+                // 🔥 공유 링크 UI 표시
+                binding.tvShareLink.text = buildShareLink()
             }
     }
 
@@ -93,7 +96,7 @@ class ShareMeetingActivity : AppCompatActivity() {
         binding.btnCopyLink.setOnClickListener {
             copyText(binding.tvShareLink.text.toString())
         }
-        
+
         binding.btnKakaoShare.setOnClickListener {
             val msg = buildShareMessage()
 
@@ -114,18 +117,31 @@ class ShareMeetingActivity : AppCompatActivity() {
     }
 
     /**
+     * 공유 링크 생성 (고정: index.html)
+     */
+    private fun buildShareLink(): String {
+        return "https://moyeoyo-57ac0.web.app"
+    }
+
+
+    /**
      * 초대 메시지 포맷 생성
      */
     private fun buildShareMessage(): String {
+        val link = buildShareLink()
+
         return """
         📅 [${groupName}] 약속이 확정되었어요!
-        
+
         🕒 시간  
         $shareTimeFormatted
-        
+
         📍 장소  
         $sharePlaceName  
         $shareAddress
-                """.trimIndent()
-        }
+
+        🔗 링크  
+        $link
+    """.trimIndent()
     }
+}
