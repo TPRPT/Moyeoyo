@@ -291,13 +291,20 @@ class CurrentLocationFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnCame
         Log.d("CurrentLocation", "returnConfirmedLocation: Setting fragment result with key = $RESULT_KEY")
         
         // 여러 방법으로 Fragment Result 전달 시도
-        // 1. Activity의 supportFragmentManager 사용
+        // 1. Activity의 supportFragmentManager 사용 (가장 확실한 방법)
         requireActivity().supportFragmentManager.setFragmentResult(RESULT_KEY, result)
+        Log.d("CurrentLocation", "returnConfirmedLocation: Fragment result set via Activity supportFragmentManager")
         
         // 2. Navigation의 savedStateHandle에도 저장 (onResume에서 확인 가능)
+        // previousBackStackEntry에 저장 (LocationInputFragment가 이전 Fragment)
         findNavController().previousBackStackEntry?.savedStateHandle?.set(RESULT_KEY, result)
+        Log.d("CurrentLocation", "returnConfirmedLocation: Fragment result set in previousBackStackEntry savedStateHandle")
         
-        Log.d("CurrentLocation", "returnConfirmedLocation: Fragment result set via both methods, popping back")
+        // 3. currentBackStackEntry에도 저장 (혹시 모를 경우를 대비)
+        findNavController().currentBackStackEntry?.savedStateHandle?.set(RESULT_KEY, result)
+        Log.d("CurrentLocation", "returnConfirmedLocation: Fragment result set in currentBackStackEntry savedStateHandle")
+        
+        Log.d("CurrentLocation", "returnConfirmedLocation: Fragment result set via all methods, popping back")
         findNavController().popBackStack()
     }
 

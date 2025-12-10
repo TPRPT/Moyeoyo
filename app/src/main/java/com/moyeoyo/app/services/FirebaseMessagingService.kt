@@ -61,10 +61,18 @@ class FirebaseMessagingService : FirebaseMessagingService() {
     /**
      * 수신된 FCM 메시지를 Android Notification으로 표시합니다.
      */
-    private fun sendNotification(title: String?, messageBody: String?) {
+    private fun sendNotification(title: String?, messageBody: String?, data: Map<String, String> = emptyMap()) {
         // 알림 클릭 시 메인 화면으로 이동하도록 Intent를 설정합니다.
         val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            data["groupId"]?.let { groupId ->
+                putExtra("groupId", groupId)
+                Log.d(TAG, "Notification groupId: $groupId")
+            }
+            data["type"]?.let { type ->
+                putExtra("notificationType", type)
+                Log.d(TAG, "Notification type: $type")
+            }
         }
 
         // NotificationActivity로 이동하도록 수정할 수도 있습니다.

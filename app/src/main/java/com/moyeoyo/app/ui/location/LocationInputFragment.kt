@@ -9,6 +9,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -102,9 +104,13 @@ class LocationInputFragment : Fragment() {
         rootView = view
 
         // Fragment Result 리스너 설정
-        setFragmentResultListener(CurrentLocationFragment.RESULT_KEY) { _, bundle ->
+        // Navigation을 사용할 때는 Activity의 supportFragmentManager를 사용해야 함
+        requireActivity().supportFragmentManager.setFragmentResultListener(CurrentLocationFragment.RESULT_KEY, viewLifecycleOwner) { requestKey, bundle ->
+            Log.d("LocationInput", "Fragment result received in listener: requestKey=$requestKey, bundle=$bundle")
             handleConfirmedLocation(bundle)
         }
+        
+        Log.d("LocationInput", "Fragment Result listener registered with key: ${CurrentLocationFragment.RESULT_KEY}")
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
         firestore = FirebaseFirestore.getInstance()
@@ -116,6 +122,30 @@ class LocationInputFragment : Fragment() {
         loadUserLocations()
         loadGroupInfo()
         startMonitoringInputLocations()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d("LocationInput", "onResume: Checking for Fragment Result")
+        
+        // Fragment가 다시 나타날 때 Fragment Result를 확인
+        // 1. currentBackStackEntry의 savedStateHandle 확인
+        findNavController().currentBackStackEntry?.savedStateHandle?.get<Bundle>(CurrentLocationFragment.RESULT_KEY)?.let { bundle ->
+            Log.d("LocationInput", "Fragment result found in currentBackStackEntry savedStateHandle: $bundle")
+            findNavController().currentBackStackEntry?.savedStateHandle?.remove<Bundle>(CurrentLocationFragment.RESULT_KEY)
+            handleConfirmedLocation(bundle)
+            return@onResume
+        }
+        
+        // 2. previousBackStackEntry의 savedStateHandle 확인
+        findNavController().previousBackStackEntry?.savedStateHandle?.get<Bundle>(CurrentLocationFragment.RESULT_KEY)?.let { bundle ->
+            Log.d("LocationInput", "Fragment result found in previousBackStackEntry savedStateHandle: $bundle")
+            findNavController().previousBackStackEntry?.savedStateHandle?.remove<Bundle>(CurrentLocationFragment.RESULT_KEY)
+            handleConfirmedLocation(bundle)
+            return@onResume
+        }
+        
+        Log.d("LocationInput", "onResume: No Fragment Result found in savedStateHandle")
     }
 
     override fun onDestroyView() {
@@ -157,7 +187,37 @@ class LocationInputFragment : Fragment() {
             loadWorkLocation()
         }
 
-        // 검색창 클릭
+        // 검색창 EditText 클릭 (ProfileSetupFragment처럼 동작)
+        rootView?.findViewById<EditText>(R.id.et_search_address)?.apply {
+            setOnClickListener {
+                if (isLocationInputLocked()) {
+                    Toast.makeText(requireContext(), "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                openPlacesAutocomplete()
+            }
+            isFocusable = false
+            keyListener = null
+        }
+        
+        // 돋보기 아이콘 클릭 (검색창 내부 ImageView)
+        // layoutSearchBar의 첫 번째 자식이 ImageView (돋보기)
+        rootView?.findViewById<View>(R.id.layoutSearchBar)?.let { searchBarLayout ->
+            if (searchBarLayout is android.view.ViewGroup && searchBarLayout.childCount > 0) {
+                val searchIcon = searchBarLayout.getChildAt(0)
+                if (searchIcon is ImageView) {
+                    searchIcon.setOnClickListener {
+                        if (isLocationInputLocked()) {
+                            Toast.makeText(requireContext(), "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+                        openPlacesAutocomplete()
+                    }
+                }
+            }
+        }
+        
+        // 검색창 전체 레이아웃 클릭 (기존 동작 유지)
         rootView?.findViewById<View>(R.id.layoutSearchBar)?.setOnClickListener {
             if (isLocationInputLocked()) {
                 Toast.makeText(requireContext(), "중간값 계산이 완료되어 위치를 변경할 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -251,9 +311,21 @@ class LocationInputFragment : Fragment() {
     }
 
     private fun handleConfirmedLocation(bundle: Bundle) {
+        Log.d("LocationInput", "handleConfirmedLocation called with bundle: $bundle")
+        Log.d("LocationInput", "handleConfirmedLocation: rootView = $rootView")
+        
+        if (rootView == null) {
+            Log.e("LocationInput", "handleConfirmedLocation: rootView is null, cannot update UI")
+            // rootView가 null이면 나중에 다시 시도하기 위해 savedStateHandle에 저장
+            findNavController().currentBackStackEntry?.savedStateHandle?.set(CurrentLocationFragment.RESULT_KEY, bundle)
+            return
+        }
+        
         @Suppress("UNCHECKED_CAST")
         val locationMap = bundle
             .getSerializable(CurrentLocationFragment.EXTRA_LOCATION_DATA) as? Map<String, Any>
+
+        Log.d("LocationInput", "handleConfirmedLocation: locationMap = $locationMap")
 
         // lat/lng를 분리해서 받아서 LatLng 객체 생성
         val lat = (locationMap?.get("lat") as? Number)?.toDouble()
@@ -261,12 +333,23 @@ class LocationInputFragment : Fragment() {
         val address = locationMap?.get("address") as? String ?: ""
         val name = locationMap?.get("name") as? String ?: ""
 
+        Log.d("LocationInput", "handleConfirmedLocation: lat=$lat, lng=$lng, address=$address, name=$name")
+
         if (lat != null && lng != null) {
             selectedLocation = LatLng(lat, lng)
-            selectedAddress = address
-            selectedLocationType = "confirmed"
+            // name을 우선으로 사용, 없으면 address 사용
+            selectedAddress = name.ifBlank { address }.ifBlank { "주소 정보 없음" }
+            selectedLocationType = "current" // 현재 위치로 설정
 
+            Log.d("LocationInput", "handleConfirmedLocation: selectedLocation=$selectedLocation, selectedAddress=$selectedAddress, selectedLocationType=$selectedLocationType")
+            
             updateSelectedLocationUI()
+            
+            Log.d("LocationInput", "handleConfirmedLocation: UI updated, showing toast")
+            Toast.makeText(requireContext(), "위치가 선택되었습니다.", Toast.LENGTH_SHORT).show()
+        } else {
+            Log.e("LocationInput", "handleConfirmedLocation: lat or lng is null")
+            Toast.makeText(requireContext(), "위치 정보를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -427,7 +510,7 @@ class LocationInputFragment : Fragment() {
     private fun openPlacesAutocomplete() {
         try {
             val fields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS)
-            val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
+            val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.OVERLAY, fields)
                 .build(requireContext())
             autocompleteLauncher.launch(intent)
         } catch (e: Exception) {
@@ -439,6 +522,10 @@ class LocationInputFragment : Fragment() {
     private fun handleSelectedPlace(place: Place, type: String) {
         val latLng = place.latLng
         if (latLng != null) {
+            // 검색창 EditText에 선택된 장소 이름 표시 (ProfileSetupFragment처럼)
+            val addressText = place.name ?: place.address ?: "선택된 장소"
+            rootView?.findViewById<EditText>(R.id.et_search_address)?.setText(addressText)
+            
             // CurrentLocationFragment로 Navigation
             findNavController().navigate(
                 R.id.currentLocationFragment,
