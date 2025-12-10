@@ -5,6 +5,7 @@ import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -109,6 +110,8 @@ class GroupManageActivity : AppCompatActivity() {
 
             originalGroup = group
             binding.editGroupName.setText(group.groupName)
+
+            binding.scheduleSection.root.visibility = View.GONE
 
             if (group.confirmedTime != null && group.confirmedPlace != null) {
                 binding.scheduleSection.root.visibility = android.view.View.VISIBLE
