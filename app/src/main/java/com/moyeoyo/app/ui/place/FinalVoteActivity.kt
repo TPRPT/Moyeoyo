@@ -11,12 +11,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.R
+import com.moyeoyo.app.data.local.saveMeetingToLocal
 import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.RankedPlace
 import com.moyeoyo.app.databinding.ActivityFinalVoteBinding
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.place.FinalCandidate
 import com.moyeoyo.app.ui.place.RankedPlaceParcelable
+import com.moyeoyo.app.widget.NextMeetingWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -240,13 +242,22 @@ class FinalVoteActivity : AppCompatActivity() {
                     "address" to (winningPlace.address ?: "")
                 )
                 groupRepository.confirmGroupSchedule(
+                    context = this@FinalVoteActivity,
                     groupId = groupId,
                     confirmedPlace = placeData,
-                    confirmedTime = group?.confirmedTime 
-                        ?: com.google.firebase.Timestamp.now(),
+                    confirmedTime = group?.confirmedTime ?: com.google.firebase.Timestamp.now(),
                     newTitle = groupName
                 )
-                
+                saveMeetingToLocal(
+                    context = this@FinalVoteActivity,
+                    groupId = groupId,
+                    groupName = groupName,
+                    meetingAt = (group?.confirmedTime ?: com.google.firebase.Timestamp.now()).toDate().time,
+                    placeName = winningPlace.name ?: ""
+                )
+
+// ⭐ 위젯 즉시 업데이트
+                NextMeetingWidgetProvider.requestUpdateAll(this@FinalVoteActivity)
                 // ⭐ 다이얼로그를 변수에 저장하여 onDestroy에서 닫을 수 있도록 함
                 winningPlaceDialog = AlertDialog.Builder(this@FinalVoteActivity)
                     .setTitle("최종 약속 장소 확정")

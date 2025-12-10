@@ -1,5 +1,6 @@
 package com.moyeoyo.app.data.repository
 
+import android.content.Context
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
@@ -8,6 +9,8 @@ import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FieldPath
+import com.moyeoyo.app.data.local.AppDatabase
+import com.moyeoyo.app.data.local.NextMeetingEntity
 import com.moyeoyo.app.data.model.Group
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -305,6 +308,7 @@ class GroupRepository @Inject constructor(
      * ⭐ NEW: 확정된 일정 정보(장소/시간)를 Firestore에 저장하고 그룹 상태를 변경합니다.
      */
     suspend fun confirmGroupSchedule(
+        context: Context,
         groupId: String,
         confirmedPlace: Map<String, Any>,
         confirmedTime: Timestamp,
@@ -317,17 +321,28 @@ class GroupRepository @Inject constructor(
                 "confirmedPlace" to confirmedPlace,
                 "confirmedTime" to confirmedTime,
                 "status" to "FINALIZED",
-                "groupName" to newTitle // 사용자가 입력한 제목으로 그룹 이름 업데이트
+                "groupName" to newTitle
             )
 
             groupRef.update(updates).await()
-            Log.d(TAG, "✅ 그룹 일정 확정 및 상태 변경: groupId=$groupId, status=FINALIZED")
+
+            // ⭐ 추가 위치 여기!!
+            saveMeetingToLocal(
+                context,
+                groupId,
+                newTitle,
+                confirmedTime.toDate().time,
+                confirmedPlace["name"] as? String ?: ""
+            )
+
+            Log.d(TAG, "confirmGroupSchedule SUCCESS")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "❌ 그룹 일정 확정 실패: ${e.message}", e)
+            Log.e(TAG, "confirmGroupSchedule FAILED: ${e.message}")
             false
         }
     }
+
 
     /**
      * ⭐ NEW: 특정 멤버를 그룹에서 강퇴시킵니다. (removeMember)
@@ -407,6 +422,7 @@ class GroupRepository @Inject constructor(
      * ⭐ NEW: 확정된 일정 수정
      */
     suspend fun updateConfirmedSchedule(
+        context: Context,
         groupId: String,
         confirmedTime: Timestamp,
         confirmedPlace: Map<String, Any>
@@ -420,6 +436,15 @@ class GroupRepository @Inject constructor(
                     )
                 ).await()
 
+            // ⭐ Firestore 성공 후 Room에도 저장 — 이 위치에!
+            saveMeetingToLocal(
+                context,
+                groupId,
+                groupId,
+                confirmedTime.toDate().time,
+                confirmedPlace["name"] as? String ?: ""
+            )
+
             Log.d(TAG, "updateConfirmedSchedule SUCCESS")
             true
         } catch (e: Exception) {
@@ -428,34 +453,34 @@ class GroupRepository @Inject constructor(
         }
     }
 
+
     /**
      * 그룹과 그 하위 컬렉션의 모든 데이터를 삭제합니다.
      */
-    suspend fun deleteGroup(groupId: String): Boolean {
+    suspend fun deleteGroup(context: Context, groupId: String): Boolean {
         val groupRef = groupsCollection.document(groupId)
 
         return try {
-            // 1. 그룹 멤버 UID 목록 조회
             val groupSnapshot = groupRef.get().await()
             @Suppress("UNCHECKED_CAST")
             val memberUids = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
 
-            // 2. 하위 컬렉션 삭제
             deleteCollection(groupRef.collection("inputLocations"))
             deleteCollection(groupRef.collection("placeCandidates"))
             deleteCollection(groupRef.collection("timeCandidates"))
             deleteCollection(groupRef.collection("vote"))
 
-            // 3. 그룹 문서 삭제
             groupRef.delete().await()
 
-            // 4. 모든 멤버의 users 문서에서 groupId를 groups 배열에서 제거 (일괄 쓰기 사용)
             val batch = db.batch()
             memberUids.forEach { uid ->
                 val userRef = usersCollection.document(uid)
                 batch.update(userRef, "groups", FieldValue.arrayRemove(groupId))
             }
             batch.commit().await()
+
+            // ⭐⭐ 여기 추가해야 Room DB에서도 삭제됨!!
+            deleteMeetingFromLocal(context, groupId)
 
             Log.d("GroupRepository", "Group deleted successfully: $groupId")
             true
@@ -464,6 +489,7 @@ class GroupRepository @Inject constructor(
             false
         }
     }
+
 
     /**
      * Firestore 컬렉션의 모든 문서를 삭제하는 유틸리티 함수입니다.
@@ -480,5 +506,28 @@ class GroupRepository @Inject constructor(
         }
         batch.commit().await()
     }
+
+    private suspend fun saveMeetingToLocal(
+        context: Context,
+        groupId: String,
+        groupName: String,
+        confirmedTime: Long,
+        confirmedPlace: String
+    ) {
+        val dao = AppDatabase.getInstance(context).nextMeetingDao()
+
+        val entity = NextMeetingEntity(
+            groupId = groupId,
+            groupName = groupName,
+            finalMeetingAt = confirmedTime,
+            finalMeetingPlace = confirmedPlace
+        )
+        dao.upsert(entity)
+    }
+    private suspend fun deleteMeetingFromLocal(context: Context, groupId: String) {
+        val dao = AppDatabase.getInstance(context).nextMeetingDao()
+        dao.deleteByGroupId(groupId)
+    }
+
 
 }

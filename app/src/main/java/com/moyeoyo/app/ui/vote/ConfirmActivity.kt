@@ -29,6 +29,8 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 import com.google.firebase.Timestamp
+import com.moyeoyo.app.data.local.saveMeetingToLocal
+import com.moyeoyo.app.widget.NextMeetingWidgetProvider
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -208,6 +210,7 @@ class ConfirmActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val success = groupRepository.confirmGroupSchedule(
+                context = this@ConfirmActivity,
                 groupId = groupId,
                 confirmedPlace = placeData,
                 confirmedTime = confirmedTimestamp,
@@ -215,14 +218,24 @@ class ConfirmActivity : AppCompatActivity() {
             )
 
             if (success) {
-                Toast.makeText(this@ConfirmActivity, "일정이 확정되고 DB에 저장되었습니다!", Toast.LENGTH_LONG).show()
-                binding.btnAddToGoogleCalendar.isEnabled = true
-                binding.btnAddToOtherApp.isEnabled = true
-            } else {
-                Toast.makeText(this@ConfirmActivity, "일정 확정 및 DB 저장 실패.", Toast.LENGTH_LONG).show()
+
+                // ⭐ Room 저장 추가
+                saveMeetingToLocal(
+                    context = this@ConfirmActivity,
+                    groupId = groupId,
+                    groupName = title,
+                    meetingAt = confirmedTimestamp.toDate().time,
+                    placeName = placeData["name"] as? String ?: ""
+                )
+
+                // ⭐ 위젯 갱신
+                NextMeetingWidgetProvider.requestUpdateAll(this@ConfirmActivity)
+
+                Toast.makeText(this@ConfirmActivity, "일정이 확정되었습니다!", Toast.LENGTH_LONG).show()
             }
         }
     }
+
 
     /**
      * ⭐ [FIX] Android Intent를 사용하여 캘린더 앱에 일정을 저장합니다.
