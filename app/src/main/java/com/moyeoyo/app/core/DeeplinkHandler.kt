@@ -6,10 +6,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.LifecycleCoroutineScope
+import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
-import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import com.moyeoyo.app.MainActivity
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,6 +20,7 @@ class DeeplinkHandler constructor(
     private val auth: FirebaseAuth,
     private val groupRepository: GroupRepository,
     private val friendRepository: FriendRepository,
+    private val navController: NavController? = null,
 ) {
     private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 
@@ -89,10 +90,21 @@ class DeeplinkHandler constructor(
             if (success) {
                 Toast.makeText(context, "그룹 참여 성공!", Toast.LENGTH_LONG).show()
 
-                val intent = Intent(context, GroupDetailActivity::class.java)
-                intent.putExtra("GROUP_ID", groupId)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
+                // Navigation 사용
+                navController?.let { nav ->
+                    val group = groupRepository.getGroupById(groupId)
+                    val groupName = group?.groupName ?: ""
+                    val action = com.moyeoyo.app.ui.main.MainFragmentDirections.actionMainFragmentToGroupDetailFragment(
+                        groupId = groupId,
+                        groupName = groupName
+                    )
+                    nav.navigate(action)
+                } ?: run {
+                    // NavController가 없으면 기존 방식 사용 (fallback)
+                    val intent = Intent(context, MainActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                }
             } else {
                 Toast.makeText(context, "그룹 참여 실패", Toast.LENGTH_LONG).show()
             }

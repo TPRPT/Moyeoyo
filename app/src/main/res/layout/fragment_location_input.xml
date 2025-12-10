@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- 스크롤 가능한 메인 콘텐츠 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="140dp"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 뒤로가기 버튼 -->
+            <ImageView
+                android:id="@+id/btn_back"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_arrow_left"
+                android:contentDescription="@string/back"
+                app:tint="@color/black" />
+
+            <!-- 제목 -->
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/location_input_title"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:layout_marginTop="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/location_input_subtitle"
+                android:textColor="@color/gray_600"
+                android:textSize="14sp"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="12dp" />
+
+            <!-- 구분선 -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/gray_300"
+                android:layout_marginBottom="16dp" />
+
+            <!-- 현재 위치 사용 버튼 -->
+            <LinearLayout
+                android:id="@+id/btn_use_current_location"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="@drawable/bg_input_field"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:paddingHorizontal="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_map_pin"
+                    app:tint="@color/blue_500"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/use_current_location"
+                    android:textColor="@color/blue_500"
+                    android:textStyle="bold"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+            <!-- 자주 사용하는 위치 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/frequently_used_places"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/black"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="10dp" />
+
+            <!-- 집 / 회사 영역 (RelativeLayout 구조) -->
+            <include layout="@layout/item_location_home"/>
+
+            <include layout="@layout/item_location_work"/>
+
+            <!-- 주소 검색 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/search_address"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/black"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="10dp" />
+
+            <!-- 돋보기 포함 검색창 -->
+            <LinearLayout
+                android:id="@+id/layoutSearchBar"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_input_field"
+                android:paddingHorizontal="14dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_search"
+                    app:tint="@color/gray_600"
+                    android:layout_marginEnd="8dp" />
+
+                <EditText
+                    android:id="@+id/et_search_address"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/transparent"
+                    android:hint="@string/search_address_hint"
+                    android:textColorHint="@color/gray_600"
+                    android:textColor="@color/black"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+            <!-- 선택된 위치 박스 (기본적으로 숨김) -->
+            <LinearLayout
+                android:id="@+id/layout_selected_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_info_box_blue"
+                android:padding="12dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_check_circle_green"
+                        app:tint="@color/blue_500" />
+
+                    <TextView
+                        android:id="@+id/tv_selected_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="선택된 위치"
+                        android:textColor="@color/blue_500"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:layout_marginStart="6dp"/>
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_selected_type"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="현재 위치"
+                    android:textSize="14sp"
+                    android:textColor="@color/black"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginStart="24dp" />
+
+                <TextView
+                    android:id="@+id/tv_selected_address"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="서울시 강남구 역삼동 123-45"
+                    android:textSize="13sp"
+                    android:textColor="@color/gray_600"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginStart="24dp"/>
+
+            </LinearLayout>
+
+            <!-- 안내문 -->
+            <TextView
+                android:id="@+id/location_input_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/location_input_info"
+                android:textColor="@color/gray_600"
+                android:textSize="13sp"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_input_field"
+                android:padding="12dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 하단 슬라이딩 버튼 영역 -->
+    <!-- 하단 고정 버튼 영역 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="@color/white"
+        android:elevation="6dp"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="24dp">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/gray_300"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 위치 저장 버튼 (위치 선택 시 표시) -->
+        <android.widget.Button
+            android:id="@+id/btn_save_location"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="@string/save_location"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:background="@drawable/bg_button_primary"
+            android:visibility="gone"
+            android:layout_marginBottom="12dp" />
+
+        <!-- 중간값 계산하기 버튼 (모든 그룹원 입력 완료 시 표시) -->
+        <android.widget.Button
+            android:id="@+id/btn_go_to_midpoint"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="@string/btn_go_to_midpoint"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:background="@drawable/bg_button_primary"
+            android:enabled="false"
+            android:alpha="0.5"
+            android:layout_marginBottom="16dp" />
+
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

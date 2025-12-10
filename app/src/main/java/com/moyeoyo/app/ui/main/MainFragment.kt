@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
@@ -22,12 +23,6 @@ import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.NotificationRepository
-import com.moyeoyo.app.ui.auth.LoginActivity
-import com.moyeoyo.app.ui.auth.ProfileSetupActivity
-import com.moyeoyo.app.ui.friends.AddFriendActivity
-import com.moyeoyo.app.ui.groups.CreateGroupActivity
-import com.moyeoyo.app.ui.groups.GroupDetailActivity
-import com.moyeoyo.app.ui.notification.NotificationActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import android.app.ProgressDialog
@@ -87,25 +82,26 @@ class MainFragment : Fragment(R.layout.activity_main) {
         textGroupCount = view.findViewById(R.id.text_group_count)
 
         profileCardArea.setOnClickListener {
-            startActivity(Intent(activity, ProfileSetupActivity::class.java))
+            findNavController().navigate(MainFragmentDirections.actionMainFragmentToProfileSetupFragment())
         }
 
         btnLogout.setOnClickListener {
             auth.signOut()
-            startActivity(Intent(activity, LoginActivity::class.java))
-            activity?.finish()
+            // TODO: Safe Args가 생성되면 Directions 사용
+            findNavController().navigate(R.id.loginFragment)
         }
 
         btnCreateGroup.setOnClickListener {
-            startActivity(Intent(activity, CreateGroupActivity::class.java))
+            val action = MainFragmentDirections.actionMainFragmentToCreateGroupFragment()
+            findNavController().navigate(action)
         }
 
         btnAddFriend.setOnClickListener {
-            startActivity(Intent(activity, AddFriendActivity::class.java))
+            findNavController().navigate(R.id.addFriendFragment)
         }
 
         btnNotifications.setOnClickListener {
-            startActivity(Intent(activity, NotificationActivity::class.java))
+            findNavController().navigate(R.id.notificationFragment)
         }
     }
 
@@ -209,11 +205,11 @@ class MainFragment : Fragment(R.layout.activity_main) {
                 "${group.memberUids.size}명 참여 중"
 
             groupView.setOnClickListener {
-                startActivity(
-                    Intent(activity, GroupDetailActivity::class.java)
-                        .putExtra("GROUP_ID", group.id)
-                        .putExtra("GROUP_NAME", group.groupName)
+                val action = MainFragmentDirections.actionMainFragmentToGroupDetailFragment(
+                    groupId = group.id,
+                    groupName = group.groupName
                 )
+                findNavController().navigate(action)
             }
 
             groupListContainer.addView(groupView)

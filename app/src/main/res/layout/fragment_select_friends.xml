@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FFFFFF">
+
+    <!-- 상단 타이틀 -->
+    <TextView
+        android:id="@+id/tv_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="20dp"
+        android:text="그룹에 초대할 친구 선택"
+        android:textColor="#111827"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <!-- 친구 목록 스크롤 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingHorizontal="16dp">
+
+        <LinearLayout
+            android:id="@+id/friends_checkbox_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+    <!-- 하단 고정 버튼 -->
+    <Button
+        android:id="@+id/btn_complete_selection"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="선택 완료"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_margin="16dp"
+        android:background="@drawable/rounded_primary_button" />
+
+</LinearLayout>

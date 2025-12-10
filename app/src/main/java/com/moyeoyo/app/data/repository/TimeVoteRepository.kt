@@ -205,6 +205,43 @@ class TimeVoteRepository @Inject constructor(
     }
     
     /**
+     * 최종 시간 투표를 제출하고 만장일치 여부를 확인
+     * @param groupId 그룹 ID
+     * @param date 날짜 (yyyy-MM-dd 형식)
+     * @param time 시간 (HH:mm 형식)
+     * @param memberUids 모든 멤버 UID 리스트
+     * @return 만장일치 여부 (true: 만장일치, false: 아직 만장일치 아님)
+     */
+    suspend fun submitAndCheckFinalVote(
+        groupId: String,
+        date: String,
+        time: String,
+        memberUids: List<String>
+    ): Boolean {
+        return try {
+            val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                ?: return false
+            
+            // 1. 투표 저장
+            voteFinalTime(groupId, date, time, uid)
+            
+            // 2. 만장일치 여부 확인
+            val finalVotes = getFinalVotes(groupId, date)
+            val voteCounts = finalVotes.groupingBy { it }.eachCount()
+            val totalMembers = memberUids.size
+            
+            // 만장일치: 특정 시간에 모든 멤버가 투표한 경우
+            val isUnanimous = voteCounts.entries.any { it.value == totalMembers }
+            
+            Log.d(TAG, "📊 최종 투표 제출 및 만장일치 확인: isUnanimous=$isUnanimous, voteCounts=$voteCounts, totalMembers=$totalMembers")
+            isUnanimous
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 최종 투표 제출 및 만장일치 확인 실패: ${e.message}", e)
+            false
+        }
+    }
+    
+    /**
      * 최종 시간 투표에서 각 사용자가 선택한 시간 목록 조회
      * @return List<String> - 각 사용자가 선택한 시간 리스트
      */

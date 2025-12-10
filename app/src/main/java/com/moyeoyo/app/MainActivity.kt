@@ -11,13 +11,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.setupWithNavController
+import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.moyeoyo.app.core.DeeplinkHandler
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.NotificationRepository
-import com.moyeoyo.app.ui.auth.LoginActivity
 import com.moyeoyo.app.ui.main.MainFragment
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -35,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     @Inject lateinit var friendRepository: FriendRepository
 
     private lateinit var deeplinkHandler: DeeplinkHandler
+    private var navController: NavController? = null
 
     // ---- 🔔 알림 권한 요청 Launcher ----
     private val requestNotificationPermission =
@@ -65,19 +68,14 @@ class MainActivity : AppCompatActivity() {
         // 🔔 알림 권한 요청
         askNotificationPermission()
 
-        // DeeplinkHandler
-        deeplinkHandler = DeeplinkHandler(
-            context = this,
-            lifecycleScope = lifecycleScope,
-            auth = auth,
-            groupRepository = groupRepository,
-            friendRepository = friendRepository
-        )
+        // Navigation 설정 (먼저 설정하여 로그인 체크 시 Navigation 사용 가능)
+        val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
+        navController = navHostFragment?.navController
 
         // 로그인 체크
         if (auth.currentUser == null) {
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
+            // LoginFragment로 이동
+            navController?.navigate(R.id.loginFragment)
             return
         }
 
@@ -91,23 +89,26 @@ class MainActivity : AppCompatActivity() {
         // FCM 토큰 저장
         saveFCMToken()
 
-        // 메인 프래그먼트 로드
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, MainFragment())
-                .commit()
-        }
+        // DeeplinkHandler에 NavController 전달
+        deeplinkHandler = DeeplinkHandler(
+            context = this,
+            lifecycleScope = lifecycleScope,
+            auth = auth,
+            groupRepository = groupRepository,
+            friendRepository = friendRepository,
+            navController = navController
+        )
 
         // 딥링크 처리
         deeplinkHandler.handle(intent)
-        DeepLinkHandler(this).handle(intent)
+        DeepLinkHandler(navController).handle(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         deeplinkHandler.handle(intent)
-        DeepLinkHandler(this).handle(intent)
+        DeepLinkHandler(navController).handle(intent)
     }
 
     private fun saveFCMToken() {

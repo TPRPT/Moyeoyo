@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- 툴바 -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/white"
+        app:navigationIcon="@drawable/ic_chevron_left_24"
+        android:elevation="0dp" />
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="시간 투표"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp" />
+
+    <!-- 대기 메시지 (다른 멤버 투표 대기 중일 때 표시) -->
+    <TextView
+        android:id="@+id/tvWaitingMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="아직 그룹원의 모든 사용자가 가능한 시간대를 저장하지 않았습니다"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="12dp"
+        android:background="@color/gray_100"
+        android:visibility="gone" />
+
+    <!-- 상단 주차/날짜 헤더 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!--  주차 타이틀 + 이전/다음 버튼 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical|center_horizontal"
+            android:layout_marginBottom="4dp">
+
+            <ImageView
+                android:id="@+id/btnPrevWeek"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_arrow_left_24"
+                android:padding="4dp"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tvWeekTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="11월 3째주"
+                android:textStyle="bold"
+                android:textColor="@color/black"
+                android:textSize="18sp" />
+
+            <ImageView
+                android:id="@+id/btnNextWeek"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_arrow_right_24"
+                android:padding="4dp"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <!-- 요일 + 날짜 (월~일) -->
+        <LinearLayout
+            android:id="@+id/layoutWeekDays"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:weightSum="7">
+            <!-- 요일 버튼들이 코드에서 동적 추가됨 -->
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 시간표 (0시~23시) -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollViewTimeSlots"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:paddingHorizontal="16dp">
+
+        <GridLayout
+            android:id="@+id/gridTimeSlots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="4"
+            android:paddingVertical="12dp"
+            android:alignmentMode="alignMargins"
+            android:useDefaultMargins="true"
+            android:rowOrderPreserved="false" />
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- 하단 버튼 -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCompleteVote"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="저장"
+        android:textColor="@color/white"
+        android:backgroundTint="@color/light_gray"
+        android:textSize="16sp" />
+</LinearLayout>
+

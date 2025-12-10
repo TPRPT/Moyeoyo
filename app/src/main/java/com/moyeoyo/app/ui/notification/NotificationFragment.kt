@@ -7,15 +7,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.cardview.widget.CardView
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.ItemTouchHelper
 import com.moyeoyo.app.R
-import com.moyeoyo.app.ui.groups.GroupDetailActivity
 import com.moyeoyo.app.data.model.Notification
 import com.moyeoyo.app.data.model.NotificationUi
 import com.moyeoyo.app.data.repository.NotificationRepository
@@ -25,11 +25,9 @@ import com.moyeoyo.app.data.repository.FriendRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.FirebaseAuth
 import java.util.*
-import android.content.Intent
-import androidx.appcompat.app.AlertDialog   // Dialog도 함께 필요
+import androidx.appcompat.app.AlertDialog
 
-
-class NotificationActivity : AppCompatActivity() {
+class NotificationFragment : Fragment() {
 
     private val notificationRepository = NotificationRepository()
 
@@ -44,18 +42,27 @@ class NotificationActivity : AppCompatActivity() {
     private lateinit var tvNotificationCount: TextView
     private lateinit var emptyText: TextView
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_notification)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.activity_notification, container, false)
+    }
 
-        recyclerView = findViewById(R.id.recyclerNotifications)
-        tvNotificationCount = findViewById(R.id.tvNotificationCount)
-        emptyText = findViewById(R.id.tvEmpty)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        toolbar.setNavigationOnClickListener { finish() }
+        recyclerView = view.findViewById(R.id.recyclerNotifications)
+        tvNotificationCount = view.findViewById(R.id.tvNotificationCount)
+        emptyText = view.findViewById(R.id.tvEmpty)
 
-        recyclerView.layoutManager = LinearLayoutManager(this)
+        val toolbar = view.findViewById<Toolbar>(R.id.toolbar)
+        toolbar.setNavigationOnClickListener { 
+            findNavController().popBackStack()
+        }
+
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
         adapter = NotificationAdapter(mutableListOf())
         recyclerView.adapter = adapter
@@ -68,7 +75,7 @@ class NotificationActivity : AppCompatActivity() {
     // 🔵 Firestore Notifications 불러오기
     // -------------------------------------------------------------------
     private fun loadNotifications() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val rawList = notificationRepository.getNotifications()
 
@@ -98,8 +105,8 @@ class NotificationActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
-                Log.e("NotificationActivity", "Error: ${e.message}", e)
-                Toast.makeText(this@NotificationActivity, "알림을 불러오지 못했습니다.", Toast.LENGTH_SHORT).show()
+                Log.e("NotificationFragment", "Error: ${e.message}", e)
+                Toast.makeText(requireContext(), "알림을 불러오지 못했습니다.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -196,7 +203,7 @@ class NotificationActivity : AppCompatActivity() {
                         // handled=true 이면 아예 비활성화
                         if (item.handled) {
                             Toast.makeText(
-                                this@NotificationActivity,
+                                requireContext(),
                                 "이미 처리된 친구 요청입니다.",
                                 Toast.LENGTH_SHORT
                             ).show()
@@ -209,22 +216,25 @@ class NotificationActivity : AppCompatActivity() {
                     "time_vote", "location_input", "final_vote", "finalized", "ranking" -> {
                         if (item.groupId == null) {
                             Toast.makeText(
-                                this@NotificationActivity,
+                                requireContext(),
                                 "그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT
                             ).show()
                             return@setOnClickListener
                         }
 
                         // 단건 읽음 처리
-                        lifecycleScope.launch {
+                        viewLifecycleOwner.lifecycleScope.launch {
                             notificationRepository.markNotificationAsRead(item.id)
                         }
 
-                        // GroupDetailActivity 이동
-                        val intent =
-                            Intent(this@NotificationActivity, GroupDetailActivity::class.java)
-                        intent.putExtra("groupId", item.groupId)
-                        startActivity(intent)
+                        // GroupDetailFragment로 Navigation
+                        findNavController().navigate(
+                            R.id.action_notificationFragment_to_groupDetailFragment,
+                            Bundle().apply {
+                                putString("groupId", item.groupId)
+                                putString("groupName", "") // 그룹 이름은 나중에 로드
+                            }
+                        )
 
                         // UI 흐림 처리 반영
                         holder.card.alpha = 0.4f
@@ -232,7 +242,7 @@ class NotificationActivity : AppCompatActivity() {
 
                     else -> {
                         Toast.makeText(
-                            this@NotificationActivity,
+                            requireContext(),
                             "지원되지 않는 알림 유형입니다.", Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -244,11 +254,11 @@ class NotificationActivity : AppCompatActivity() {
     private fun showFriendRequestDialog(item: NotificationUi) {
         val senderUid = item.senderUid ?: return
 
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(requireContext())
             .setTitle("친구 요청")
             .setMessage("이 사용자의 친구 요청을 수락할까요?")
             .setPositiveButton("수락") { _, _ ->
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     val ok = friendRepository.acceptFriendRequest(senderUid)
 
                     if (ok) {
@@ -257,7 +267,7 @@ class NotificationActivity : AppCompatActivity() {
                         notificationRepository.markNotificationAsHandled(item.id)
 
                         Toast.makeText(
-                            this@NotificationActivity,
+                            requireContext(),
                             "친구 요청을 수락했습니다!",
                             Toast.LENGTH_SHORT
                         ).show()
@@ -266,7 +276,7 @@ class NotificationActivity : AppCompatActivity() {
                         loadNotifications()
                     } else {
                         Toast.makeText(
-                            this@NotificationActivity,
+                            requireContext(),
                             "친구 요청 수락 실패",
                             Toast.LENGTH_SHORT
                         ).show()
@@ -274,7 +284,7 @@ class NotificationActivity : AppCompatActivity() {
                 }
             }
             .setNegativeButton("거절") { _, _ ->
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     notificationRepository.markNotificationAsRead(item.id)
                     notificationRepository.markNotificationAsHandled(item.id)
                     loadNotifications()
@@ -299,7 +309,7 @@ class NotificationActivity : AppCompatActivity() {
                 val position = viewHolder.adapterPosition
                 val item = adapter.items[position]
 
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     notificationRepository.deleteNotification(item.id)
                     adapter.items.removeAt(position)
                     adapter.notifyItemRemoved(position)
@@ -310,6 +320,5 @@ class NotificationActivity : AppCompatActivity() {
 
         ItemTouchHelper(swipeHelper).attachToRecyclerView(recyclerView)
     }
-
-
 }
+

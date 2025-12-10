@@ -2,10 +2,10 @@ package com.moyeoyo.app
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import com.moyeoyo.app.ui.groups.GroupDetailActivity
+import androidx.navigation.NavController
+import com.moyeoyo.app.R
 
-class DeepLinkHandler(private val activity: AppCompatActivity) {
+class DeepLinkHandler(private val navController: NavController?) {
 
     fun handle(intent: Intent?) {
         if (intent == null) return
@@ -16,12 +16,16 @@ class DeepLinkHandler(private val activity: AppCompatActivity) {
         val groupId = intent.getStringExtra("widget_group_id") ?: return
         val groupName = intent.getStringExtra("widget_group_name") ?: "모임"
 
-        // 🔥 Fragment가 아니라 Activity로 이동!!!
-        val detailIntent = Intent(activity, GroupDetailActivity::class.java).apply {
-            putExtra("GROUP_ID", groupId)
-            putExtra("GROUP_NAME", groupName)
+        // Navigation을 사용하여 GroupDetailFragment로 이동
+        navController?.let { nav ->
+            val bundle = Bundle().apply {
+                putString("groupId", groupId)
+                putString("groupName", groupName)
+            }
+            // MainFragment로 먼저 이동 (백스택에 없을 수 있음)
+            nav.navigate(R.id.mainFragment)
+            // MainFragment에서 GroupDetailFragment로 이동하는 action 사용
+            nav.navigate(R.id.action_mainFragment_to_groupDetailFragment, bundle)
         }
-
-        activity.startActivity(detailIntent)
     }
 }

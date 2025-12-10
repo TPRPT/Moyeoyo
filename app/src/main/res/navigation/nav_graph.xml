@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/mainFragment">
+
+    <!-- Main Fragment -->
+    <fragment
+        android:id="@+id/mainFragment"
+        android:name="com.moyeoyo.app.ui.main.MainFragment"
+        android:label="Main"
+        tools:layout="@layout/activity_main">
+        <action
+            android:id="@+id/action_mainFragment_to_profileSetupFragment"
+            app:destination="@id/profileSetupFragment" />
+        <action
+            android:id="@+id/action_mainFragment_to_createGroupFragment"
+            app:destination="@id/createGroupFragment" />
+        <action
+            android:id="@+id/action_mainFragment_to_addFriendFragment"
+            app:destination="@id/addFriendFragment" />
+        <action
+            android:id="@+id/action_mainFragment_to_notificationFragment"
+            app:destination="@id/notificationFragment" />
+        <action
+            android:id="@+id/action_mainFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+
+    <!-- Auth -->
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.moyeoyo.app.ui.auth.LoginFragment"
+        android:label="Login" />
+    
+    <fragment
+        android:id="@+id/profileSetupFragment"
+        android:name="com.moyeoyo.app.ui.auth.ProfileSetupFragment"
+        android:label="Profile Setup" />
+
+    <!-- Groups -->
+    <fragment
+        android:id="@+id/createGroupFragment"
+        android:name="com.moyeoyo.app.ui.groups.CreateGroupFragment"
+        android:label="Create Group">
+        <action
+            android:id="@+id/action_createGroupFragment_to_selectFriendsFragment"
+            app:destination="@id/selectFriendsFragment" />
+        <action
+            android:id="@+id/action_createGroupFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/selectFriendsFragment"
+        android:name="com.moyeoyo.app.ui.groups.SelectFriendsFragment"
+        android:label="Select Friends">
+        <action
+            android:id="@+id/action_selectFriendsFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/groupDetailFragment"
+        android:name="com.moyeoyo.app.ui.groups.GroupDetailFragment"
+        android:label="Group Detail">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_locationInputFragment"
+            app:destination="@id/locationInputFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_finalVoteFragment"
+            app:destination="@id/finalVoteFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_finalTimeVoteFragment"
+            app:destination="@id/finalTimeVoteFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_timeVoteFragment"
+            app:destination="@id/timeVoteFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_groupManageFragment"
+            app:destination="@id/groupManageFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_confirmFragment"
+            app:destination="@id/confirmFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_shareMeetingFragment"
+            app:destination="@id/shareMeetingFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_groupInviteFragment"
+            app:destination="@id/groupInviteFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/groupInviteFragment"
+        android:name="com.moyeoyo.app.ui.groups.GroupInviteFragment"
+        android:label="Group Invite">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_groupInviteFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/shareMeetingFragment"
+        android:name="com.moyeoyo.app.ui.groups.ShareMeetingFragment"
+        android:label="Share Meeting">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/groupManageFragment"
+        android:name="com.moyeoyo.app.ui.groups.GroupManageFragment"
+        android:label="Group Manage">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+    </fragment>
+
+    <!-- Location -->
+    <fragment
+        android:id="@+id/currentLocationFragment"
+        android:name="com.moyeoyo.app.ui.location.CurrentLocationFragment"
+        android:label="Current Location">
+        <argument
+            android:name="lat"
+            app:argType="float" />
+        <argument
+            android:name="lng"
+            app:argType="float" />
+        <argument
+            android:name="isHome"
+            app:argType="boolean" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/locationInputFragment"
+        android:name="com.moyeoyo.app.ui.location.LocationInputFragment"
+        android:label="Location Input">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_locationInputFragment_to_midpointFragment"
+            app:destination="@id/midpointFragment" />
+    </fragment>
+
+    <!-- Place -->
+    <fragment
+        android:id="@+id/recommendedPlaceFragment"
+        android:name="com.moyeoyo.app.ui.place.RecommendedPlaceFragment"
+        android:label="Recommended Place">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <argument
+            android:name="centerLat"
+            app:argType="float" />
+        <argument
+            android:name="centerLng"
+            app:argType="float" />
+        <action
+            android:id="@+id/action_recommendedPlaceFragment_to_finalVoteFragment"
+            app:destination="@id/finalVoteFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/finalVoteFragment"
+        android:name="com.moyeoyo.app.ui.place.FinalVoteFragment"
+        android:label="Final Vote">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_finalVoteFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+
+    <!-- Time -->
+    <fragment
+        android:id="@+id/timeVoteFragment"
+        android:name="com.moyeoyo.app.ui.time.TimeVoteFragment"
+        android:label="Time Vote">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_timeVoteFragment_to_finalTimeVoteFragment"
+            app:destination="@id/finalTimeVoteFragment" />
+        <action
+            android:id="@+id/action_timeVoteFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+    
+    <fragment
+        android:id="@+id/finalTimeVoteFragment"
+        android:name="com.moyeoyo.app.ui.time.FinalTimeVoteFragment"
+        android:label="Final Time Vote">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <argument
+            android:name="date"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_finalTimeVoteFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+
+    <!-- Map -->
+    <fragment
+        android:id="@+id/midpointFragment"
+        android:name="com.moyeoyo.app.map.MidpointFragment"
+        android:label="Midpoint">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_midpointFragment_to_recommendedPlaceFragment"
+            app:destination="@id/recommendedPlaceFragment" />
+    </fragment>
+
+    <!-- Friends -->
+    <fragment
+        android:id="@+id/addFriendFragment"
+        android:name="com.moyeoyo.app.ui.friends.AddFriendFragment"
+        android:label="Add Friend" />
+
+    <!-- Vote -->
+    <fragment
+        android:id="@+id/confirmFragment"
+        android:name="com.moyeoyo.app.ui.vote.ConfirmFragment"
+        android:label="Confirm">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+    </fragment>
+
+    <!-- Notification -->
+    <fragment
+        android:id="@+id/notificationFragment"
+        android:name="com.moyeoyo.app.ui.notification.NotificationFragment"
+        android:label="Notification">
+        <action
+            android:id="@+id/action_notificationFragment_to_groupDetailFragment"
+            app:destination="@id/groupDetailFragment" />
+    </fragment>
+
+</navigation>
+

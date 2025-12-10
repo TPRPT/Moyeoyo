@@ -23,32 +23,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Moyeoyo">
 
-        <activity
-            android:name=".map.MidpointActivity"
-            android:exported="true" />
-
-        <activity android:name=".ui.auth.LoginActivity" />
-        <activity android:name=".ui.auth.ProfileSetupActivity" />
-        <activity android:name=".ui.location.CurrentLocationActivity" />
-        <activity android:name=".ui.location.LocationInputActivity" />
-
-        <activity android:name=".ui.friends.AddFriendActivity" />
-
-        <activity android:name=".ui.groups.CreateGroupActivity" />
-        <activity android:name=".ui.groups.SelectFriendsActivity" />
-        <activity android:name=".ui.groups.GroupInviteActivity" />
-        <activity android:name=".ui.groups.GroupDetailActivity" />
-        <activity android:name=".ui.groups.ShareMeetingActivity" />
-
-        <activity android:name=".ui.vote.ConfirmActivity" />
-
-        <activity android:name=".ui.place.RecommendedPlaceActivity" />
-        <activity android:name=".ui.place.FinalVoteActivity" />
-        
-        <activity android:name=".ui.time.TimeVoteActivity" />
-        <activity android:name=".ui.time.FinalTimeVoteActivity" />
-
-        <activity android:name=".ui.notification.NotificationActivity" />
+        <!-- 변환된 Activity들은 Fragment로 대체되었습니다 -->
 
         <activity android:name=".MainActivity"
             android:exported="true">
@@ -115,9 +90,6 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <activity
-            android:name=".ui.groups.GroupManageActivity"
-            android:exported="false" />
 
 
     </application>

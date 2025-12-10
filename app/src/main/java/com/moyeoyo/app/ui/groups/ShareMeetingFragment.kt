@@ -6,17 +6,23 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.moyeoyo.app.databinding.ActivityShareMeetingBinding
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
 
-class ShareMeetingActivity : AppCompatActivity() {
+class ShareMeetingFragment : Fragment() {
 
-    private lateinit var binding: ActivityShareMeetingBinding
+    private var _binding: ActivityShareMeetingBinding? = null
+    private val binding get() = _binding!!
+    
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
@@ -29,22 +35,40 @@ class ShareMeetingActivity : AppCompatActivity() {
     private var shareAddress: String = ""
     private var shareTimeFormatted: String = ""
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityShareMeetingBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = ActivityShareMeetingBinding.inflate(inflater, container, false)
+        return binding.root
+    }
 
-        groupId = intent.getStringExtra("GROUP_ID") ?: return finish()
-        groupName = intent.getStringExtra("GROUP_NAME") ?: "모임"
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // Navigation arguments에서 데이터 가져오기
+        groupId = arguments?.getString("groupId") ?: run {
+            findNavController().popBackStack()
+            return
+        }
+        groupName = arguments?.getString("groupName") ?: "모임"
 
         setupToolbar()
         loadMeetingData()
         setupButtons()
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
     private fun setupToolbar() {
         binding.toolbarShare.title = "약속 공유"
-        binding.toolbarShare.setNavigationOnClickListener { finish() }
+        binding.toolbarShare.setNavigationOnClickListener { 
+            findNavController().popBackStack()
+        }
     }
 
     private fun loadMeetingData() {
@@ -104,13 +128,15 @@ class ShareMeetingActivity : AppCompatActivity() {
             startActivity(Intent.createChooser(intent, "카카오톡으로 공유"))
         }
 
-        binding.btnDone.setOnClickListener { finish() }
+        binding.btnDone.setOnClickListener { 
+            findNavController().popBackStack()
+        }
     }
 
     private fun copyText(text: String) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("shareLink", text))
-        Toast.makeText(this, "링크가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(requireContext(), "링크가 복사되었습니다.", Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -128,4 +154,5 @@ class ShareMeetingActivity : AppCompatActivity() {
         $shareAddress
                 """.trimIndent()
         }
-    }
+}
+

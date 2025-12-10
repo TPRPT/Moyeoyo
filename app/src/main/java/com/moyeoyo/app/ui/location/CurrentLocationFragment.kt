@@ -1,15 +1,17 @@
 package com.moyeoyo.app.ui.location
 
-import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -26,20 +28,12 @@ import java.io.Serializable
 import java.net.HttpURLConnection
 import java.net.URL
 
-class CurrentLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
+class CurrentLocationFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
 
     companion object {
-        const val EXTRA_LATLNG = "extra_latlng"
-        const val EXTRA_IS_HOME = "extra_is_home"
+        const val RESULT_KEY = "current_location_result"
         const val EXTRA_LOCATION_DATA = "extra_location_data"
-        const val RESULT_CODE_LOCATION_CONFIRMED = 100
-
-        fun newIntent(context: Context, latLng: LatLng, isHome: Boolean): Intent {
-            return Intent(context, CurrentLocationActivity::class.java).apply {
-                putExtra(EXTRA_LATLNG, latLng)
-                putExtra(EXTRA_IS_HOME, isHome)
-            }
-        }
+        const val EXTRA_IS_HOME = "extra_is_home"
     }
 
     private lateinit var googleMap: GoogleMap
@@ -56,25 +50,43 @@ class CurrentLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
     private var confirmedLocationMap: Map<String, Any>? = null
 
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_confirm_location)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.activity_confirm_location, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         apiKey = getMapsApiKey()
 
-        receivedLatLng = intent.getParcelableExtra(EXTRA_LATLNG) ?: return finishWithToast("위치 정보가 없습니다.")
-        isHomeLocation = intent.getBooleanExtra(EXTRA_IS_HOME, true)
+        // Navigation arguments에서 데이터 가져오기
+        val lat = arguments?.getFloat("lat")?.toDouble() ?: run {
+            finishWithToast("위치 정보가 없습니다.")
+            return
+        }
+        val lng = arguments?.getFloat("lng")?.toDouble() ?: run {
+            finishWithToast("위치 정보가 없습니다.")
+            return
+        }
+        receivedLatLng = LatLng(lat, lng)
+        isHomeLocation = arguments?.getBoolean("isHome", true) ?: true
 
-        textLocationName = findViewById(R.id.text_location_name)
-        textAddress = findViewById(R.id.text_address)
-        btnConfirm = findViewById(R.id.btn_confirm)
-        btnBack = findViewById(R.id.back_button)
+        textLocationName = view.findViewById(R.id.text_location_name)
+        textAddress = view.findViewById(R.id.text_address)
+        btnConfirm = view.findViewById(R.id.btn_confirm)
+        btnBack = view.findViewById(R.id.back_button)
 
-        val mapFragment = supportFragmentManager.findFragmentById(R.id.map_fragment) as SupportMapFragment
+        val mapFragment = childFragmentManager.findFragmentById(R.id.map_fragment) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
         btnConfirm.setOnClickListener { returnConfirmedLocation() }
-        btnBack.setOnClickListener { finish() }
+        btnBack.setOnClickListener { 
+            findNavController().popBackStack()
+        }
     }
 
     override fun onMapReady(map: GoogleMap) {
@@ -95,7 +107,7 @@ class CurrentLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
     // ================================
     // 🚀 3단계 통합: TextSearch → PlaceDetails → Geocoding
     // ================================
-    private fun fetchLocationDetails(latLng: LatLng) = lifecycleScope.launch {
+    private fun fetchLocationDetails(latLng: LatLng) = viewLifecycleOwner.lifecycleScope.launch {
         textLocationName.text = "장소명 로딩 중..."
         textAddress.text = "주소 확인 중..."
 
@@ -117,10 +129,12 @@ class CurrentLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
         textLocationName.text = finalName
         textAddress.text = addressLine
 
+        // LatLng는 Serializable이 아니므로 lat/lng를 분리해서 저장
         confirmedLocationMap = mapOf(
             "name" to finalName,
             "address" to addressLine,
-            "latLng" to latLng
+            "lat" to latLng.latitude,
+            "lng" to latLng.longitude
         )
     }
 
@@ -243,7 +257,10 @@ class CurrentLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
 
     private fun getMapsApiKey(): String {
         return try {
-            val info = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            val info = requireContext().packageManager.getApplicationInfo(
+                requireContext().packageName,
+                PackageManager.GET_META_DATA
+            )
             info.metaData.getString("com.google.android.geo.API_KEY") ?: ""
         } catch (e: Exception) {
             ""
@@ -256,20 +273,21 @@ class CurrentLocationActivity : AppCompatActivity(), OnMapReadyCallback, GoogleM
             return
         }
 
-        val resultIntent = Intent().apply {
-            val bundle = Bundle().apply {
-                putSerializable(EXTRA_LOCATION_DATA, confirmedLocationMap as Serializable)
-                putBoolean(EXTRA_IS_HOME, isHomeLocation)
-            }
-            putExtras(bundle)
+        // Fragment Result로 데이터 전달
+        // LatLng는 Parcelable이므로 Bundle에 직접 넣을 수 없으므로 Map으로 전달
+        val result = Bundle().apply {
+            // LatLng를 포함한 Map을 Serializable로 전달
+            putSerializable(EXTRA_LOCATION_DATA, confirmedLocationMap as Serializable)
+            putBoolean(EXTRA_IS_HOME, isHomeLocation)
         }
-
-        setResult(RESULT_CODE_LOCATION_CONFIRMED, resultIntent)
-        finish()
+        parentFragmentManager.setFragmentResult(RESULT_KEY, result)
+        
+        findNavController().popBackStack()
     }
 
     private fun finishWithToast(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-        finish()
+        Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
+        findNavController().popBackStack()
     }
 }
+

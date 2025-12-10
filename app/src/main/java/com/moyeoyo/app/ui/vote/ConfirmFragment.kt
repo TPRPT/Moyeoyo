@@ -9,11 +9,14 @@ import android.provider.CalendarContract
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.navigation.fragment.findNavController
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.widget.Autocomplete
@@ -34,14 +37,14 @@ import com.moyeoyo.app.widget.NextMeetingWidgetProvider
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class ConfirmActivity : AppCompatActivity() {
+class ConfirmFragment : Fragment() {
 
-    private lateinit var binding: ActivityConfirmBinding
+    private var _binding: ActivityConfirmBinding? = null
+    private val binding get() = _binding!!
     
     @Inject
     lateinit var groupRepository: GroupRepository
     private lateinit var groupId: String
-    private lateinit var rootView: View
 
     private var confirmedPlaceData: Map<String, Any>? = null
     private val confirmedTime = Calendar.getInstance()
@@ -53,32 +56,42 @@ class ConfirmActivity : AppCompatActivity() {
     private val placeAutocompleteLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == RESULT_OK) {
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
             val place = Autocomplete.getPlaceFromIntent(result.data!!)
             handlePlaceSelection(place)
-        } else if (result.resultCode == RESULT_CANCELED) {
-            Snackbar.make(rootView, "장소 검색을 취소했습니다.", Snackbar.LENGTH_SHORT).show()
+        } else if (result.resultCode == android.app.Activity.RESULT_CANCELED) {
+            Snackbar.make(requireView(), "장소 검색을 취소했습니다.", Snackbar.LENGTH_SHORT).show()
         } else {
             val status = Autocomplete.getStatusFromIntent(result.data!!)
-            Snackbar.make(rootView, "장소 검색 실패: ${status.statusMessage} (코드: ${status.statusCode})", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(requireView(), "장소 검색 실패: ${status.statusMessage} (코드: ${status.statusCode})", Snackbar.LENGTH_LONG).show()
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityConfirmBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        rootView = binding.root
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = ActivityConfirmBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         initializePlacesSdk()
 
-        groupId = intent.getStringExtra("GROUP_ID") ?: return finish().also {
-            Toast.makeText(this, "그룹 ID를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+        groupId = arguments?.getString("groupId") ?: run {
+            Toast.makeText(requireContext(), "그룹 ID를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+            findNavController().popBackStack()
+            return
         }
 
-        binding.backButtonConfirm.setOnClickListener { finish() }
+        binding.backButtonConfirm.setOnClickListener { 
+            findNavController().popBackStack()
+        }
 
-        val groupName = intent.getStringExtra("GROUP_NAME") ?: "새 모임"
+        val groupName = arguments?.getString("groupName") ?: "새 모임"
         binding.inputTitle.setText(groupName)
 
         setupInputListeners()
@@ -102,19 +115,27 @@ class ConfirmActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
     private fun initializePlacesSdk() {
         if (Places.isInitialized()) return
         try {
-            val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            val appInfo = requireContext().packageManager.getApplicationInfo(
+                requireContext().packageName,
+                PackageManager.GET_META_DATA
+            )
             val apiKey = appInfo.metaData.getString("com.google.android.geo.API_KEY")
 
             if (!apiKey.isNullOrEmpty()) {
-                Places.initialize(applicationContext, apiKey)
+                Places.initialize(requireContext().applicationContext, apiKey)
             } else {
-                Snackbar.make(rootView, "🚨 Places API Key가 Manifest에 없습니다. 장소 검색 불가.", Snackbar.LENGTH_LONG).show()
+                Snackbar.make(requireView(), "🚨 Places API Key가 Manifest에 없습니다. 장소 검색 불가.", Snackbar.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
-            Snackbar.make(rootView, "🚨 Places SDK 초기화 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(requireView(), "🚨 Places SDK 초기화 실패: ${e.message}", Snackbar.LENGTH_LONG).show()
         }
     }
 
@@ -141,7 +162,7 @@ class ConfirmActivity : AppCompatActivity() {
 
     private fun showDatePicker() {
         val cal = confirmedTime
-        val dialog = DatePickerDialog(this, { _, year, month, dayOfMonth ->
+        val dialog = DatePickerDialog(requireContext(), { _, year, month, dayOfMonth ->
             cal.set(year, month, dayOfMonth)
             binding.inputDate.setText(String.format("%d년 %d월 %d일", year, month + 1, dayOfMonth))
             binding.btnConfirmSchedule.isEnabled = validateInputs()
@@ -151,7 +172,7 @@ class ConfirmActivity : AppCompatActivity() {
 
     private fun showTimePicker() {
         val cal = confirmedTime
-        val dialog = TimePickerDialog(this, { _, hourOfDay, minute ->
+        val dialog = TimePickerDialog(requireContext(), { _, hourOfDay, minute ->
             cal.set(Calendar.HOUR_OF_DAY, hourOfDay)
             cal.set(Calendar.MINUTE, minute)
             binding.inputTime.setText(String.format("%02d:%02d", hourOfDay, minute))
@@ -172,14 +193,14 @@ class ConfirmActivity : AppCompatActivity() {
             val intent = Autocomplete.IntentBuilder(
                 AutocompleteActivityMode.OVERLAY,
                 fields
-            ).build(this)
+            ).build(requireContext())
             placeAutocompleteLauncher.launch(intent)
         } catch (e: GooglePlayServicesRepairableException) {
-            Snackbar.make(rootView, "Google Play 서비스 오류: 수리 필요.", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(requireView(), "Google Play 서비스 오류: 수리 필요.", Snackbar.LENGTH_LONG).show()
         } catch (e: GooglePlayServicesNotAvailableException) {
-            Snackbar.make(rootView, "Google Play 서비스 사용 불가.", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(requireView(), "Google Play 서비스 사용 불가.", Snackbar.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Snackbar.make(rootView, "장소 검색 시작 실패: ${e.message}.", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(requireView(), "장소 검색 시작 실패: ${e.message}.", Snackbar.LENGTH_LONG).show()
         }
     }
 
@@ -208,9 +229,9 @@ class ConfirmActivity : AppCompatActivity() {
         val confirmedTimeMillis = confirmedTime.timeInMillis
         val confirmedTimestamp = Timestamp(java.util.Date(confirmedTimeMillis))
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val success = groupRepository.confirmGroupSchedule(
-                context = this@ConfirmActivity,
+                context = requireContext(),
                 groupId = groupId,
                 confirmedPlace = placeData,
                 confirmedTime = confirmedTimestamp,
@@ -221,7 +242,7 @@ class ConfirmActivity : AppCompatActivity() {
 
                 // ⭐ Room 저장 추가
                 saveMeetingToLocal(
-                    context = this@ConfirmActivity,
+                    context = requireContext(),
                     groupId = groupId,
                     groupName = title,
                     meetingAt = confirmedTimestamp.toDate().time,
@@ -229,9 +250,12 @@ class ConfirmActivity : AppCompatActivity() {
                 )
 
                 // ⭐ 위젯 갱신
-                NextMeetingWidgetProvider.requestUpdateAll(this@ConfirmActivity)
+                NextMeetingWidgetProvider.requestUpdateAll(requireContext())
 
-                Toast.makeText(this@ConfirmActivity, "일정이 확정되었습니다!", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "일정이 확정되었습니다!", Toast.LENGTH_LONG).show()
+                
+                // GroupDetailFragment로 돌아가기
+                findNavController().popBackStack()
             }
         }
     }
@@ -258,26 +282,27 @@ class ConfirmActivity : AppCompatActivity() {
             //            (구글 캘린더가 설치되어 있는지 확인하는 역할)
             intent.setPackage(GOOGLE_CALENDAR_PACKAGE)
 
-            if (intent.resolveActivity(packageManager) != null) {
+            if (intent.resolveActivity(requireContext().packageManager) != null) {
                 startActivity(intent)
             } else {
                 // 구글 캘린더 패키지가 명시되었으나 찾을 수 없는 경우,
                 // 패키지 명시 없이 표준 캘린더 목록을 띄우거나 기본 앱으로 이동하도록 fallback
                 intent.setPackage(null) // 패키지 명시 제거
-                if (intent.resolveActivity(packageManager) != null) {
+                if (intent.resolveActivity(requireContext().packageManager) != null) {
                     startActivity(Intent.createChooser(intent, "캘린더 앱 선택"))
                 } else {
-                    Toast.makeText(this, "구글 캘린더 또는 다른 캘린더 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "구글 캘린더 또는 다른 캘린더 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
                 }
             }
         } else {
             // '다른 캘린더 앱에 추가' 버튼은 항상 표준 인텐트 (선택창 제공)
             intent.setPackage(null)
-            if (intent.resolveActivity(packageManager) != null) {
+            if (intent.resolveActivity(requireContext().packageManager) != null) {
                 startActivity(Intent.createChooser(intent, "캘린더 앱 선택"))
             } else {
-                Toast.makeText(this, "캘린더 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "캘린더 앱을 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 }
+

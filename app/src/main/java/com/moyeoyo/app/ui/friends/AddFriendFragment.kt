@@ -4,15 +4,18 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.FriendRepository
@@ -21,7 +24,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class AddFriendActivity : AppCompatActivity() {
+class AddFriendFragment : Fragment() {
 
     @Inject
     lateinit var friendRepository: FriendRepository
@@ -40,24 +43,33 @@ class AddFriendActivity : AppCompatActivity() {
 
     private var foundUserUid: String? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_add_friend)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.activity_add_friend, container, false)
+    }
 
-        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbarFriend)
-        toolbar.setNavigationOnClickListener { finish() }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-        editTextEmail = findViewById(R.id.edit_text_email)
-        btnSearchFriend = findViewById(R.id.btn_search_friend)
-        textSearchResult = findViewById(R.id.text_search_result)
-        friendListContainer = findViewById(R.id.friend_list_container)
-        btnInviteFriend = findViewById(R.id.btn_invite_friend)
+        val toolbar = view.findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbarFriend)
+        toolbar.setNavigationOnClickListener { 
+            findNavController().popBackStack()
+        }
+
+        editTextEmail = view.findViewById(R.id.edit_text_email)
+        btnSearchFriend = view.findViewById(R.id.btn_search_friend)
+        textSearchResult = view.findViewById(R.id.text_search_result)
+        friendListContainer = view.findViewById(R.id.friend_list_container)
+        btnInviteFriend = view.findViewById(R.id.btn_invite_friend)
 
         // ⭐ 카드뷰 View 연결
-        cardSearchResult = findViewById(R.id.cardSearchResult)
-        tvName = findViewById(R.id.tvName)
-        tvEmail = findViewById(R.id.tvEmail)
-        btnSendRequest = findViewById(R.id.btn_send_request)
+        cardSearchResult = view.findViewById(R.id.cardSearchResult)
+        tvName = view.findViewById(R.id.tvName)
+        tvEmail = view.findViewById(R.id.tvEmail)
+        btnSendRequest = view.findViewById(R.id.btn_send_request)
 
         // 처음에는 카드 숨김
         cardSearchResult.visibility = View.GONE
@@ -74,7 +86,7 @@ class AddFriendActivity : AppCompatActivity() {
     // =====================================================
     private fun shareFriendInviteLink() {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: run {
-            Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -96,7 +108,7 @@ class AddFriendActivity : AppCompatActivity() {
         val email = editTextEmail.text.toString().trim()
 
         if (email.isEmpty()) {
-            Toast.makeText(this, "이메일을 입력해주세요.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "이메일을 입력해주세요.", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -105,7 +117,7 @@ class AddFriendActivity : AppCompatActivity() {
         cardSearchResult.visibility = View.GONE
         foundUserUid = null
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val (uid, resultStatus) = friendRepository.findUserWithStatus(email)
 
             if (uid != null) {
@@ -137,11 +149,11 @@ class AddFriendActivity : AppCompatActivity() {
     // 친구 요청 전송
     // =====================================================
     private fun sendFriendRequest(receiverUid: String) {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val success = friendRepository.sendFriendRequest(receiverUid)
 
             if (success) {
-                Toast.makeText(this@AddFriendActivity, "친구 요청을 보냈습니다!", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "친구 요청을 보냈습니다!", Toast.LENGTH_LONG).show()
 
                 // UI 초기화
                 editTextEmail.setText("")
@@ -149,10 +161,10 @@ class AddFriendActivity : AppCompatActivity() {
                 //textSearchResult.visibility = View.GONE
 
                 btnSendRequest.isEnabled = false
-                btnSendRequest.backgroundTintList = getColorStateList(R.color.gray_300)
+                btnSendRequest.backgroundTintList = requireContext().getColorStateList(R.color.gray_300)
                 btnSendRequest.text = "요청 완료"
             } else {
-                Toast.makeText(this@AddFriendActivity, "친구 요청 실패", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "친구 요청 실패", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -163,11 +175,11 @@ class AddFriendActivity : AppCompatActivity() {
     private fun loadAndDisplayFriends() {
         friendListContainer.removeAllViews()
 
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val friendUids = friendRepository.getFriendUids()
 
             if (friendUids.isEmpty()) {
-                val textView = TextView(this@AddFriendActivity).apply {
+                val textView = TextView(requireContext()).apply {
                     text = "아직 친구가 없습니다. 이메일로 추가하거나 초대 링크를 공유해보세요!"
                     setPadding(0, 16, 0, 16)
                     textSize = 16f
@@ -179,7 +191,7 @@ class AddFriendActivity : AppCompatActivity() {
             friendUids.forEach { uid ->
                 val nickname = friendRepository.getUserNickname(uid)
 
-                val friendItemView = LinearLayout(this@AddFriendActivity).apply {
+                val friendItemView = LinearLayout(requireContext()).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
@@ -192,13 +204,13 @@ class AddFriendActivity : AppCompatActivity() {
                     setPadding(16, 12, 16, 12)
                 }
 
-                val nameTextView = TextView(this@AddFriendActivity).apply {
+                val nameTextView = TextView(requireContext()).apply {
                     text = "${nickname ?: uid.take(8)}"
                     textSize = 17f
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 }
 
-                val deleteButton = Button(this@AddFriendActivity).apply {
+                val deleteButton = Button(requireContext()).apply {
                     text = "삭제"
                     textSize = 12f
                     setOnClickListener { showDeleteConfirmation(uid, nickname ?: uid.take(8)) }
@@ -213,7 +225,7 @@ class AddFriendActivity : AppCompatActivity() {
 
     // 삭제 팝업
     private fun showDeleteConfirmation(friendUid: String, nickname: String) {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(requireContext())
             .setTitle("친구 삭제")
             .setMessage("$nickname 님을 친구 목록에서 삭제하시겠습니까?")
             .setPositiveButton("삭제") { _, _ -> deleteFriend(friendUid, nickname) }
@@ -223,15 +235,16 @@ class AddFriendActivity : AppCompatActivity() {
 
     // 삭제 실행
     private fun deleteFriend(friendUid: String, nickname: String) {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val success = friendRepository.removeFriend(friendUid)
 
             if (success) {
-                Toast.makeText(this@AddFriendActivity, "$nickname 님을 삭제했습니다.", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "$nickname 님을 삭제했습니다.", Toast.LENGTH_LONG).show()
                 loadAndDisplayFriends()
             } else {
-                Toast.makeText(this@AddFriendActivity, "삭제 실패", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "삭제 실패", Toast.LENGTH_LONG).show()
             }
         }
     }
 }
+

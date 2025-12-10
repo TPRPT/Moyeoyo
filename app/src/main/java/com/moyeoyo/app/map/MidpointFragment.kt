@@ -1,19 +1,24 @@
 package com.moyeoyo.app.map
 
-// MidpointActivity: 그룹 멤버의 위치로 중간지점을 계산하고 표시
+// MidpointFragment: 그룹 멤버의 위치로 중간지점을 계산하고 표시
 // - ViewModel을 통해 가중중심 계산 및 Distance Matrix 결과 표시
 // - 주변 장소 불러오기 및 예상 소요 시간 기능 포함
 
 import android.location.Geocoder
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
+import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -30,7 +35,6 @@ import com.moyeoyo.app.data.model.TransportMode
 import com.moyeoyo.app.databinding.ActivityMidpointBinding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.moyeoyo.app.ui.place.RecommendedPlaceActivity
 import com.moyeoyo.app.data.repository.GroupRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -43,9 +47,10 @@ import kotlin.math.roundToInt
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
+class MidpointFragment : Fragment(), OnMapReadyCallback {
 
-    private lateinit var binding: ActivityMidpointBinding
+    private var _binding: ActivityMidpointBinding? = null
+    private val binding get() = _binding!!
     private val viewModel: MapViewModel by viewModels()
     private lateinit var adapter: MemberDistanceAdapter
     private var pendingTravelTimesDialog = false
@@ -55,68 +60,56 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
     @Inject
     lateinit var groupRepository: GroupRepository
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityMidpointBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+    private val args: MidpointFragmentArgs by navArgs()
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = ActivityMidpointBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
         // 리스트
         // - 멤버별 소요 시간/거리 표시용 RecyclerView
         adapter = MemberDistanceAdapter()
-        binding.rvDistances.layoutManager = LinearLayoutManager(this)
+        binding.rvDistances.layoutManager = LinearLayoutManager(requireContext())
         binding.rvDistances.adapter = adapter
         binding.rvDistances.isNestedScrollingEnabled = true
 
-        (supportFragmentManager.findFragmentById(R.id.mapFragment) as? SupportMapFragment)
+        (childFragmentManager.findFragmentById(R.id.mapFragment) as? SupportMapFragment)
             ?.getMapAsync(this)
 
         // 그룹 ID 설정
-        val groupId = intent.getStringExtra("groupId") ?: "test-group-123"
+        val groupId = args.groupId
         viewModel.setGroupId(groupId)
 
         setupViews()
         observe()
 
-        // ⭐ Intent 처리: 최종 확정 장소가 있으면 최종 모드로, 없으면 중간 지점 계산 모드로
-        val selectedPlaceId = intent.getStringExtra("selectedPlaceId")
-        if (selectedPlaceId != null) {
-            // 최종 확정 장소가 있으면 최종 모드로 전환
-            val selectedPlaceName = intent.getStringExtra("selectedPlaceName") ?: "알 수 없는 장소"
-            val selectedPlaceAddress = intent.getStringExtra("selectedPlaceAddress")
-            val selectedPlaceLat = intent.getDoubleExtra("selectedPlaceLat", 0.0)
-            val selectedPlaceLng = intent.getDoubleExtra("selectedPlaceLng", 0.0)
-            
-            if (selectedPlaceLat != 0.0 && selectedPlaceLng != 0.0) {
-                val winningPlace = com.moyeoyo.app.data.model.NearbyPlace(
-                    placeId = selectedPlaceId,
-                    name = selectedPlaceName,
-                    address = selectedPlaceAddress,
-                    latLng = com.moyeoyo.app.data.model.LatLngData(selectedPlaceLat, selectedPlaceLng),
-                    categories = emptyList(),
-                    rating = null,
-                    distanceMeters = 0.0
-                )
-                // ViewModel에게 최종 모드로 전환하라고 알림
-                viewModel.setFinalizedMode(winningPlace)
-            }
-        } else {
-            // 최종 확정 장소가 없으면 중간 지점 계산 모드로 시작
-            if (intent.hasExtra("groupId")) {
-                viewModel.loadGroupMembers(groupId)
-            }
-        }
+        // 중간 지점 계산 모드로 시작
+        viewModel.loadGroupMembers(groupId)
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     private fun setupViews() {
         // 뒤로가기 버튼
         binding.btnBack.setOnClickListener {
-            finish()
+            findNavController().navigateUp()
         }
 
         binding.btnLoadNearby.setOnClickListener {
             val center = viewModel.state.value?.weightedCenter
             if (center == null) {
-                Toast.makeText(this, "중간 지점이 계산된 후에 주변 장소를 불러올 수 있습니다.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "중간 지점이 계산된 후에 주변 장소를 불러올 수 있습니다.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             pendingNearbyDialog = true
@@ -129,65 +122,67 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun observe() {
-        viewModel.state.observe(this) { s ->
-            // ⭐ ViewModel의 isFinalized 상태에 따라 UI 업데이트
-            val isFinalized = viewModel.isFinalized.value == true
-            updateUIForMode(isFinalized, s)
+        viewModel.state.observe(viewLifecycleOwner) { s ->
+                // ⭐ ViewModel의 isFinalized 상태에 따라 UI 업데이트
+                val isFinalized = viewModel.isFinalized.value == true
+                updateUIForMode(isFinalized, s)
 
-            // 멤버별 소요시간 표시
-            if (s.distanceByMember.isNotEmpty()) {
-                bindMemberDistances(s)
-            } else if (adapter.itemCount != 0) {
-                adapter.submitList(emptyList())
-            }
+                // 멤버별 소요시간 표시
+                if (s.distanceByMember.isNotEmpty()) {
+                    bindMemberDistances(s)
+                } else if (adapter.itemCount != 0) {
+                    adapter.submitList(emptyList())
+                }
 
-            // 주변 장소 필터링 화면으로 이동
-            if (pendingNearbyDialog && !s.isNearbyLoading) {
-                if (s.weightedCenter != null) {
-                    pendingNearbyDialog = false
-                    // ⭐ 중간값 계산 완료 시 그룹 상태를 LOCATION_DONE으로 변경 (아직 변경되지 않은 경우만)
-                    val groupId = intent.getStringExtra("groupId") ?: ""
-                    if (groupId.isNotEmpty()) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                val currentGroup = groupRepository.getGroupDetail(groupId)
-                                if (currentGroup?.status == "LOCATION_INPUT_REQUIRED") {
-                                    val success = groupRepository.updateGroupStatus(groupId, "LOCATION_DONE")
-                                    if (success) {
-                                        android.util.Log.d("MidpointActivity", "✅ 그룹 상태 변경: LOCATION_INPUT_REQUIRED → LOCATION_DONE")
+                // 주변 장소 필터링 화면으로 이동
+                if (pendingNearbyDialog && !s.isNearbyLoading) {
+                    if (s.weightedCenter != null) {
+                        pendingNearbyDialog = false
+                        // ⭐ 중간값 계산 완료 시 그룹 상태를 LOCATION_DONE으로 변경 (아직 변경되지 않은 경우만)
+                        val groupId = args.groupId
+                        if (groupId.isNotEmpty()) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    val currentGroup = groupRepository.getGroupDetail(groupId)
+                                    if (currentGroup?.status == "LOCATION_INPUT_REQUIRED") {
+                                        val success = groupRepository.updateGroupStatus(groupId, "LOCATION_DONE")
+                                        if (success) {
+                                            android.util.Log.d("MidpointFragment", "✅ 그룹 상태 변경: LOCATION_INPUT_REQUIRED → LOCATION_DONE")
+                                        }
                                     }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MidpointFragment", "그룹 상태 변경 중 오류: ${e.message}")
                                 }
-                            } catch (e: Exception) {
-                                android.util.Log.e("MidpointActivity", "그룹 상태 변경 중 오류: ${e.message}")
                             }
                         }
+                        // RecommendedPlaceFragment로 이동
+                        findNavController().navigate(
+                            R.id.action_midpointFragment_to_recommendedPlaceFragment,
+                            Bundle().apply {
+                                putString("groupId", groupId)
+                                putFloat("centerLat", s.weightedCenter.lat.toFloat())
+                                putFloat("centerLng", s.weightedCenter.lng.toFloat())
+                            }
+                        )
+                    } else if (s.error != null) {
+                        pendingNearbyDialog = false
+                        Toast.makeText(requireContext(), s.error, Toast.LENGTH_SHORT).show()
                     }
-                    // RecommendedPlaceActivity로 이동
-                    val intent = android.content.Intent(this, RecommendedPlaceActivity::class.java).apply {
-                        putExtra("groupId", groupId)
-                        putExtra("centerLat", s.weightedCenter.lat)
-                        putExtra("centerLng", s.weightedCenter.lng)
-                    }
-                    startActivity(intent)
-                } else if (s.error != null) {
-                    pendingNearbyDialog = false
-                    Toast.makeText(this, s.error, Toast.LENGTH_SHORT).show()
                 }
-            }
 
-            // 예상 소요 시간 다이얼로그 표시
-            if (pendingTravelTimesDialog && !s.isDistanceLoading) {
-                pendingTravelTimesDialog = false
-                showTravelTimesDialog(s)
-            }
+                // 예상 소요 시간 다이얼로그 표시
+                if (pendingTravelTimesDialog && !s.isDistanceLoading) {
+                    pendingTravelTimesDialog = false
+                    showTravelTimesDialog(s)
+                }
 
-            // 에러 표시
-            s.error?.let { message ->
-                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-                pendingTravelTimesDialog = false
-            }
+                // 에러 표시
+                s.error?.let { message ->
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                    pendingTravelTimesDialog = false
+                }
 
-            updateMapMarkers(s)
+                updateMapMarkers(s)
         }
     }
 
@@ -245,18 +240,14 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun getAddressFromLocation(center: LatLngData, callback: (String) -> Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val geocoder = Geocoder(this@MidpointActivity, Locale.KOREA)
+                val geocoder = Geocoder(requireContext(), Locale.KOREA)
                 val addresses = geocoder.getFromLocation(center.lat, center.lng, 1)
                 val address = addresses?.firstOrNull()?.getAddressLine(0) ?: "주소 정보 없음"
-                withContext(Dispatchers.Main) {
-                    callback(address)
-                }
+                callback(address)
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    callback("주소 정보 없음")
-                }
+                callback("주소 정보 없음")
             }
         }
     }
@@ -316,7 +307,7 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
             // 최종 모드: 최종 확정된 장소에 빨간색 마커 표시
             state.selectedPlace?.let { place ->
                 val position = LatLng(place.latLng.lat, place.latLng.lng)
-                android.util.Log.d("MidpointActivity", 
+                android.util.Log.d("MidpointFragment", 
                     "✅ 승리한 장소 마커 추가: ${place.name}, 위치: (${place.latLng.lat}, ${place.latLng.lng}), 주소: ${place.address}")
                 val marker = map.addMarker(
                     MarkerOptions()
@@ -326,14 +317,14 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
                         .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
                 )
                 if (marker != null) {
-                    android.util.Log.d("MidpointActivity", "✅ 빨간색 마커 추가 성공")
+                    android.util.Log.d("MidpointFragment", "✅ 빨간색 마커 추가 성공")
                 } else {
-                    android.util.Log.e("MidpointActivity", "❌ 마커 추가 실패")
+                    android.util.Log.e("MidpointFragment", "❌ 마커 추가 실패")
                 }
                 builder.include(position)
                 hasPoint = true
             } ?: run {
-                android.util.Log.d("MidpointActivity", "⏸️ 최종 모드이지만 selectedPlace가 null입니다")
+                android.util.Log.d("MidpointFragment", "⏸️ 최종 모드이지만 selectedPlace가 null입니다")
             }
         } else {
             // 중간 지점 모드: 중간 지점에 파란색 마커 표시
@@ -379,7 +370,7 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun showTransportFilterDialog(state: MapState?) {
-        val dialog = BottomSheetDialog(this)
+        val dialog = BottomSheetDialog(requireContext())
         val content = layoutInflater.inflate(R.layout.dialog_transport_filter, null)
         dialog.setContentView(content)
 
@@ -406,9 +397,9 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
                 } else {
                     R.drawable.bg_transport_unselected
                 }
-                button.background = ContextCompat.getDrawable(this, backgroundRes)
+                button.background = ContextCompat.getDrawable(requireContext(), backgroundRes)
                 val colorRes = if (selected) android.R.color.white else R.color.black
-                button.setTextColor(ContextCompat.getColor(this, colorRes))
+                button.setTextColor(ContextCompat.getColor(requireContext(), colorRes))
             }
         }
         updateModeSelection()
@@ -470,7 +461,7 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }.toTypedArray()
 
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.load_nearby_button_label))
             .setSingleChoiceItems(placeLabels, selectedIndex) { _, which ->
                 selectedIndex = which
@@ -483,7 +474,7 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
                     viewModel.computeTravelTimesForSelectedPlace()
                 } else {
                     Toast.makeText(
-                        this,
+                        requireContext(),
                         getString(R.string.travel_time_error_no_place),
                         Toast.LENGTH_SHORT
                     ).show()
@@ -500,7 +491,7 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         } else {
             getString(R.string.travel_times_empty)
         }
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.travel_time_dialog_title) + " - " + placeName)
             .setMessage(message)
             .setPositiveButton(android.R.string.ok, null)
@@ -537,3 +528,4 @@ class MidpointActivity : AppCompatActivity(), OnMapReadyCallback {
         null -> "-"
     }
 }
+

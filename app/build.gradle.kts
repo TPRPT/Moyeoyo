@@ -5,6 +5,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("kotlin-kapt")
     id("kotlin-parcelize")
+    id("androidx.navigation.safeargs.kotlin")
 }
 
 // 시스템 환경 변수에서 통합 API 키를 읽어옵니다.
@@ -78,6 +79,20 @@ android {
     }
 }
 
+// kapt 옵션 설정
+kapt {
+    correctErrorTypes = true
+    useBuildCache = true
+    // exportSchema = false로 설정했으므로 스키마 위치 지정 불필요
+    // 메모리 부족 문제 해결을 위한 설정
+    javacOptions {
+        option("-Xmaxerrs", 500)
+    }
+    // Kotlin 2.0 호환성을 위한 설정
+    mapDiagnosticLocations = true
+    includeCompileClasspath = false
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -124,5 +139,9 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+
+    // Navigation Component
+    implementation("androidx.navigation:navigation-fragment-ktx:2.8.2")
+    implementation("androidx.navigation:navigation-ui-ktx:2.8.2")
 
 }

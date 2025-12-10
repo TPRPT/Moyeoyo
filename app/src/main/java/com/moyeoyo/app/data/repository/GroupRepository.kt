@@ -260,6 +260,60 @@ class GroupRepository @Inject constructor(
     }
 
     /**
+     * 최종 시간 확정 및 그룹 상태 업데이트를 원자적으로 수행
+     * @return Result<Unit> - 성공 시 Result.success(Unit), 실패 시 Result.failure(Exception)
+     */
+    suspend fun confirmFinalTimeAndState(groupId: String, date: String, time: String): Result<Unit> {
+        return try {
+            // Timestamp 생성 (날짜 + 시간)
+            // time 형식: "HH:mm" 또는 "HH시"
+            val normalizedTime = time.replace("시", ":00").replace("분", "")
+            val dateTimeStr = "$date $normalizedTime"
+            
+            val dateTime = try {
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                    .parse(dateTimeStr)
+            } catch (e: Exception) {
+                // 다른 형식 시도
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                    .parse(dateTimeStr)
+            }
+            
+            val timestamp = if (dateTime != null) {
+                Timestamp(dateTime)
+            } else {
+                Log.e(TAG, "날짜 파싱 실패: date=$date, time=$time, normalizedTime=$normalizedTime")
+                return Result.failure(IllegalArgumentException("날짜 파싱 실패"))
+            }
+
+            // ⭐ 트랜잭션으로 원자적 연산 보장
+            db.runTransaction { tx ->
+                val groupRef = groupsCollection.document(groupId)
+                val snapshot = tx.get(groupRef)
+                
+                if (!snapshot.exists()) {
+                    throw IllegalStateException("Group not found")
+                }
+                
+                // 최종 시간과 그룹 상태를 동시에 업데이트
+                tx.update(
+                    groupRef,
+                    "confirmedTime", timestamp,
+                    "status", "LOCATION_INPUT_REQUIRED"
+                )
+                
+                null
+            }.await()
+            
+            Log.d(TAG, "✅ 최종 시간 확정 및 상태 업데이트 완료: groupId=$groupId, date=$date, time=$time")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 최종 시간 확정 및 상태 업데이트 실패: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * 최종 시간 확정
      */
     suspend fun setFinalTime(groupId: String, date: String, time: String): Boolean {
