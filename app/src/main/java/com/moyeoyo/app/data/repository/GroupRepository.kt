@@ -389,6 +389,15 @@ class GroupRepository @Inject constructor(
                 confirmedPlace["name"] as? String ?: ""
             )
 
+            // ⭐ 로컬 알림 스케줄링 (약속 전날 같은 시간)
+            val scheduler = com.moyeoyo.app.services.LocalNotificationScheduler(context)
+            scheduler.scheduleNotificationForMeeting(
+                groupId,
+                newTitle,
+                confirmedTime.toDate().time,
+                confirmedPlace["name"] as? String ?: "장소 미정"
+            )
+
             Log.d(TAG, "confirmGroupSchedule SUCCESS")
             true
         } catch (e: Exception) {
@@ -482,6 +491,10 @@ class GroupRepository @Inject constructor(
         confirmedPlace: Map<String, Any>
     ): Boolean {
         return try {
+            // Firestore 업데이트
+            val groupDoc = groupsCollection.document(groupId).get().await()
+            val groupName = groupDoc.getString("groupName") ?: "모임"
+            
             groupsCollection.document(groupId)
                 .update(
                     mapOf(
@@ -490,16 +503,26 @@ class GroupRepository @Inject constructor(
                     )
                 ).await()
 
-            // ⭐ Firestore 성공 후 Room에도 저장 — 이 위치에!
+            // ⭐ Firestore 성공 후 Room에도 저장 (groupName 올바르게 전달)
             saveMeetingToLocal(
                 context,
                 groupId,
-                groupId,
+                groupName,  // ⚠️ 수정: groupId 대신 groupName 사용
                 confirmedTime.toDate().time,
                 confirmedPlace["name"] as? String ?: ""
             )
 
-            Log.d(TAG, "updateConfirmedSchedule SUCCESS")
+            // ⭐ 기존 알림 취소 후 새로 스케줄링
+            val scheduler = com.moyeoyo.app.services.LocalNotificationScheduler(context)
+            scheduler.cancelReminderNotification(groupId)  // 기존 알림 취소
+            scheduler.scheduleNotificationForMeeting(       // 새 알림 스케줄링
+                groupId,
+                groupName,
+                confirmedTime.toDate().time,
+                confirmedPlace["name"] as? String ?: "장소 미정"
+            )
+
+            Log.d(TAG, "updateConfirmedSchedule SUCCESS - RoomDB updated and notification rescheduled")
             true
         } catch (e: Exception) {
             Log.e(TAG, "updateConfirmedSchedule FAILED: ${e.message}")

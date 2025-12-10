@@ -118,35 +118,53 @@ class MainActivity : AppCompatActivity() {
     }
     
     /**
-     * 푸시 알림 클릭 시 그룹 상세 화면으로 이동
+     * 푸시 알림 클릭 시 처리
      */
     private fun handleNotificationIntent(intent: Intent) {
-        val notificationType = intent.getStringExtra("notification_type")
+        val notificationType = intent.getStringExtra("notificationType") 
+            ?: intent.getStringExtra("notification_type")
         val groupId = intent.getStringExtra("groupId")
         
-        if (notificationType == "group" && groupId != null) {
-            Log.d("MainActivity", "푸시 알림 클릭: 그룹 상세로 이동 - groupId: $groupId")
-            
-            lifecycleScope.launch {
-                try {
-                    // 그룹 정보 가져오기
-                    val group = groupRepository.getGroupById(groupId)
-                    val groupName = group?.groupName ?: "모임"
+        lifecycleScope.launch {
+            try {
+                when {
+                    // 친구 요청 알림 → 인앱 알림창으로 이동
+                    notificationType == "friend_request" -> {
+                        Log.d("MainActivity", "Friend request notification clicked: navigating to notification fragment")
+                        
+                        // MainFragment로 먼저 이동
+                        navController?.navigate(R.id.mainFragment)
+                        
+                        // NotificationFragment로 이동
+                        navController?.navigate(R.id.notificationFragment)
+                    }
                     
-                    // MainFragment로 먼저 이동 (백스택에 없을 수 있음)
-                    navController?.navigate(R.id.mainFragment)
-                    
-                    // GroupDetailFragment로 이동
-                    navController?.navigate(
-                        R.id.action_mainFragment_to_groupDetailFragment,
-                        Bundle().apply {
-                            putString("groupId", groupId)
-                            putString("groupName", groupName)
-                        }
-                    )
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "그룹 상세 이동 실패: ${e.message}", e)
+                    // 그룹 관련 알림 → 그룹 상세 화면으로 이동 + 자동 읽음 처리
+                    groupId != null && notificationType != null && notificationType in listOf("time_vote", "location_input", "final_vote", "finalized", "ranking", "reminder") -> {
+                        Log.d("MainActivity", "Group notification clicked: navigating to group detail - groupId: $groupId, type: $notificationType")
+                        
+                        // 알림 자동 읽음 처리
+                        notificationRepository.markNotificationAsReadByTypeAndGroup(notificationType, groupId)
+                        
+                        // 그룹 정보 가져오기
+                        val group = groupRepository.getGroupById(groupId)
+                        val groupName = group?.groupName ?: "모임"
+                        
+                        // MainFragment로 먼저 이동 (백스택에 없을 수 있음)
+                        navController?.navigate(R.id.mainFragment)
+                        
+                        // GroupDetailFragment로 이동
+                        navController?.navigate(
+                            R.id.action_mainFragment_to_groupDetailFragment,
+                            Bundle().apply {
+                                putString("groupId", groupId)
+                                putString("groupName", groupName)
+                            }
+                        )
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to handle notification intent: ${e.message}", e)
             }
         }
     }
