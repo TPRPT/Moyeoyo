@@ -10,7 +10,7 @@
         android:id="@+id/mainFragment"
         android:name="com.moyeoyo.app.ui.main.MainFragment"
         android:label="Main"
-        tools:layout="@layout/activity_main">
+        tools:layout="@layout/fragment_main">
         <action
             android:id="@+id/action_mainFragment_to_profileSetupFragment"
             app:destination="@id/profileSetupFragment" />
@@ -95,6 +95,12 @@
         <action
             android:id="@+id/action_groupDetailFragment_to_groupInviteFragment"
             app:destination="@id/groupInviteFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_recommendedPlaceFragment"
+            app:destination="@id/recommendedPlaceFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_midpointFragment"
+            app:destination="@id/midpointFragment" />
     </fragment>
     
     <fragment

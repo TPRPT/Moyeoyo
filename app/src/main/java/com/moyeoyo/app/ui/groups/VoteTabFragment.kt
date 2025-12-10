@@ -287,7 +287,6 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                 when (group?.status) {
                     "LOCATION_INPUT_REQUIRED" -> {
                         // 위치 입력 화면으로 이동
-                        // TODO: Safe Args가 생성되면 Directions 사용
                         findNavController().navigate(
                             com.moyeoyo.app.R.id.action_groupDetailFragment_to_locationInputFragment,
                             Bundle().apply {
@@ -295,9 +294,55 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                             }
                         )
                     }
-                    "LOCATION_DONE", "PLACE_RANKING", "FINAL_PLACE_VOTE" -> {
+                    "LOCATION_DONE" -> {
+                        // ⭐ LOCATION_DONE 상태일 때는 중간 지점 계산 화면으로 이동
+                        // (아직 순위 지정 단계가 아니므로 RecommendedPlaceFragment로 가면 안 됨)
+                        // 중간 지점 계산 화면에서 RecommendedPlaceFragment로 이동하도록 함
+                        findNavController().navigate(
+                            com.moyeoyo.app.R.id.action_groupDetailFragment_to_midpointFragment,
+                            Bundle().apply {
+                                putString("groupId", groupId)
+                            }
+                        )
+                    }
+                    "PLACE_RANKING" -> {
+                        // ⭐ 순위 지정 단계일 때는 RecommendedPlaceFragment로 이동
+                        // (아직 최종 투표 단계가 아니므로 FinalVoteFragment로 가면 안 됨)
+                        val voteRepository = com.moyeoyo.app.data.repository.VoteRepository(
+                            FirebaseFirestore.getInstance(),
+                            FirebaseAuth.getInstance()
+                        )
+                        val voteStatus = voteRepository.getVoteStatus(groupId)
+                        
+                        // 중간 지점 정보가 필요하므로 MapRepository에서 가져오기
+                        val mapRepository = com.moyeoyo.app.data.repository.MapRepository(
+                            FirebaseFirestore.getInstance(),
+                            FirebaseAuth.getInstance()
+                        )
+                        val inputLocations = mapRepository.getInputLocations(groupId)
+                        val weightedCenter = mapRepository.computeWeightedCenter(inputLocations)
+                        
+                        if (weightedCenter != null) {
+                            findNavController().navigate(
+                                com.moyeoyo.app.R.id.action_groupDetailFragment_to_recommendedPlaceFragment,
+                                Bundle().apply {
+                                    putString("groupId", groupId)
+                                    putFloat("centerLat", weightedCenter.lat.toFloat())
+                                    putFloat("centerLng", weightedCenter.lng.toFloat())
+                                }
+                            )
+                        } else {
+                            // 중간 지점이 없으면 중간 지점 계산 화면으로 이동
+                            findNavController().navigate(
+                                com.moyeoyo.app.R.id.action_groupDetailFragment_to_midpointFragment,
+                                Bundle().apply {
+                                    putString("groupId", groupId)
+                                }
+                            )
+                        }
+                    }
+                    "FINAL_PLACE_VOTE" -> {
                         // 장소 최종 투표 화면으로 이동
-                        // TODO: Safe Args가 생성되면 Directions 사용
                         findNavController().navigate(
                             com.moyeoyo.app.R.id.action_groupDetailFragment_to_finalVoteFragment,
                             Bundle().apply {
@@ -310,6 +355,7 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("VoteTabFragment", "위치 투표 화면 이동 오류: ${e.message}", e)
                 Toast.makeText(requireContext(), "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }

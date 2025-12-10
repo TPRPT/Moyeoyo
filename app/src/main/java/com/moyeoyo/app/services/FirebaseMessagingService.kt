@@ -128,6 +128,8 @@ class FirebaseMessagingService : FirebaseMessagingService() {
             notificationManager.createNotificationChannel(channel)
         }
 
+        // 포그라운드에서 알림 수신 시 진동 피드백 제거
+
         notificationManager.notify(0, notificationBuilder.build())
     }
 
