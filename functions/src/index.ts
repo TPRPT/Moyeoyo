@@ -142,6 +142,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
 
     const memberUids = after.memberUids ?? [];
     const groupName = after.groupName ?? "모임";
+    const groupId = event.params.groupId; // 그룹 ID 가져오기
 
     switch (newStatus) {
       case "TIME_VOTE_REQUIRED":
@@ -149,7 +150,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
           memberUids,
           "⏰ 시간 투표 요청",
           `${groupName} 모임이 만들어졌습니다! 가능한 시간을 투표해주세요.`,
-          { type: "time_vote" }
+          { type: "time_vote", groupId: groupId }
         );
         break;
 
@@ -158,7 +159,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
           memberUids,
           "🕒 최종 시간 투표",
           "최종 약속 일정을 투표해주세요!",
-          { type: "location_input" }
+          { type: "location_input", groupId: groupId }
         );
         break;
 
@@ -167,7 +168,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
           memberUids,
           "📍 시간 투표 완료!",
           `${groupName}의 약속 일정이 확정되었습니다. 이제 출발 위치를 입력해주세요.`,
-          { type: "location_input" }
+          { type: "location_input", groupId: groupId }
         );
         break;
 
@@ -176,7 +177,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
           memberUids,
           "✨ 장소 순위 투표 시작",
           "중간 지점 계산 완료! 주변 장소를 보고 순위를 투표해주세요.",
-          { type: "ranking" }
+          { type: "ranking", groupId: groupId }
         );
         break;
 
@@ -185,7 +186,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
           memberUids,
           "🔥 최종 장소 투표",
           "마지막으로 최종 약속 장소를 투표해주세요!",
-          { type: "final_vote" }
+          { type: "final_vote", groupId: groupId }
         );
         break;
 
@@ -194,7 +195,7 @@ export const onGroupStatusChanged = onDocumentUpdated(
           memberUids,
           "🎉 약속 장소 확정!",
           `${groupName}의 약속 장소가 확정되었습니다.`,
-          { type: "finalized" }
+          { type: "finalized", groupId: groupId }
         );
         break;
     }

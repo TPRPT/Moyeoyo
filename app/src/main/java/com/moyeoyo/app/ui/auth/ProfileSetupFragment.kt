@@ -374,18 +374,12 @@ class ProfileSetupFragment : Fragment() {
                 if (isHome) {
                     homeLocationData = finalLocationMap
                     Log.d("ProfileSetup", "handleConfirmedLocation: homeLocationData set = $homeLocationData")
-                    Snackbar.make(requireView(), "✅ 위치 설정 완료!\n주소: $addressText\nhomeLocationData: ${homeLocationData?.get("name")}", Snackbar.LENGTH_LONG).show()
                 } else {
                     workLocationData = finalLocationMap
                     Log.d("ProfileSetup", "handleConfirmedLocation: workLocationData set = $workLocationData")
-                    Snackbar.make(requireView(), "✅ 위치 설정 완료!\n주소: $addressText\nworkLocationData: ${workLocationData?.get("name")}", Snackbar.LENGTH_LONG).show()
                 }
                 
-                // 입력 필드에 값이 제대로 설정되었는지 확인
-                val actualText = if (isHome) inputHome.text.toString() else inputWork.text.toString()
-                if (actualText != addressText) {
-                    Snackbar.make(requireView(), "⚠️ 입력 필드 설정 실패!\n설정하려던 값: $addressText\n실제 값: $actualText", Snackbar.LENGTH_LONG).show()
-                }
+                Snackbar.make(requireView(), "위치가 지도에서 최종 설정되었습니다.", Snackbar.LENGTH_SHORT).show()
             } else {
                 Log.e("ProfileSetup", "handleConfirmedLocation: lat or lng is null")
                 Snackbar.make(requireView(), "위치 정보가 올바르지 않습니다.", Snackbar.LENGTH_SHORT).show()
@@ -441,9 +435,6 @@ class ProfileSetupFragment : Fragment() {
                                 "latLng" to LatLng(homeLat, homeLng),
                                 "placeId" to (homePlaceId ?: "")
                             )
-                            Snackbar.make(requireView(), "📥 기존 집 주소 로드됨: $homeAddress", Snackbar.LENGTH_SHORT).show()
-                        } else {
-                            Snackbar.make(requireView(), "ℹ️ 새로 설정한 위치가 있어 기존 주소를 덮어쓰지 않음\n현재: ${homeLocationData?.get("name")}", Snackbar.LENGTH_LONG).show()
                         }
                     }
                     if (!workAddress.isNullOrEmpty() && workLat != null && workLng != null) {
@@ -456,9 +447,6 @@ class ProfileSetupFragment : Fragment() {
                                 "latLng" to LatLng(workLat, workLng),
                                 "placeId" to (workPlaceId ?: "")
                             )
-                            Snackbar.make(requireView(), "📥 기존 회사 주소 로드됨: $workAddress", Snackbar.LENGTH_SHORT).show()
-                        } else {
-                            Snackbar.make(requireView(), "ℹ️ 새로 설정한 위치가 있어 기존 주소를 덮어쓰지 않음\n현재: ${workLocationData?.get("name")}", Snackbar.LENGTH_LONG).show()
                         }
                     }
 
@@ -578,22 +566,12 @@ class ProfileSetupFragment : Fragment() {
     private fun saveProfile() {
         val nickname = inputNickname.text.toString().trim()
 
-        Log.d("ProfileSetup", "saveProfile: nickname = $nickname")
-        Log.d("ProfileSetup", "saveProfile: homeLocationData = $homeLocationData")
-        Log.d("ProfileSetup", "saveProfile: workLocationData = $workLocationData")
-
-        // 디버깅 정보를 스낵바로 표시
-        val homeName = homeLocationData?.get("name") as? String ?: "null"
-        val homeAddr = homeLocationData?.get("address") as? String ?: "null"
-        val workName = workLocationData?.get("name") as? String ?: "null"
-        Snackbar.make(btnSave, "💾 저장 시도\n집: $homeName\n주소: $homeAddr\n회사: $workName", Snackbar.LENGTH_LONG).show()
-
         if (nickname.isEmpty()) {
             Snackbar.make(inputNickname, "닉네임을 입력해주세요", Snackbar.LENGTH_SHORT).show()
             return
         }
         if (homeLocationData == null) {
-            Snackbar.make(inputHome, "❌ 집 주소가 설정되지 않았습니다!\nhomeLocationData = null", Snackbar.LENGTH_LONG).show()
+            Snackbar.make(inputHome, "집 주소를 검색해주세요", Snackbar.LENGTH_SHORT).show()
             return
         }
 

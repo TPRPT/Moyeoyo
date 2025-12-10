@@ -46,17 +46,15 @@ class FirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.d(TAG, "From: ${remoteMessage.from}")
 
+        // 데이터 페이로드 가져오기
+        val data = remoteMessage.data
+
         // 💡 알림 페이로드가 있는 경우 (앱이 백그라운드일 때 기본 처리됨)
         remoteMessage.notification?.let {
             Log.d(TAG, "Message Notification Body: ${it.body}")
+            Log.d(TAG, "Message data payload: $data")
             // 포그라운드에서 수신 시 알림을 직접 띄웁니다.
-            sendNotification(it.title, it.body)
-        }
-
-        // 💡 데이터 페이로드가 있는 경우 (친구 요청 UID 등)
-        remoteMessage.data.isNotEmpty().let {
-            Log.d(TAG, "Message data payload: " + remoteMessage.data)
-            // 여기에서 알림 데이터를 처리하여 특정 화면으로 이동시킬 수 있습니다.
+            sendNotification(it.title, it.body, data)
         }
     }
 

@@ -102,6 +102,9 @@ class MainActivity : AppCompatActivity() {
         // 딥링크 처리
         deeplinkHandler.handle(intent)
         DeepLinkHandler(navController).handle(intent)
+        
+        // 푸시 알림 클릭 처리
+        handleNotificationIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -109,6 +112,43 @@ class MainActivity : AppCompatActivity() {
         setIntent(intent)
         deeplinkHandler.handle(intent)
         DeepLinkHandler(navController).handle(intent)
+        
+        // 푸시 알림 클릭 처리
+        handleNotificationIntent(intent)
+    }
+    
+    /**
+     * 푸시 알림 클릭 시 그룹 상세 화면으로 이동
+     */
+    private fun handleNotificationIntent(intent: Intent) {
+        val notificationType = intent.getStringExtra("notification_type")
+        val groupId = intent.getStringExtra("groupId")
+        
+        if (notificationType == "group" && groupId != null) {
+            Log.d("MainActivity", "푸시 알림 클릭: 그룹 상세로 이동 - groupId: $groupId")
+            
+            lifecycleScope.launch {
+                try {
+                    // 그룹 정보 가져오기
+                    val group = groupRepository.getGroupById(groupId)
+                    val groupName = group?.groupName ?: "모임"
+                    
+                    // MainFragment로 먼저 이동 (백스택에 없을 수 있음)
+                    navController?.navigate(R.id.mainFragment)
+                    
+                    // GroupDetailFragment로 이동
+                    navController?.navigate(
+                        R.id.action_mainFragment_to_groupDetailFragment,
+                        Bundle().apply {
+                            putString("groupId", groupId)
+                            putString("groupName", groupName)
+                        }
+                    )
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "그룹 상세 이동 실패: ${e.message}", e)
+                }
+            }
+        }
     }
 
     private fun saveFCMToken() {
