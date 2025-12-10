@@ -20,6 +20,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import android.content.SharedPreferences
 
 class FirebaseMessagingService : FirebaseMessagingService() {
 
@@ -45,6 +46,15 @@ class FirebaseMessagingService : FirebaseMessagingService() {
      */
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.d(TAG, "From: ${remoteMessage.from}")
+
+        // 푸시 알림 토글 확인
+        val sharedPreferences = getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
+        val isNotificationEnabled = sharedPreferences.getBoolean("push_notification_enabled", true)
+        
+        if (!isNotificationEnabled) {
+            Log.d(TAG, "Push notifications are disabled by user, skipping notification")
+            return
+        }
 
         // 데이터 페이로드 가져오기
         val data = remoteMessage.data
@@ -103,6 +113,10 @@ class FirebaseMessagingService : FirebaseMessagingService() {
         // NotificationActivity로 이동하도록 수정할 수도 있습니다.
         // val intent = Intent(this, NotificationActivity::class.java)...
 
+        // 알림 수신 시 MainActivity에 브로드캐스트 전송하여 배지 업데이트 트리거
+        val broadcastIntent = Intent("com.moyeoyo.app.NOTIFICATION_RECEIVED")
+        sendBroadcast(broadcastIntent)
+        
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE

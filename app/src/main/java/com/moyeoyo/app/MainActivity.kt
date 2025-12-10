@@ -26,6 +26,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.MeetingRepository
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -38,6 +41,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var deeplinkHandler: DeeplinkHandler
     private var navController: NavController? = null
+    
+    // 알림 수신 브로드캐스트 리시버
+    private val notificationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.moyeoyo.app.NOTIFICATION_RECEIVED") {
+                updateNotificationBadge()
+            }
+        }
+    }
 
     // ---- 🔔 알림 권한 요청 Launcher ----
     private val requestNotificationPermission =
@@ -71,6 +83,13 @@ class MainActivity : AppCompatActivity() {
         // Navigation 설정 (먼저 설정하여 로그인 체크 시 Navigation 사용 가능)
         val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
         navController = navHostFragment?.navController
+
+        // 알림 수신 브로드캐스트 리시버 등록 (로그인 상태와 관계없이 등록)
+        try {
+            registerReceiver(notificationReceiver, IntentFilter("com.moyeoyo.app.NOTIFICATION_RECEIVED"))
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to register receiver: ${e.message}")
+        }
 
         // 로그인 체크
         if (auth.currentUser == null) {
@@ -106,6 +125,26 @@ class MainActivity : AppCompatActivity() {
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)
     }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(notificationReceiver)
+        } catch (e: Exception) {
+            // 리시버가 등록되지 않았을 수 있음
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // MainFragment가 활성화되어 있으면 알림 배지 업데이트
+        // Fragment가 준비될 때까지 약간의 지연을 두고 호출
+        if (auth.currentUser != null) {
+            window.decorView.post {
+                updateNotificationBadge()
+            }
+        }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -115,6 +154,26 @@ class MainActivity : AppCompatActivity() {
         
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)
+        
+        // 알림 배지 업데이트
+        updateNotificationBadge()
+    }
+    
+    /**
+     * MainFragment의 알림 배지 업데이트
+     */
+    private fun updateNotificationBadge() {
+        try {
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
+            val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
+            
+            if (currentFragment is MainFragment && currentFragment.isAdded) {
+                // MainFragment의 updateNotificationBadge를 직접 호출
+                currentFragment.updateNotificationBadge()
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to update notification badge: ${e.message}")
+        }
     }
     
     /**

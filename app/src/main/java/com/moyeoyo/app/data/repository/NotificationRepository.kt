@@ -253,5 +253,32 @@ class NotificationRepository(
         }
     }
 
+    /**
+     * 모든 알림 삭제
+     */
+    suspend fun deleteAllNotifications(): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+
+        return try {
+            val snapshot = db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .get()
+                .await()
+
+            val batch = db.batch()
+            snapshot.documents.forEach { doc ->
+                batch.delete(doc.reference)
+            }
+
+            batch.commit().await()
+            Log.d(TAG, "All notifications deleted: ${snapshot.size()} notifications")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "deleteAllNotifications error: ${e.message}")
+            false
+        }
+    }
+
 
 }

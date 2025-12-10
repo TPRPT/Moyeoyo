@@ -29,7 +29,7 @@ import android.app.ProgressDialog
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainFragment : Fragment(R.layout.activity_main) {
+class MainFragment : Fragment(R.layout.fragment_main) {
 
     @Inject lateinit var friendRepository: FriendRepository
     @Inject lateinit var groupRepository: GroupRepository
@@ -115,7 +115,7 @@ class MainFragment : Fragment(R.layout.activity_main) {
     // ─────────────────────────────
     // 🔥 알림 뱃지 업데이트 (최종 정답)
     // ─────────────────────────────
-    private fun updateNotificationBadge() {
+    fun updateNotificationBadge() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val allNotifications = notificationRepository.getNotifications()
@@ -160,8 +160,10 @@ class MainFragment : Fragment(R.layout.activity_main) {
                 textNickname.text = nickname
 
                 if (!photoUrl.isNullOrEmpty()) {
+                    // 프로필 사진 업데이트를 위해 캐시 무시
                     Glide.with(this)
                         .load(photoUrl)
+                        .skipMemoryCache(true) // 메모리 캐시 무시
                         .circleCrop()
                         .placeholder(R.drawable.ic_user_placeholder)
                         .into(profileImage)

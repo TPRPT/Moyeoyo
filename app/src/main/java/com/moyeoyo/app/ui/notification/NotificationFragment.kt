@@ -26,6 +26,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.FirebaseAuth
 import java.util.*
 import androidx.appcompat.app.AlertDialog
+import android.widget.Switch
+import android.content.SharedPreferences
 
 class NotificationFragment : Fragment() {
 
@@ -41,13 +43,15 @@ class NotificationFragment : Fragment() {
     private lateinit var adapter: NotificationAdapter
     private lateinit var tvNotificationCount: TextView
     private lateinit var emptyText: TextView
+    private lateinit var switchNotification: Switch
+    private lateinit var sharedPreferences: SharedPreferences
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.activity_notification, container, false)
+        return inflater.inflate(R.layout.fragment_notification, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -56,10 +60,46 @@ class NotificationFragment : Fragment() {
         recyclerView = view.findViewById(R.id.recyclerNotifications)
         tvNotificationCount = view.findViewById(R.id.tvNotificationCount)
         emptyText = view.findViewById(R.id.tvEmpty)
-
+        
         val toolbar = view.findViewById<Toolbar>(R.id.toolbar)
         toolbar.setNavigationOnClickListener { 
             findNavController().popBackStack()
+        }
+
+        // 푸시 알림 토글 초기화
+        switchNotification = view.findViewById(R.id.switchNotification)
+        sharedPreferences = requireContext().getSharedPreferences("app_preferences", android.content.Context.MODE_PRIVATE)
+        
+        val isNotificationEnabled = sharedPreferences.getBoolean("push_notification_enabled", true)
+        switchNotification.isChecked = isNotificationEnabled
+
+        // 푸시 알림 토글 리스너
+        switchNotification.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit()
+                .putBoolean("push_notification_enabled", isChecked)
+                .apply()
+            
+            if (isChecked) {
+                Toast.makeText(requireContext(), "푸시 알림이 켜졌습니다.", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "푸시 알림이 꺼졌습니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 전체 삭제 버튼 추가 (툴바에 메뉴로 추가)
+        try {
+            toolbar.inflateMenu(R.menu.notification_menu)
+            toolbar.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    R.id.menu_delete_all -> {
+                        showDeleteAllDialog()
+                        true
+                    }
+                    else -> false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationFragment", "Failed to inflate menu: ${e.message}")
         }
 
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
@@ -320,6 +360,36 @@ class NotificationFragment : Fragment() {
         }
 
         ItemTouchHelper(swipeHelper).attachToRecyclerView(recyclerView)
+    }
+
+    /**
+     * 전체 삭제 확인 다이얼로그
+     */
+    private fun showDeleteAllDialog() {
+        if (adapter.items.isEmpty()) {
+            Toast.makeText(requireContext(), "삭제할 알림이 없습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("알림 전체 삭제")
+            .setMessage("모든 알림을 삭제하시겠습니까?")
+            .setPositiveButton("삭제") { _, _ ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val success = notificationRepository.deleteAllNotifications()
+                    if (success) {
+                        adapter.items.clear()
+                        adapter.notifyDataSetChanged()
+                        tvNotificationCount.text = "0개"
+                        emptyText.visibility = View.VISIBLE
+                        Toast.makeText(requireContext(), "모든 알림이 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(requireContext(), "알림 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("취소", null)
+            .show()
     }
 }
 
