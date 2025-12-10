@@ -140,15 +140,14 @@
                     android:padding="16dp"
                     android:gravity="center_vertical">
 
-                    <TextView
-                        android:id="@+id/tvInitial"
+                    <ImageView
+                        android:id="@+id/imgProfileSearchResult"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
-                        android:gravity="center"
-                        android:text="M"
-                        android:textColor="@color/black"
-                        android:textStyle="bold"
-                        android:background="@drawable/bg_circle_gray"/>
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/default_user"
+                        android:background="@drawable/bg_circle_gray"
+                        android:layout_marginEnd="12dp"/>
 
                     <LinearLayout
                         android:orientation="vertical"

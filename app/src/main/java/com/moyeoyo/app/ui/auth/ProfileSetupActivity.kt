@@ -7,11 +7,15 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -41,7 +45,11 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.common.GooglePlayServicesRepairableException
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException
 import com.moyeoyo.app.ui.location.CurrentLocationActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import java.io.File
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class ProfileSetupActivity : AppCompatActivity() {
 
@@ -75,6 +83,16 @@ class ProfileSetupActivity : AppCompatActivity() {
     // 위치 데이터를 저장할 Map 변수 (LatLng 객체를 포함하여 임시 저장)
     private var homeLocationData: Map<String, Any>? = null
     private var workLocationData: Map<String, Any>? = null
+
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private lateinit var sttIntent: Intent
+    private var isHomeVoiceInput: Boolean = true
+
+    private lateinit var listeningHome: View
+    private lateinit var listeningWork: View
+    private lateinit var listeningHomeText: TextView
+    private lateinit var listeningWorkText: TextView
+
 
     // ⭐ ConfirmLocationActivity 결과를 받는 런처
     private val confirmLocationLauncher = registerForActivityResult(
@@ -143,6 +161,55 @@ class ProfileSetupActivity : AppCompatActivity() {
         storage = FirebaseStorage.getInstance()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        //음성인식 초기화
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+
+        sttIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+        }
+
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+
+            override fun onReadyForSpeech(params: Bundle?) {
+                startListeningAnimation()
+            }
+
+            override fun onBeginningOfSpeech() {}
+
+            override fun onRmsChanged(rmsdB: Float) {}
+
+            override fun onBufferReceived(buffer: ByteArray?) {}
+
+            override fun onEndOfSpeech() {
+                stopListeningAnimation()
+            }
+
+            override fun onError(error: Int) {
+                stopListeningAnimation()
+            }
+
+            override fun onResults(results: Bundle?) {
+                stopListeningAnimation()
+                val spokenText = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.get(0) ?: return
+
+                if (isHomeVoiceInput) {
+                    inputHome.setText(spokenText)
+                    startPlaceAutocomplete(true, spokenText)
+                } else {
+                    inputWork.setText(spokenText)
+                    startPlaceAutocomplete(false, spokenText)
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+
+
         // Google Places SDK 초기화
         if (!Places.isInitialized()) {
             try {
@@ -195,6 +262,23 @@ class ProfileSetupActivity : AppCompatActivity() {
             isSettingHomeLocation = false
             requestLocationPermission()
         }
+
+        findViewById<ImageView>(R.id.btn_voice_home).setOnClickListener {
+            isHomeVoiceInput = true
+            startVoiceRecognition()
+        }
+
+        findViewById<ImageView>(R.id.btn_voice_work).setOnClickListener {
+            isHomeVoiceInput = false
+            startVoiceRecognition()
+        }
+
+        listeningHome = findViewById(R.id.layout_listening_home)
+        listeningWork = findViewById(R.id.layout_listening_work)
+
+        listeningHomeText = findViewById(R.id.text_listening_home)
+        listeningWorkText = findViewById(R.id.text_listening_work)
+
 
         // 프로필 이미지 클릭 → 다이얼로그(사진 찍기 / 갤러리)
         imgProfile.setOnClickListener { showImagePickerDialog() }
@@ -326,7 +410,7 @@ class ProfileSetupActivity : AppCompatActivity() {
                 progressDialog.dismiss()
                 if (doc.exists()) {
                     val nickname = doc.getString("nickname")
-                    val photoUrl = doc.getString("photoUrl")
+                    val profileImageUrl = doc.getString("profileImageUrl")
 
                     val homeMap = doc.get("homeLocation") as? Map<*, *>
                     val workMap = doc.get("workLocation") as? Map<*, *>
@@ -367,8 +451,8 @@ class ProfileSetupActivity : AppCompatActivity() {
                         )
                     }
 
-                    if (!photoUrl.isNullOrEmpty()) {
-                        Glide.with(this).load(photoUrl).circleCrop().into(imgProfile)
+                    if (!profileImageUrl.isNullOrEmpty()) {
+                        Glide.with(this).load(profileImageUrl).circleCrop().into(imgProfile)
                     }
 
                     btnSave.text = "프로필 수정 완료"
@@ -390,7 +474,7 @@ class ProfileSetupActivity : AppCompatActivity() {
 
     // ===================== Place 자동완성 =====================
 
-    private fun startPlaceAutocomplete(isHome: Boolean) {
+    private fun startPlaceAutocomplete(isHome: Boolean, initialQuery: String? = null) {
         try {
             val fields = listOf(
                 Place.Field.LAT_LNG,
@@ -399,10 +483,17 @@ class ProfileSetupActivity : AppCompatActivity() {
                 Place.Field.ID
             )
 
-            val intent = Autocomplete.IntentBuilder(
+            val builder = Autocomplete.IntentBuilder(
                 AutocompleteActivityMode.OVERLAY,
                 fields
-            ).build(this)
+            )
+
+            // ⭐ 음성 인식된 텍스트가 있으면 Google Places 검색창에 자동 입력
+            if (!initialQuery.isNullOrEmpty()) {
+                builder.setInitialQuery(initialQuery)
+            }
+
+            val intent = builder.build(this)
 
             if (isHome) {
                 homeAddressLauncher.launch(intent)
@@ -568,7 +659,7 @@ class ProfileSetupActivity : AppCompatActivity() {
         )
 
         if (imageUrl != null) {
-            userData["photoUrl"] = imageUrl   // 새 이미지 있을 때만 업데이트
+            userData["profileImageUrl"] = imageUrl    // 새 이미지 있을 때만 업데이트
         }
 
         if (firestoreHomeLocation != null) {
@@ -681,4 +772,57 @@ class ProfileSetupActivity : AppCompatActivity() {
             }
         }
     }
+
+    //음성인식 함수
+    private fun startVoiceRecognition() {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 5001)
+            return
+        }
+
+        speechRecognizer.startListening(sttIntent)
+
+    }
+
+    private var listeningAnimationActive = false
+
+    private fun startListeningAnimation() {
+        if (isHomeVoiceInput) {
+            listeningHome.visibility = View.VISIBLE
+            listeningWork.visibility = View.GONE
+        } else {
+            listeningWork.visibility = View.VISIBLE
+            listeningHome.visibility = View.GONE
+        }
+
+        val dots = listOf("", ".", "..", "...")
+        listeningAnimationActive = true
+
+        CoroutineScope(Dispatchers.Main).launch {
+            var index = 0
+            while (listeningAnimationActive) {
+                val text = "듣는 중" + dots[index % dots.size]
+
+                if (isHomeVoiceInput) listeningHomeText.text = text
+                else listeningWorkText.text = text
+
+                index++
+                delay(400)
+            }
+        }
+    }
+
+
+    private fun stopListeningAnimation() {
+        listeningAnimationActive = false
+        listeningHome.visibility = View.GONE
+        listeningWork.visibility = View.GONE
+    }
+
+
+
 }

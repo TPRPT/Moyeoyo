@@ -2,12 +2,12 @@ package com.moyeoyo.app.ui.groups
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.FriendRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -19,6 +19,7 @@ class SelectFriendsActivity : AppCompatActivity() {
 
     @Inject
     lateinit var friendRepository: FriendRepository
+
     private val selectedUids = mutableSetOf<String>()
 
     companion object {
@@ -61,16 +62,30 @@ class SelectFriendsActivity : AppCompatActivity() {
             val inflater = LayoutInflater.from(this@SelectFriendsActivity)
 
             friendUids.forEach { uid ->
-                val nickname = friendRepository.getUserNickname(uid)
+                val userData = friendRepository.getUserProfile(uid)
+
+                val nickname = userData?.get("nickname") as? String ?: uid.take(8)
+                val profileImageUrl = userData?.get("profileImageUrl") as? String   // 구글 사진
+                val photoUrl = userData?.get("photoUrl") as? String                 // 앱에서 설정한 사진
+
+                // 🔥 앱에서 업로드한 photoUrl 우선 적용
+                val imageUrl = photoUrl ?: profileImageUrl
+
                 val itemView = inflater.inflate(R.layout.item_friend_card, container, false)
 
-                val tvInitial = itemView.findViewById<TextView>(R.id.tvInitial)
+                val imgProfile = itemView.findViewById<ImageView>(R.id.imgProfile)
                 val tvName = itemView.findViewById<TextView>(R.id.tvName)
                 val tvUid = itemView.findViewById<TextView>(R.id.tvUid)
                 val checkbox = itemView.findViewById<CheckBox>(R.id.checkboxSelect)
 
-                tvInitial.text = (nickname ?: uid.take(1)).uppercase()
-                tvName.text = nickname ?: uid.take(8)
+                // 🔥 Glide로 이미지 로딩
+                Glide.with(this@SelectFriendsActivity)
+                    .load(imageUrl)
+                    .placeholder(R.drawable.default_user)
+                    .circleCrop()
+                    .into(imgProfile)
+
+                tvName.text = nickname
                 tvUid.text = uid.take(8)
 
                 checkbox.setOnCheckedChangeListener { _, isChecked ->

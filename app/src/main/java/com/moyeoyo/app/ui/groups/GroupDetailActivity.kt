@@ -59,7 +59,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 import com.moyeoyo.app.ui.groups.GroupManageActivity
-
+import com.moyeoyo.app.ui.groups.adapter.MemberUiModel
 
 
 @AndroidEntryPoint
@@ -744,26 +744,31 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
      */
     private fun displayMemberList(memberUids: List<String>, hostUid: String, isHost: Boolean) {
         lifecycleScope.launch {
-            val nicknames = memberUids.map { uid ->
-                async { uid to (friendRepository.getUserNickname(uid) ?: uid.take(8)) }
-            }.awaitAll()
+            val members = memberUids.map { uid ->
+                val profile = friendRepository.getUserProfile(uid)
+                MemberUiModel(
+                    uid = uid,
+                    nickname = profile?.get("nickname") as? String ?: uid.take(8),
+                    photoUrl = profile?.get("photoUrl") as? String
+                )
+            }
 
             val state = PendingMemberState(
-                members = nicknames,
+                members = members,
                 hostUid = hostUid,
                 isHost = isHost
             )
 
-            // 멤버 탭이 아직 초기화되지 않았다면 → 나중에 적용
             if (!isMemberTabInitialized || !this@GroupDetailActivity::recyclerMemberList.isInitialized) {
                 pendingMemberState = state
                 return@launch
             }
 
-            // 이미 탭이 준비된 상태라면 바로 적용
             applyMemberList(state)
         }
     }
+
+
 
     // ---------------------------
     //  멤버 리스트 실제 UI 반영
@@ -1042,7 +1047,7 @@ class GroupDetailActivity : AppCompatActivity(), OnMapReadyCallback {
 
 // 멤버 목록 상태를 저장하는 데이터 클래스
 private data class PendingMemberState(
-    val members: List<Pair<String, String>>, // (uid, nickname) 리스트
+    val members: List<MemberUiModel>, // (uid, nickname) 리스트
     val hostUid: String,
     val isHost: Boolean
 )
