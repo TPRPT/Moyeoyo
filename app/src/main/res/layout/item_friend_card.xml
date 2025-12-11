@@ -10,21 +10,14 @@
     app:cardCornerRadius="12dp">
 
     <LinearLayout
+        android:id="@+id/cardLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- 프로필 이미지 -->
-        <ImageView
-            android:id="@+id/imgProfile"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_user_placeholder"
-            android:background="@drawable/circle_background"/>
-        <!-- 이니셜 (이미지 없을 경우만 보이게) -->
+        <!-- 이니셜 (프로필 이미지 없을 경우 표시) -->
         <TextView
             android:id="@+id/tvInitial"
             android:layout_width="40dp"
@@ -34,7 +27,16 @@
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@color/black"
-            android:background="@drawable/bg_circle_gray"
+            android:background="@drawable/bg_circle_gray" />
+        
+        <!-- 프로필 이미지 (있을 경우 표시) -->
+        <ImageView
+            android:id="@+id/imgProfile"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_user_placeholder"
+            android:background="@drawable/circle_background"
             android:visibility="gone" />
 
         <!-- 이름 + UID -->
@@ -51,7 +53,7 @@
                 android:layout_height="wrap_content"
                 android:text="사용자 이름"
                 android:textStyle="bold"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textColor="@color/black" />
 
             <TextView

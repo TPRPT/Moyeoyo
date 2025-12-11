@@ -17,7 +17,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.local.saveMeetingToLocal
 import com.moyeoyo.app.data.model.NearbyPlace
-import com.moyeoyo.app.databinding.ActivityFinalVoteBinding
+import com.moyeoyo.app.databinding.FragmentFinalVoteBinding
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.widget.NextMeetingWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,7 +27,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class FinalVoteFragment : Fragment() {
 
-    private var _binding: ActivityFinalVoteBinding? = null
+    private var _binding: FragmentFinalVoteBinding? = null
     private val binding get() = _binding!!
     
     private val viewModel: FinalVoteViewModel by viewModels()
@@ -49,7 +49,7 @@ class FinalVoteFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityFinalVoteBinding.inflate(inflater, container, false)
+        _binding = FragmentFinalVoteBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -163,6 +163,7 @@ class FinalVoteFragment : Fragment() {
             if (success) {
                 android.util.Log.d("FinalVoteFragment", 
                     "✅ 투표 완료 - 승리 장소 결정은 ViewModel에서 처리됨")
+                // 투표 제출 완료 시 진동 피드백은 제거 (최종 확정 시에만 진동)
             }
         }
 
@@ -287,6 +288,9 @@ class FinalVoteFragment : Fragment() {
                 }
                 
                 android.util.Log.d("FinalVoteFragment", "✅ 모든 상태 업데이트 완료: 약속 확정됨")
+                
+                // 약속 최종 확정 시 강한 진동 피드백
+                com.moyeoyo.app.utils.VibrationHelper.strongVibration(requireContext())
                 
                 winningPlaceDialog = AlertDialog.Builder(requireContext())
                     .setTitle("최종 약속 장소 확정")

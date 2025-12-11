@@ -10,7 +10,7 @@
         android:id="@+id/mainFragment"
         android:name="com.moyeoyo.app.ui.main.MainFragment"
         android:label="Main"
-        tools:layout="@layout/activity_main">
+        tools:layout="@layout/fragment_main">
         <action
             android:id="@+id/action_mainFragment_to_profileSetupFragment"
             app:destination="@id/profileSetupFragment" />
@@ -45,20 +45,29 @@
         android:name="com.moyeoyo.app.ui.groups.CreateGroupFragment"
         android:label="Create Group">
         <action
-            android:id="@+id/action_createGroupFragment_to_selectFriendsFragment"
-            app:destination="@id/selectFriendsFragment" />
+            android:id="@+id/action_createGroupFragment_to_selectFriendsForGroupCreationFragment"
+            app:destination="@id/selectFriendsForGroupCreationFragment" />
         <action
             android:id="@+id/action_createGroupFragment_to_groupDetailFragment"
             app:destination="@id/groupDetailFragment" />
     </fragment>
     
     <fragment
+        android:id="@+id/selectFriendsForGroupCreationFragment"
+        android:name="com.moyeoyo.app.ui.groups.SelectFriendsForGroupCreationFragment"
+        android:label="Select Friends">
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+    </fragment>
+    
+    <fragment
         android:id="@+id/selectFriendsFragment"
         android:name="com.moyeoyo.app.ui.groups.SelectFriendsFragment"
         android:label="Select Friends">
-        <action
-            android:id="@+id/action_selectFriendsFragment_to_groupDetailFragment"
-            app:destination="@id/groupDetailFragment" />
+        <argument
+            android:name="groupId"
+            app:argType="string" />
     </fragment>
     
     <fragment
@@ -95,6 +104,12 @@
         <action
             android:id="@+id/action_groupDetailFragment_to_groupInviteFragment"
             app:destination="@id/groupInviteFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_recommendedPlaceFragment"
+            app:destination="@id/recommendedPlaceFragment" />
+        <action
+            android:id="@+id/action_groupDetailFragment_to_midpointFragment"
+            app:destination="@id/midpointFragment" />
     </fragment>
     
     <fragment

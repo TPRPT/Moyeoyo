@@ -95,8 +95,10 @@ class LocationInputFragment : Fragment() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_location_input, container, false)
+    ): View {
+        // ⭐ null을 반환하지 않도록 View를 반환
+        val view = inflater.inflate(R.layout.fragment_location_input, container, false)
+        return view
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -118,10 +120,30 @@ class LocationInputFragment : Fragment() {
 
         groupId = args.groupId
 
+        // ⭐ 처음 입장 시 UI 초기화 (선택된 위치 카드와 저장 버튼 숨김)
+        initializeUI()
+        
         setupViews()
         loadUserLocations()
         loadGroupInfo()
         startMonitoringInputLocations()
+        // ⭐ 처음 입장 시에는 저장된 위치 정보를 표시하지 않음 (사용자가 직접 선택해야 함)
+    }
+    
+    /**
+     * UI 초기 상태 설정 (선택된 위치 카드와 저장 버튼 숨김)
+     */
+    private fun initializeUI() {
+        val layoutSelected = rootView?.findViewById<View>(R.id.layout_selected_location)
+        val saveButton = rootView?.findViewById<android.widget.Button>(R.id.btn_save_location)
+        
+        layoutSelected?.visibility = View.GONE
+        saveButton?.visibility = View.GONE
+        
+        // 선택된 위치 정보 초기화
+        selectedLocation = null
+        selectedLocationType = null
+        selectedAddress = null
     }
 
     override fun onResume() {
@@ -266,7 +288,7 @@ class LocationInputFragment : Fragment() {
     }
 
     private fun getCurrentLocation() {
-        // 권한 체크
+        // ⭐ 권한 체크 (requestLocationPermission에서 이미 체크했지만 안전을 위해 다시 확인)
         if (ContextCompat.checkSelfPermission(
                 requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -286,27 +308,39 @@ class LocationInputFragment : Fragment() {
                 .addOnSuccessListener { location ->
                     if (location != null) {
                         val latLng = LatLng(location.latitude, location.longitude)
+                        Log.d("LocationInput", "현재 위치 가져오기 성공: lat=${latLng.latitude}, lng=${latLng.longitude}")
 
                         // CurrentLocationFragment로 Navigation
-                                findNavController().navigate(
-                                    R.id.currentLocationFragment,
-                                    Bundle().apply {
-                                        putFloat("lat", latLng.latitude.toFloat())
-                                        putFloat("lng", latLng.longitude.toFloat())
-                                        putBoolean("isHome", false) // home/work 여부는 여기선 의미 없음
-                                    }
-                                )
+                        findNavController().navigate(
+                            R.id.currentLocationFragment,
+                            Bundle().apply {
+                                putFloat("lat", latLng.latitude.toFloat())
+                                putFloat("lng", latLng.longitude.toFloat())
+                                putBoolean("isHome", false) // home/work 여부는 여기선 의미 없음
+                            }
+                        )
                     } else {
-                        Toast.makeText(requireContext(), "위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                        Log.w("LocationInput", "위치가 null입니다. 위치 서비스를 확인해주세요.")
+                        Toast.makeText(requireContext(), "위치를 가져올 수 없습니다. GPS를 켜고 잠시 후 다시 시도해주세요.", Toast.LENGTH_LONG).show()
                     }
                 }
                 .addOnFailureListener { e ->
-                    Log.e("LocationInput", "위치 가져오기 실패: ${e.message}")
-                    Toast.makeText(requireContext(), "위치를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    Log.e("LocationInput", "위치 가져오기 실패: ${e.message}", e)
+                    val errorMessage = when {
+                        e.message?.contains("Settings", ignoreCase = true) == true -> 
+                            "위치 서비스를 활성화해주세요."
+                        e.message?.contains("permission", ignoreCase = true) == true -> 
+                            "위치 권한이 필요합니다."
+                        else -> "위치를 가져올 수 없습니다. GPS를 켜고 잠시 후 다시 시도해주세요."
+                    }
+                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
                 }
         } catch (e: SecurityException) {
-            Log.e("LocationInput", "위치 권한 오류: ${e.message}")
+            Log.e("LocationInput", "위치 권한 오류: ${e.message}", e)
             Toast.makeText(requireContext(), "위치 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("LocationInput", "위치 가져오기 중 예외 발생: ${e.message}", e)
+            Toast.makeText(requireContext(), "위치를 가져오는 중 오류가 발생했습니다: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -544,7 +578,8 @@ class LocationInputFragment : Fragment() {
         val tvSelectedAddress = rootView?.findViewById<android.widget.TextView>(R.id.tv_selected_address)
         val saveButton = rootView?.findViewById<android.widget.Button>(R.id.btn_save_location)
 
-        if (selectedLocation != null) {
+        if (selectedLocation != null && selectedAddress != null) {
+            // ⭐ 위치와 주소가 모두 있을 때만 카드와 버튼 표시
             layoutSelected?.visibility = View.VISIBLE
             tvSelectedType?.text = when (selectedLocationType) {
                 "current" -> "현재 위치"
@@ -558,6 +593,7 @@ class LocationInputFragment : Fragment() {
             saveButton?.visibility = View.VISIBLE
             saveButton?.isEnabled = true
         } else {
+            // ⭐ 위치가 없거나 주소가 없으면 카드와 버튼 숨김
             layoutSelected?.visibility = View.GONE
             saveButton?.visibility = View.GONE
         }
@@ -681,7 +717,7 @@ class LocationInputFragment : Fragment() {
             val message = if (missingCount > 0) {
                 "⏳ 아직 ${missingCount}명의 그룹원이 위치를 입력하지 않았습니다. 모든 멤버가 위치를 입력하면 중간 지점을 계산할 수 있습니다."
             } else {
-                getString(R.string.location_input_waiting)
+                "⏳ 아직 그룹원이 위치를 입력하지 않았습니다"
             }
             infoTextView?.text = message
         }
@@ -771,6 +807,69 @@ class LocationInputFragment : Fragment() {
             searchBar?.alpha = 1f
             saveBtn?.isEnabled = true
             saveBtn?.alpha = 1f
+        }
+    }
+    
+    /**
+     * Firestore에서 저장된 위치 정보를 불러와서 UI에 표시
+     */
+    private fun loadSavedLocation() {
+        val currentUser = auth.currentUser ?: return
+        if (groupId.isEmpty() || rootView == null) return
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val locationDoc = firestore.collection("groups")
+                    .document(groupId)
+                    .collection("inputLocations")
+                    .document(currentUser.uid)
+                    .get()
+                    .await()
+                
+                if (locationDoc.exists()) {
+                    val data = locationDoc.data ?: return@launch
+                    
+                    val lat: Double?
+                    val lng: Double?
+                    
+                    when (val latLngValue = data["latLng"]) {
+                        is GeoPoint -> {
+                            lat = latLngValue.latitude
+                            lng = latLngValue.longitude
+                        }
+                        is Map<*, *> -> {
+                            lat = (latLngValue["lat"] as? Number)?.toDouble()
+                                ?: (latLngValue["latitude"] as? Number)?.toDouble()
+                            lng = (latLngValue["lng"] as? Number)?.toDouble()
+                                ?: (latLngValue["longitude"] as? Number)?.toDouble()
+                        }
+                        else -> {
+                            lat = (data["latitude"] as? Number)?.toDouble()
+                            lng = (data["longitude"] as? Number)?.toDouble()
+                        }
+                    }
+                    
+                    if (lat != null && lng != null) {
+                        val label = data["label"] as? String ?: ""
+                        
+                        withContext(Dispatchers.Main) {
+                            selectedLocation = LatLng(lat, lng)
+                            selectedAddress = label.ifBlank { "저장된 위치" }
+                            selectedLocationType = when {
+                                label.contains("집") || label.contains("home", ignoreCase = true) -> "home"
+                                label.contains("회사") || label.contains("work", ignoreCase = true) -> "work"
+                                label.contains("현재 위치") || label.contains("current", ignoreCase = true) -> "current"
+                                else -> "search"
+                            }
+                            
+                            updateSelectedLocationUI()
+                            Log.d("LocationInput", "✅ 저장된 위치 정보 복원: $selectedAddress")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("LocationInput", "저장된 위치 정보 로드 실패: ${e.message}")
+            }
         }
     }
 }

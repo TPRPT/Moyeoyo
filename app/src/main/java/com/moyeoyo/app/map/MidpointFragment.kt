@@ -31,7 +31,7 @@ import com.moyeoyo.app.data.model.DistanceResult
 import com.moyeoyo.app.data.model.InputLocation
 import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.TransportMode
-import com.moyeoyo.app.databinding.ActivityMidpointBinding
+import com.moyeoyo.app.databinding.FragmentMidpointBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.moyeoyo.app.data.repository.GroupRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -47,7 +47,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MidpointFragment : Fragment(), OnMapReadyCallback {
 
-    private var _binding: ActivityMidpointBinding? = null
+    private var _binding: FragmentMidpointBinding? = null
     private val binding get() = _binding!!
     private val viewModel: MapViewModel by viewModels()
     private lateinit var adapter: MemberDistanceAdapter
@@ -65,7 +65,7 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityMidpointBinding.inflate(inflater, container, false)
+        _binding = FragmentMidpointBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -90,7 +90,22 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
         observe()
 
         // 중간 지점 계산 모드로 시작
+        // ⭐ 항상 멤버를 다시 로드하여 상태 복원 (중간값 계산 완료 후 다시 접근 시 빈 화면 방지)
         viewModel.loadGroupMembers(groupId)
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // ⭐ Fragment가 다시 나타날 때 상태 확인 및 복원
+        val groupId = args.groupId
+        val currentState = viewModel.state.value
+        
+        // 상태가 비어있거나 중간값이 없는 경우 다시 로드
+        if (currentState == null || 
+            (currentState.members.isEmpty() && currentState.weightedCenter == null)) {
+            android.util.Log.d("MidpointFragment", "상태 복원: 멤버 및 중간값 다시 로드")
+            viewModel.loadGroupMembers(groupId)
+        }
     }
 
     override fun onDestroyView() {

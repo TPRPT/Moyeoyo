@@ -20,7 +20,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.TimeVoteRepository
-import com.moyeoyo.app.databinding.ActivityTimeVoteBinding
+import com.moyeoyo.app.databinding.FragmentTimeVoteBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
+import kotlin.math.sqrt
+import kotlin.math.pow
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -38,7 +40,7 @@ class TimeVoteFragment : Fragment() {
     private val args: TimeVoteFragmentArgs by navArgs()
     private val groupId: String get() = args.groupId
 
-    private var _binding: ActivityTimeVoteBinding? = null
+    private var _binding: FragmentTimeVoteBinding? = null
     private val binding get() = _binding!!
 
     @Inject lateinit var timeVoteRepository: TimeVoteRepository
@@ -60,12 +62,19 @@ class TimeVoteFragment : Fragment() {
     // 모든 멤버 투표 완료 확인 플래그 (중복 화면 전환 방지)
     private var hasNavigatedToFinalVote = false
 
+    // 사용자가 이미 투표했는지 확인하는 플래그
+    private var hasVoted = false
+
+    // 드래그 중 처리된 버튼 추적 (깜빡임 방지)
+    private val processedButtonsDuringDrag = mutableSetOf<MaterialButton>()
+    private var dragStartState: Boolean? = null // 드래그 시작 시점의 선택 상태
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityTimeVoteBinding.inflate(inflater, container, false)
+        _binding = FragmentTimeVoteBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -90,14 +99,12 @@ class TimeVoteFragment : Fragment() {
         // 초기화 시 모든 날짜에 대해 모든 멤버 투표 완료 확인
         viewLifecycleOwner.lifecycleScope.launch {
             checkAllDatesVoted()
+            // 사용자가 이미 투표했는지 확인
+            checkUserVotedStatus()
         }
 
-        // 스크롤뷰 설정 & 드래그 리스너
+        // 스크롤뷰 설정
         binding.scrollViewTimeSlots.isNestedScrollingEnabled = false
-        binding.scrollViewTimeSlots.setOnTouchListener { _, event ->
-            handleDragSelect(event)
-            true
-        }
     }
 
     override fun onDestroyView() {
@@ -113,42 +120,165 @@ class TimeVoteFragment : Fragment() {
 
     // ----------------------- 드래그 선택 -----------------------
 
+    private var isDragging = false
+    private var initialDragSelectionState: Boolean? = null // 드래그 시작 시 첫 버튼의 선택 상태
+    private var firstButtonInDrag: MaterialButton? = null // 드래그 시작 버튼
+
     private fun handleDragSelect(event: MotionEvent) {
+        // 이미 투표를 완료한 경우 드래그 비활성화
+        if (hasVoted) return
+
         binding.scrollViewTimeSlots.requestDisallowInterceptTouchEvent(true)
 
         val x = event.rawX.toInt()
         val y = event.rawY.toInt()
 
         when (event.action) {
-            MotionEvent.ACTION_DOWN,
-            MotionEvent.ACTION_MOVE -> {
+            MotionEvent.ACTION_DOWN -> {
+                // ACTION_DOWN에서는 첫 버튼의 상태만 기록 (선택하지 않음)
+                initialDragSelectionState = null
+                processedButtonsDuringDrag.clear()
+                firstButtonInDrag = null
+                
+                // 드래그 시작 지점의 버튼 찾기
                 timeButtons.forEach { button ->
                     val rect = Rect()
                     button.getGlobalVisibleRect(rect)
-
                     if (rect.contains(x, y)) {
-                        selectTimeSlot(button)
+                        // 드래그 시작 시 첫 버튼의 상태를 기억
+                        initialDragSelectionState = button.tag as? Boolean == true
+                        firstButtonInDrag = button
+                        processedButtonsDuringDrag.add(button)
+                        return@forEach
                     }
                 }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // ACTION_MOVE에서 드래그 시작
+                if (!isDragging && initialDragSelectionState != null && firstButtonInDrag != null) {
+                    isDragging = true
+                    // 드래그 시작 시 첫 버튼을 선택 상태로 변경 (드래그 시작점 표시)
+                    val shouldSelect = !initialDragSelectionState!!
+                    val currentState = firstButtonInDrag!!.tag as? Boolean == true
+                    if (shouldSelect != currentState) {
+                        selectTimeSlotForDrag(firstButtonInDrag!!, shouldSelect)
+                    }
+                }
+                
+                if (!isDragging) return
+                
+                // 드래그 중: 터치 위치에 있는 버튼 처리
+                timeButtons.forEach { button ->
+                    val rect = Rect()
+                    button.getGlobalVisibleRect(rect)
+                    
+                    if (rect.contains(x, y)) {
+                        // 이미 처리된 버튼이면 건너뛰기 (중복 처리 방지)
+                        if (button in processedButtonsDuringDrag) {
+                            return@forEach
+                        }
+                        
+                        // 드래그 시작 상태에 따라 선택/해제 결정
+                        val shouldSelect = initialDragSelectionState == false
+                        val currentState = button.tag as? Boolean == true
+                        
+                        // 원하는 상태와 현재 상태가 다를 때만 변경
+                        if (shouldSelect != currentState) {
+                            selectTimeSlotForDrag(button, shouldSelect)
+                        }
+                        processedButtonsDuringDrag.add(button)
+                    }
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                // 드래그가 아니었고 첫 버튼이 변경되었다면 원래 상태로 되돌림
+                if (!isDragging && firstButtonInDrag != null && initialDragSelectionState != null) {
+                    val currentState = firstButtonInDrag!!.tag as? Boolean == true
+                    val originalState = initialDragSelectionState!!
+                    if (currentState != originalState) {
+                        // 원래 상태로 되돌림
+                        selectTimeSlotForDrag(firstButtonInDrag!!, originalState)
+                    }
+                }
+                
+                isDragging = false
+                initialDragSelectionState = null
+                processedButtonsDuringDrag.clear()
+                firstButtonInDrag = null
+                binding.scrollViewTimeSlots.requestDisallowInterceptTouchEvent(false)
             }
         }
     }
 
     private fun selectTimeSlot(button: MaterialButton) {
+        // 이미 투표를 완료한 경우 드래그 선택 비활성화
+        if (hasVoted) return
+
         // ⚠️ tag를 Boolean으로 안전하게 캐스팅
         val isAlreadySelected = button.tag as? Boolean == true
-        if (isAlreadySelected) return  // 이미 선택된 버튼이면 무시
+        val time = button.text.toString()
+        val dateStr = dateFormat.format(selectedDate)
+
+        // ViewModel의 장바구니에 추가/제거 (토글)
+        viewModel.toggleTimeSelection(dateStr, time)
+
+        // 선택 상태 토글
+        val newSelectedState = !isAlreadySelected
+        button.tag = newSelectedState
+        
+        if (newSelectedState) {
+            button.backgroundTintList =
+                ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
+            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+        } else {
+            button.backgroundTintList =
+                ContextCompat.getColorStateList(requireContext(), R.color.white)
+            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+        }
+
+        updateButtonState()
+    }
+
+    /**
+     * 드래그 중에 특정 상태로 설정하는 함수
+     */
+    private fun selectTimeSlotForDrag(button: MaterialButton, shouldSelect: Boolean) {
+        // 이미 투표를 완료한 경우 드래그 선택 비활성화
+        if (hasVoted) return
+
+        val currentState = button.tag as? Boolean == true
+        
+        // 이미 원하는 상태면 변경하지 않음
+        if (currentState == shouldSelect) return
 
         val time = button.text.toString()
         val dateStr = dateFormat.format(selectedDate)
 
-        // ViewModel의 장바구니에 추가
-        viewModel.toggleTimeSelection(dateStr, time)
+        // ViewModel의 장바구니에 추가/제거
+        if (shouldSelect) {
+            // 선택되지 않은 상태에서 선택으로 변경
+            if (!currentState) {
+                viewModel.toggleTimeSelection(dateStr, time)
+            }
+        } else {
+            // 선택된 상태에서 해제로 변경
+            if (currentState) {
+                viewModel.toggleTimeSelection(dateStr, time)
+            }
+        }
 
-        button.tag = true
-        button.backgroundTintList =
-            ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
-        button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+        // 선택 상태 설정
+        button.tag = shouldSelect
+        
+        if (shouldSelect) {
+            button.backgroundTintList =
+                ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
+            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+        } else {
+            button.backgroundTintList =
+                ContextCompat.getColorStateList(requireContext(), R.color.white)
+            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+        }
 
         updateButtonState()
     }
@@ -158,6 +288,17 @@ class TimeVoteFragment : Fragment() {
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
+        }
+        
+        // 툴바 메뉴 아이템 클릭 리스너
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.menu_reset -> {
+                    handleResetClick()
+                    true
+                }
+                else -> false
+            }
         }
     }
 
@@ -195,6 +336,11 @@ class TimeVoteFragment : Fragment() {
 
         // 주 변경 시 모든 날짜 관찰 다시 시작 (Firestore에서 현재 주 데이터 로드)
         observeFirestoreVotes()
+        
+        // 주 변경 시 사용자 투표 상태 확인
+        viewLifecycleOwner.lifecycleScope.launch {
+            checkUserVotedStatus()
+        }
     }
 
     private fun updateWeekTitle() {
@@ -316,7 +462,11 @@ class TimeVoteFragment : Fragment() {
                     setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
                 }
 
+                // 클릭 리스너로 단순 터치 처리
                 setOnClickListener {
+                    // 이미 투표를 완료한 경우 클릭 비활성화
+                    if (hasVoted) return@setOnClickListener
+
                     val wasSelected = tag as Boolean
                     // ViewModel의 장바구니에 추가/제거
                     viewModel.toggleTimeSelection(dateStr, time)
@@ -343,6 +493,61 @@ class TimeVoteFragment : Fragment() {
                     }
                     updateButtonState()
                 }
+                
+                // 터치 리스너로 드래그 처리
+                var touchStartX = 0f
+                var touchStartY = 0f
+                var isDraggingTouch = false
+                
+                setOnTouchListener { v, event ->
+                    if (hasVoted) {
+                        false
+                    } else {
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN -> {
+                                touchStartX = event.rawX
+                                touchStartY = event.rawY
+                                isDraggingTouch = false
+                                // 드래그 핸들러에 ACTION_DOWN 전달 (상태만 기록)
+                                handleDragSelect(event)
+                                // true를 반환하여 터치 이벤트를 소비 (드래그를 위해)
+                                true
+                            }
+                            MotionEvent.ACTION_MOVE -> {
+                                val touchDistance = sqrt(
+                                    (event.rawX - touchStartX).pow(2) + (event.rawY - touchStartY).pow(2)
+                                )
+                                // 이동 거리가 일정 이상이면 드래그로 판단
+                                if (touchDistance > 20) {
+                                    if (!isDraggingTouch) {
+                                        isDraggingTouch = true
+                                        // 드래그 시작
+                                        isDragging = true
+                                    }
+                                    // 드래그 핸들러에 이벤트 전달
+                                    handleDragSelect(event)
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                // 드래그였다면 드래그 종료 처리
+                                if (isDraggingTouch) {
+                                    handleDragSelect(event)
+                                    true
+                                } else {
+                                    // 드래그가 아니었으면 드래그 핸들러에 ACTION_UP 전달하여 원래 상태로 되돌림
+                                    handleDragSelect(event)
+                                    // 클릭 리스너를 직접 호출하여 처리
+                                    performClick()
+                                    true
+                                }
+                            }
+                            else -> false
+                        }
+                    }
+                }
             }
 
             grid.addView(button)
@@ -351,6 +556,11 @@ class TimeVoteFragment : Fragment() {
 
         // 버튼 상태 업데이트
         updateButtonState()
+        
+        // 이미 투표한 경우 버튼 비활성화
+        if (hasVoted) {
+            disableTimeButtons()
+        }
     }
 
     // ----------------------- Firestore 연동 -----------------------
@@ -465,6 +675,15 @@ class TimeVoteFragment : Fragment() {
     // ----------------------- 하단 버튼 -----------------------
 
     private fun updateButtonState() {
+        // 이미 투표를 완료한 경우 버튼 비활성화
+        if (hasVoted) {
+            binding.btnCompleteVote.text = "저장 완료"
+            binding.btnCompleteVote.isEnabled = false
+            binding.btnCompleteVote.backgroundTintList =
+                ContextCompat.getColorStateList(requireContext(), R.color.light_gray)
+            return
+        }
+
         // ViewModel의 장바구니에서 모든 날짜의 선택된 시간 개수 계산
         val pendingSelections = viewModel.pendingSelections.value
         val totalCount = pendingSelections.values.sumOf { it.size }
@@ -485,7 +704,125 @@ class TimeVoteFragment : Fragment() {
             )
     }
 
+    /**
+     * 사용자가 이미 투표했는지 확인
+     */
+    private suspend fun checkUserVotedStatus() {
+        val uid = auth.currentUser?.uid ?: return
+
+        try {
+            // 현재 주의 모든 날짜 확인
+            val tempCal = calendar.clone() as Calendar
+            tempCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+
+            for (i in 0 until 7) {
+                val dateStr = dateFormat.format(tempCal.time)
+                val votes = timeVoteRepository.getVotes(groupId, dateStr)
+                
+                // 사용자가 이 날짜에 투표했는지 확인
+                val userVoted = votes.values.any { it.contains(uid) }
+                if (userVoted) {
+                    hasVoted = true
+                    android.util.Log.d("TimeVoteFragment", "✅ 사용자가 이미 투표함: $dateStr")
+                    break
+                }
+                tempCal.add(Calendar.DAY_OF_MONTH, 1)
+            }
+
+            // UI 업데이트
+            if (hasVoted) {
+                // 기존 투표 값을 ViewModel에 로드
+                loadExistingVotes()
+                // 버튼 상태 업데이트
+                updateButtonState()
+                // 시간 버튼 비활성화
+                disableTimeButtons()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TimeVoteFragment", "투표 상태 확인 중 오류: ${e.message}", e)
+        }
+    }
+
+    /**
+     * 기존 투표 값을 ViewModel에 로드
+     */
+    private suspend fun loadExistingVotes() {
+        val uid = auth.currentUser?.uid ?: return
+
+        try {
+            val tempCal = calendar.clone() as Calendar
+            tempCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+
+            for (i in 0 until 7) {
+                val dateStr = dateFormat.format(tempCal.time)
+                val votes = timeVoteRepository.getVotes(groupId, dateStr)
+                
+                // 사용자가 투표한 시간 찾기
+                votes.forEach { (time, voters) ->
+                    if (voters.contains(uid)) {
+                        // 시간 형식 변환: "14:00" -> "14시"
+                        val timeDisplay = time.split(":")[0].toIntOrNull()?.let { "${it}시" } ?: return@forEach
+                        // ViewModel에 추가
+                        viewModel.toggleTimeSelection(dateStr, timeDisplay)
+                    }
+                }
+                tempCal.add(Calendar.DAY_OF_MONTH, 1)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TimeVoteFragment", "기존 투표 로드 중 오류: ${e.message}", e)
+        }
+    }
+
+    /**
+     * 시간 버튼 비활성화
+     */
+    private fun disableTimeButtons() {
+        timeButtons.forEach { button ->
+            button.isEnabled = false
+            button.alpha = 0.6f // 약간 투명하게 표시
+        }
+    }
+
+    /**
+     * 초기화 버튼 클릭 처리
+     */
+    private fun handleResetClick() {
+        // 이미 투표를 완료한 경우 초기화 비활성화
+        if (hasVoted) {
+            Toast.makeText(requireContext(), "이미 저장된 투표는 초기화할 수 없습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val pendingSelections = viewModel.pendingSelections.value
+        val totalCount = pendingSelections.values.sumOf { it.size }
+
+        if (totalCount == 0) {
+            Toast.makeText(requireContext(), "초기화할 선택 항목이 없습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 확인 다이얼로그 표시
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("선택 초기화")
+            .setMessage("선택한 모든 시간을 초기화하시겠습니까?")
+            .setPositiveButton("초기화") { _, _ ->
+                // ViewModel의 장바구니 초기화
+                viewModel.clearPendingSelections()
+                
+                // 현재 선택된 날짜의 그리드 UI 업데이트
+                setupTimeGrid()
+                
+                // 버튼 상태 업데이트
+                updateButtonState()
+                
+                Toast.makeText(requireContext(), "선택이 초기화되었습니다.", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
     private fun setupButton() {
+        // 저장 버튼
         binding.btnCompleteVote.setOnClickListener {
             // ViewModel의 장바구니에서 모든 날짜의 선택된 시간 확인
             val pendingSelections = viewModel.pendingSelections.value
@@ -566,6 +903,11 @@ class TimeVoteFragment : Fragment() {
                     "${dateCount}개 날짜의 시간이 저장되었습니다 ✅",
                     Toast.LENGTH_SHORT
                 ).show()
+
+                // 저장 완료 후 투표 상태 업데이트
+                hasVoted = true
+                disableTimeButtons()
+                updateButtonState()
 
                 // Firestore 동기화를 위해 잠시 대기 (1초)
                 delay(1000)
@@ -657,11 +999,52 @@ class TimeVoteFragment : Fragment() {
     }
 
     /**
-     * 화면에 대기 메시지 표시
+     * 화면에 대기 메시지 표시 (미투표 멤버 수 포함)
      */
     private fun showWaitingMessageOnScreen() {
-        binding.tvWaitingMessage.visibility = View.VISIBLE
-        android.util.Log.d("TimeVoteFragment", "화면에 대기 메시지 표시")
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val group = groupRepository.getGroupDetail(groupId)
+                val memberUids = group?.memberUids ?: emptyList()
+                
+                if (memberUids.isEmpty()) {
+                    binding.tvWaitingMessage.visibility = View.VISIBLE
+                    binding.tvWaitingMessage.text = "⏳ 아직 그룹원이 시간 투표를 완료하지 않았습니다"
+                    return@launch
+                }
+                
+                // 현재 주의 모든 날짜에서 투표한 멤버 확인
+                val tempCal = calendar.clone() as Calendar
+                tempCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                
+                val votedMembers = mutableSetOf<String>()
+                for (i in 0 until 7) {
+                    val dateStr = dateFormat.format(tempCal.time)
+                    val votes = timeVoteRepository.getVotes(groupId, dateStr)
+                    votes.values.forEach { voters ->
+                        votedMembers.addAll(voters)
+                    }
+                    tempCal.add(Calendar.DAY_OF_MONTH, 1)
+                }
+                
+                val missingUids = memberUids.filter { it !in votedMembers }
+                val missingCount = missingUids.size
+                
+                val message = if (missingCount > 0) {
+                    "⏳ 아직 ${missingCount}명의 그룹원이 시간 투표를 완료하지 않았습니다. 모든 멤버가 시간 투표를 완료하면 다음 단계로 진행할 수 있습니다."
+                } else {
+                    "⏳ 아직 그룹원이 시간 투표를 완료하지 않았습니다"
+                }
+                
+                binding.tvWaitingMessage.text = message
+                binding.tvWaitingMessage.visibility = View.VISIBLE
+                android.util.Log.d("TimeVoteFragment", "화면에 대기 메시지 표시: $message")
+            } catch (e: Exception) {
+                android.util.Log.e("TimeVoteFragment", "대기 메시지 업데이트 중 오류: ${e.message}", e)
+                binding.tvWaitingMessage.visibility = View.VISIBLE
+                binding.tvWaitingMessage.text = "⏳ 아직 그룹원이 시간 투표를 완료하지 않았습니다"
+            }
+        }
     }
 
     /**

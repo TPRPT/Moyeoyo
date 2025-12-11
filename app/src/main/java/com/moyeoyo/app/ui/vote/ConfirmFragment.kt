@@ -26,7 +26,7 @@ import com.google.android.gms.common.GooglePlayServicesNotAvailableException
 import com.google.android.material.snackbar.Snackbar
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.GroupRepository
-import com.moyeoyo.app.databinding.ActivityConfirmBinding
+import com.moyeoyo.app.databinding.FragmentConfirmBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -39,7 +39,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class ConfirmFragment : Fragment() {
 
-    private var _binding: ActivityConfirmBinding? = null
+    private var _binding: FragmentConfirmBinding? = null
     private val binding get() = _binding!!
     
     @Inject
@@ -72,7 +72,7 @@ class ConfirmFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityConfirmBinding.inflate(inflater, container, false)
+        _binding = FragmentConfirmBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -239,6 +239,8 @@ class ConfirmFragment : Fragment() {
             )
 
             if (success) {
+                // 약속 확정 시 강한 진동 피드백
+                com.moyeoyo.app.utils.VibrationHelper.strongVibration(requireContext())
 
                 // ⭐ Room 저장 추가
                 saveMeetingToLocal(

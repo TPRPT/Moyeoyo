@@ -16,45 +16,35 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.setFragmentResultListener
-import androidx.fragment.app.viewModels
-import androidx.lifecycle.lifecycleScope
-import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.Timestamp
 import com.google.firebase.storage.FirebaseStorage
+import androidx.lifecycle.lifecycleScope
 import com.moyeoyo.app.R
-import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.groups.adapter.GroupPhotoAdapter
-import com.moyeoyo.app.ui.groups.adapter.MemberListAdapter
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.*
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MemberTabFragment : Fragment() {
+class PhotoTabFragment : Fragment() {
 
     private val groupId: String by lazy {
         arguments?.getString("groupId") ?: ""
     }
 
     @Inject lateinit var groupRepository: GroupRepository
-    @Inject lateinit var friendRepository: FriendRepository
 
-    private lateinit var recyclerMemberList: RecyclerView
-    private lateinit var btnInviteMember: View
     private lateinit var recyclerPhotos: RecyclerView
+    private lateinit var btnAddPhoto: View
     private lateinit var photoAdapter: GroupPhotoAdapter
     private lateinit var progressDialog: ProgressDialog
 
@@ -101,31 +91,14 @@ class MemberTabFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.view_member_tab, container, false)
+        return inflater.inflate(R.layout.view_photo_tab, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        recyclerMemberList = view.findViewById(R.id.recyclerMemberList)
-        recyclerMemberList.layoutManager = LinearLayoutManager(requireContext())
-
-        btnInviteMember = view.findViewById(R.id.btnInviteMember)
-        btnInviteMember.setOnClickListener {
-            navigateToSelectFriends()
-        }
-        
-        // 친구 선택 결과 리스너 설정
-        setFragmentResultListener(SelectFriendsFragment.RESULT_KEY) { _, bundle ->
-            val selected = bundle.getStringArrayList(SelectFriendsFragment.EXTRA_SELECTED_UIDS)
-            val selectedUids = selected?.toList() ?: emptyList()
-            if (selectedUids.isNotEmpty()) {
-                addMembersToGroup(selectedUids)
-            }
-        }
-
-        // 사진 관련 초기화
         recyclerPhotos = view.findViewById(R.id.recyclerPhotos)
+        btnAddPhoto = view.findViewById(R.id.btnAddPhoto)
 
         progressDialog = ProgressDialog(requireContext()).apply {
             setMessage("사진 업로드 중...")
@@ -133,7 +106,13 @@ class MemberTabFragment : Fragment() {
         }
 
         // 그리드 레이아웃 설정 (3열)
-        recyclerPhotos.layoutManager = GridLayoutManager(requireContext(), 3)
+        recyclerPhotos.layoutManager = GridLayoutManager(requireContext(), 3).apply {
+            spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                override fun getSpanSize(position: Int): Int {
+                    return if (position == 0) 3 else 1 // 첫 번째 항목(업로드 버튼)은 전체 너비
+                }
+            }
+        }
 
         val currentUser = auth.currentUser
         photoAdapter = GroupPhotoAdapter(
@@ -150,111 +129,12 @@ class MemberTabFragment : Fragment() {
         )
         recyclerPhotos.adapter = photoAdapter
 
-        loadMemberList()
+        btnAddPhoto.setOnClickListener {
+            showImagePickerDialog()
+        }
+
         loadPhotos()
     }
-
-    private fun loadMemberList() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val group = groupRepository.getGroupById(groupId)
-            if (group != null) {
-                val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-                val isHost = group.hostUid == currentUid
-                
-                // 투표 시작 여부 확인 (status가 GROUP_CREATED가 아니면 투표 시작됨)
-                val isVotingStarted = group.status != null && group.status != "GROUP_CREATED"
-
-                val nicknames = group.memberUids.map { uid ->
-                    async { uid to (friendRepository.getUserNickname(uid) ?: uid.take(8)) }
-                }.awaitAll()
-
-                recyclerMemberList.adapter = MemberListAdapter(
-                    nicknames,
-                    group.hostUid,
-                    currentUid,
-                    isHost,
-                    isVotingStarted,
-                    onKick = { uid, name ->
-                        showKickConfirmationDialog(uid, name)
-                    },
-                    onLeave = {
-                        showLeaveGroupConfirmationDialog()
-                    }
-                )
-                
-                // 초대 버튼 상태 업데이트
-                if (isVotingStarted) {
-                    btnInviteMember.alpha = 0.5f
-                    btnInviteMember.isEnabled = false
-                } else {
-                    btnInviteMember.alpha = 1.0f
-                    btnInviteMember.isEnabled = true
-                }
-            }
-        }
-    }
-
-    private fun showKickConfirmationDialog(uid: String, nickname: String) {
-        androidx.appcompat.app.AlertDialog.Builder(requireContext())
-            .setTitle("강퇴")
-            .setMessage("${nickname} 님을 강퇴할까요?")
-            .setPositiveButton("강퇴") { _, _ ->
-                viewLifecycleOwner.lifecycleScope.launch {
-                    if (groupRepository.removeMember(groupId, uid)) {
-                        Toast.makeText(requireContext(), "강퇴 완료", Toast.LENGTH_SHORT).show()
-                        loadMemberList()
-                    }
-                }
-            }
-            .setNegativeButton("취소", null)
-            .show()
-    }
-
-    private fun showLeaveGroupConfirmationDialog() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val group = groupRepository.getGroupById(groupId)
-            val groupName = group?.groupName ?: "그룹"
-            
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("그룹 나가기")
-                .setMessage("'$groupName' 그룹을 나가시겠습니까?")
-                .setPositiveButton("나가기") { _, _ ->
-                    viewLifecycleOwner.lifecycleScope.launch {
-                        if (groupRepository.leaveGroup(groupId)) {
-                            Toast.makeText(requireContext(), "그룹을 나왔습니다.", Toast.LENGTH_SHORT).show()
-                            findNavController().navigateUp()
-                        } else {
-                            Toast.makeText(requireContext(), "그룹 나가기에 실패했습니다.", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-                .setNegativeButton("취소", null)
-                .show()
-        }
-    }
-
-    private fun navigateToSelectFriends() {
-        findNavController().navigate(
-            R.id.selectFriendsFragment,
-            Bundle().apply {
-                putString("groupId", groupId)
-            }
-        )
-    }
-    
-    private fun addMembersToGroup(friendUids: List<String>) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val success = groupRepository.addMembersToGroup(groupId, friendUids)
-            if (success) {
-                Toast.makeText(requireContext(), "멤버가 추가되었습니다.", Toast.LENGTH_SHORT).show()
-                loadMemberList() // 멤버 목록 새로고침
-            } else {
-                Toast.makeText(requireContext(), "멤버 추가에 실패했습니다.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    // ===================== 사진 관련 함수 =====================
 
     private fun showImagePickerDialog() {
         val options = arrayOf("사진 찍기", "갤러리에서 선택", "취소")
@@ -361,7 +241,32 @@ class MemberTabFragment : Fragment() {
         }
     }
 
-    private fun showPhotoViewer(photo: PhotoTabFragment.GroupPhoto) {
+    private fun loadPhotos() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val photosSnapshot = firestore.collection("groups").document(groupId)
+                    .collection("photos")
+                    .orderBy("uploadedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .get()
+                    .await()
+
+                val photos = photosSnapshot.documents.map { doc ->
+                    GroupPhoto(
+                        photoId = doc.getString("photoId") ?: doc.id,
+                        url = doc.getString("url") ?: "",
+                        uploadedBy = doc.getString("uploadedBy") ?: "",
+                        uploadedAt = doc.getTimestamp("uploadedAt")?.toDate() ?: Date()
+                    )
+                }
+
+                photoAdapter.submitList(photos)
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "사진 불러오기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showPhotoViewer(photo: GroupPhoto) {
         val rootView = requireActivity().window.decorView.rootView as? android.view.ViewGroup
             ?: return
         
@@ -411,7 +316,7 @@ class MemberTabFragment : Fragment() {
         rootView.addView(overlayView)
     }
 
-    private fun downloadPhoto(photo: PhotoTabFragment.GroupPhoto) {
+    private fun downloadPhoto(photo: GroupPhoto) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 // 이미지를 바이트 배열로 다운로드
@@ -459,34 +364,7 @@ class MemberTabFragment : Fragment() {
         }
     }
 
-    private fun loadPhotos() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val photosSnapshot = firestore.collection("groups").document(groupId)
-                    .collection("photos")
-                    .orderBy("uploadedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                    .get()
-                    .await()
-
-                val photos = photosSnapshot.documents.map { doc ->
-                    PhotoTabFragment.GroupPhoto(
-                        photoId = doc.getString("photoId") ?: doc.id,
-                        url = doc.getString("url") ?: "",
-                        uploadedBy = doc.getString("uploadedBy") ?: "",
-                        uploadedAt = doc.getTimestamp("uploadedAt")?.toDate() ?: Date()
-                    )
-                }
-
-                photoAdapter.submitList(photos)
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "사진 불러오기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-
-
-    private fun deletePhoto(photo: PhotoTabFragment.GroupPhoto) {
+    private fun deletePhoto(photo: GroupPhoto) {
         val currentUser = auth.currentUser
         if (currentUser?.uid != photo.uploadedBy) {
             Toast.makeText(requireContext(), "본인이 업로드한 사진만 삭제할 수 있습니다.", Toast.LENGTH_SHORT).show()
@@ -520,5 +398,12 @@ class MemberTabFragment : Fragment() {
             .setNegativeButton("취소", null)
             .show()
     }
+
+    data class GroupPhoto(
+        val photoId: String,
+        val url: String,
+        val uploadedBy: String,
+        val uploadedAt: Date
+    )
 }
 

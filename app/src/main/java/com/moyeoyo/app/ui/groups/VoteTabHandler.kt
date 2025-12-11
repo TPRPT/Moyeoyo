@@ -693,6 +693,10 @@ class VoteTabHandler(
                     if (updateResult.isSuccess) {
                         // 4. 모든 서버 작업이 성공적으로 끝난 후에만! 콜백을 통해 화면 전환을 요청
                         android.util.Log.d("VoteTabHandler", "✅ 모든 상태 업데이트 완료, 화면 전환 요청")
+                        
+                        // 시간 확정 시 진동 피드백
+                        com.moyeoyo.app.utils.VibrationHelper.strongVibration(fragment.requireContext())
+                        
                         Toast.makeText(fragment.requireContext(), "최종 시간이 확정되었습니다 ✅", Toast.LENGTH_SHORT).show()
                         
                         // Fragment에 알림 (직접 navigate 하지 않음)
@@ -759,6 +763,9 @@ class VoteTabHandler(
                                         if (updateResult.isSuccess) {
                                             android.util.Log.d("VoteTabHandler", "✅ 모든 상태 업데이트 완료")
                                             
+                                            // 시간 확정 시 진동 피드백
+                                            com.moyeoyo.app.utils.VibrationHelper.strongVibration(fragment.requireContext())
+                                            
                                             // 모든 서버 작업이 완료된 후에만 다이얼로그 표시 및 콜백 호출
                                             showWinningTimeDialog(unanimouslyVotedTime, date)
                                             onTimeVoteCompleted?.invoke(date, unanimouslyVotedTime)
@@ -792,6 +799,9 @@ class VoteTabHandler(
                                             
                                             if (updateResult.isSuccess) {
                                                 android.util.Log.d("VoteTabHandler", "✅ 다수결로 시간 확정 완료")
+                                                
+                                                // 시간 확정 시 진동 피드백
+                                                com.moyeoyo.app.utils.VibrationHelper.strongVibration(fragment.requireContext())
                                                 
                                                 // 모든 서버 작업이 완료된 후에만 다이얼로그 표시 및 콜백 호출
                                                 showWinningTimeDialog(majorityTime, date)

@@ -3,6 +3,10 @@
     <style name="Base.Theme.Moyeoyo" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        
+        <!-- 상태바 설정: 하얀색 배경, 검은색 글자 -->
+        <item name="android:statusBarColor">@color/white</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
     </style>
 
     <style name="Theme.Moyeoyo" parent="Base.Theme.Moyeoyo" />

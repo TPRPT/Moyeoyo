@@ -12,6 +12,9 @@
             crossorigin="anonymous"></script>
 
     <style>
+        * {
+          transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           text-align: center;
@@ -19,11 +22,31 @@
           background-color: #f4f4f4;
           color: #333;
           line-height: 1.6;
+          animation: fadeIn 0.4s ease-in-out;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
         h1 {
           color: #0284c7;
           font-size: 26px;
           margin-bottom: 10px;
+          animation: slideDown 0.5s ease-out;
+        }
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
         .card {
           background: #fff;
@@ -32,6 +55,17 @@
           box-shadow: 0 3px 12px rgba(0,0,0,0.08);
           max-width: 440px;
           margin: 0 auto;
+          animation: fadeInUp 0.5s ease-out;
+        }
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
         .desc {
           font-size: 15px;
@@ -48,6 +82,15 @@
           font-size: 16px;
           display: inline-block;
           margin-top: 16px;
+          transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn:hover {
+          background-color: #0369a1;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+        .btn:active {
+          transform: translateY(0);
         }
         .ad-container {
           width: 100%;
@@ -109,8 +152,16 @@
 
       if (!uid) {
         btn.style.display = "none";
-        document.querySelector("h1").textContent = "유효하지 않은 초대 링크";
-        document.querySelector(".desc").textContent = "친구 UID 정보가 누락되었습니다.";
+        const h1 = document.querySelector("h1");
+        const desc = document.querySelector(".desc");
+        h1.style.opacity = "0";
+        desc.style.opacity = "0";
+        h1.textContent = "유효하지 않은 초대 링크";
+        desc.textContent = "친구 UID 정보가 누락되었습니다.";
+        setTimeout(() => {
+          h1.style.opacity = "1";
+          desc.style.opacity = "1";
+        }, 50);
         return;
       }
 

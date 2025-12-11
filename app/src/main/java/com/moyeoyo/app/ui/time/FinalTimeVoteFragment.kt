@@ -16,7 +16,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.TimeVoteRepository
-import com.moyeoyo.app.databinding.ActivityFinalTimeVoteBinding
+import com.moyeoyo.app.databinding.FragmentFinalTimeVoteBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -29,7 +29,7 @@ class FinalTimeVoteFragment : Fragment() {
     private val groupId: String get() = args.groupId
     private val date: String get() = args.date
 
-    private var _binding: ActivityFinalTimeVoteBinding? = null
+    private var _binding: FragmentFinalTimeVoteBinding? = null
     private val binding get() = _binding!!
 
     @Inject lateinit var timeVoteRepository: TimeVoteRepository
@@ -48,7 +48,7 @@ class FinalTimeVoteFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityFinalTimeVoteBinding.inflate(inflater, container, false)
+        _binding = FragmentFinalTimeVoteBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -207,6 +207,9 @@ class FinalTimeVoteFragment : Fragment() {
                                     
                                     if (updateResult.isSuccess) {
                                         android.util.Log.d("FinalTimeVoteFragment", "✅ 모든 상태 업데이트 완료: LOCATION_INPUT_REQUIRED")
+
+                                        // 시간 확정 시 진동 피드백
+                                        com.moyeoyo.app.utils.VibrationHelper.strongVibration(requireContext())
 
                                         // ⭐ Fragment 유효성 최종 확인 (Firestore 작업 완료 후)
                                         if (isFragmentValid()) {

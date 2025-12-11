@@ -43,12 +43,12 @@ import com.google.android.gms.common.GooglePlayServicesNotAvailableException
 import androidx.fragment.app.setFragmentResultListener
 import androidx.navigation.fragment.findNavController
 import com.moyeoyo.app.ui.location.CurrentLocationFragment
-import com.moyeoyo.app.databinding.ActivityProfileSetupBinding
+import com.moyeoyo.app.databinding.FragmentProfileSetupBinding
 import java.io.File
 
 class ProfileSetupFragment : Fragment() {
 
-    private var _binding: ActivityProfileSetupBinding? = null
+    private var _binding: FragmentProfileSetupBinding? = null
     private val binding get() = _binding!!
 
     private lateinit var auth: FirebaseAuth
@@ -144,7 +144,7 @@ class ProfileSetupFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityProfileSetupBinding.inflate(inflater, container, false)
+        _binding = FragmentProfileSetupBinding.inflate(inflater, container, false)
         return binding.root
     }
 

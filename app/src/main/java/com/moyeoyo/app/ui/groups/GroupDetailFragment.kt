@@ -24,7 +24,7 @@ import com.moyeoyo.app.MainActivity
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
-import com.moyeoyo.app.databinding.ActivityGroupDetailBinding
+import com.moyeoyo.app.databinding.FragmentGroupDetailBinding
 import com.moyeoyo.app.ui.place.FinalVoteViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -39,7 +39,7 @@ class GroupDetailFragment : Fragment() {
     private val groupId: String get() = args.groupId
     private val groupName: String get() = args.groupName
 
-    private var _binding: ActivityGroupDetailBinding? = null
+    private var _binding: FragmentGroupDetailBinding? = null
     private val binding get() = _binding!!
 
     @Inject lateinit var groupRepository: GroupRepository
@@ -59,7 +59,7 @@ class GroupDetailFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityGroupDetailBinding.inflate(inflater, container, false)
+        _binding = FragmentGroupDetailBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -99,10 +99,40 @@ class GroupDetailFragment : Fragment() {
         binding.toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
-
+        
+        // 공유 버튼 메뉴 아이템 클릭 리스너
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_share -> {
+                    handleShareClick()
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    
+    private fun handleShareClick() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val group = groupRepository.getGroupById(groupId)
+            if (group == null) {
+                Toast.makeText(requireContext(), "그룹 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            
+            when (group.status) {
+                "GROUP_CREATED" -> {
+                    // 투표 시작 전: 그룹 초대 링크 공유
+                    findNavController().navigate(
+                        R.id.action_groupDetailFragment_to_groupInviteFragment,
+                        Bundle().apply {
+                            putString("groupId", groupId)
+                            putString("groupName", groupName)
+                        }
+                    )
+                }
+                "FINALIZED" -> {
+                    // 모든 투표 끝난 후: 일정 공유
                     findNavController().navigate(
                         R.id.action_groupDetailFragment_to_shareMeetingFragment,
                         Bundle().apply {
@@ -110,9 +140,11 @@ class GroupDetailFragment : Fragment() {
                             putString("groupName", groupName)
                         }
                     )
-                    true
                 }
-                else -> false
+                else -> {
+                    // 투표 진행 중: 비활성화 상태 - 메시지 표시
+                    Toast.makeText(requireContext(), "투표가 완료되면 일정을 공유할 수 있습니다!", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -131,15 +163,22 @@ class GroupDetailFragment : Fragment() {
 
         // 탭 전환
         binding.tabGroup.setOnCheckedChangeListener { _, checkedId ->
-            binding.viewPager.currentItem =
-                if (checkedId == R.id.tabPlace) 0 else 1
+            binding.viewPager.currentItem = when (checkedId) {
+                R.id.tabPlace -> 0
+                R.id.tabMember -> 1
+                else -> 0
+            }
         }
 
         binding.viewPager.registerOnPageChangeCallback(
             object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     binding.tabGroup.check(
-                        if (position == 0) R.id.tabPlace else R.id.tabMember
+                        when (position) {
+                            0 -> R.id.tabPlace
+                            1 -> R.id.tabMember
+                            else -> R.id.tabPlace
+                        }
                     )
                 }
             }
@@ -233,6 +272,9 @@ class GroupDetailFragment : Fragment() {
                 }
 
                 displayConfirmedSchedule(group)
+                
+                // 공유 버튼 상태 업데이트
+                updateShareButtonState(group)
 
                 // 버튼 표시/동작 분기
                 if (isHost) {
@@ -262,6 +304,35 @@ class GroupDetailFragment : Fragment() {
         }
     }
 
+    /**
+     * 공유 버튼 상태 업데이트
+     */
+    private fun updateShareButtonState(group: Group) {
+        val shareMenuItem = binding.toolbar.menu.findItem(R.id.action_share)
+        
+        when (group.status) {
+            "GROUP_CREATED" -> {
+                // 투표 시작 전: 그룹 초대 링크 공유 활성화
+                shareMenuItem.isEnabled = true
+                shareMenuItem.isVisible = true
+                shareMenuItem.icon?.setAlpha(255) // 완전 불투명
+            }
+            "FINALIZED" -> {
+                // 모든 투표 끝난 후: 일정 공유 활성화
+                shareMenuItem.isEnabled = true
+                shareMenuItem.isVisible = true
+                shareMenuItem.icon?.setAlpha(255) // 완전 불투명
+            }
+            else -> {
+                // 투표 진행 중: 항상 활성화 (클릭 시 메시지 표시)
+                shareMenuItem.isEnabled = true
+                shareMenuItem.isVisible = true
+                // 아이콘을 약간 투명하게 표시하여 비활성화 상태임을 시각적으로 표현
+                shareMenuItem.icon?.setAlpha(128) // 50% 투명도
+            }
+        }
+    }
+
     // ---------------------------
     //  확정된 일정(다음 모임)
     // ---------------------------
@@ -273,9 +344,9 @@ class GroupDetailFragment : Fragment() {
         if (confirmedPlace != null) {
             binding.confirmedTimeSection.visibility = View.GONE
         } else if (confirmedTime != null) {
-            // 시간만 확정된 경우
+            // 시간만 확정된 경우 - 다음 모임 카드와 같은 스타일로 표시
             binding.confirmedTimeSection.visibility = View.VISIBLE
-            binding.textConfirmedTimeOnly.text = "일시: ${formatTimestamp(confirmedTime)}"
+            binding.textConfirmedTimeOnly.text = formatTimestamp(confirmedTime)
         } else {
             binding.confirmedTimeSection.visibility = View.GONE
         }
@@ -287,6 +358,7 @@ class GroupDetailFragment : Fragment() {
             binding.tvMeetingDateAndTime.text = formatTimestamp(confirmedTime)
             binding.tvMeetingLocation.text =
                 confirmedPlace["name"] as? String ?: "장소 없음"
+
 
             binding.btnAddToCalendarWrapper.setOnClickListener {
                 val beginTime = confirmedTime.toDate().time

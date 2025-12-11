@@ -4,6 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FFFFFF"
+    android:fitsSystemWindows="true"
     tools:context=".ui.auth.ProfileSetupActivity">
 
     <LinearLayout
@@ -92,7 +93,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="집 주소"
+                android:text="집 주소 *"
                 android:textColor="#111"
                 android:textSize="15sp"
                 android:layout_marginBottom="6dp" />
@@ -163,7 +164,7 @@
             android:id="@+id/btn_save_profile"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="완료"
+            android:text="프로필 설정"
             android:backgroundTint="#3B82F6"
             android:textColor="@android:color/white"
             android:textSize="16sp"

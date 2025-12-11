@@ -30,7 +30,7 @@ import com.moyeoyo.app.data.model.LatLngData
 import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.data.model.PlaceCategory
 import com.moyeoyo.app.data.model.RankedPlace
-import com.moyeoyo.app.databinding.ActivityRecommendedPlaceBinding
+import com.moyeoyo.app.databinding.FragmentRecommendedPlaceBinding
 import com.moyeoyo.app.databinding.DialogRankSelectionBinding
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.place.FinalVoteViewModel
@@ -41,7 +41,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
 
-    private var _binding: ActivityRecommendedPlaceBinding? = null
+    private var _binding: FragmentRecommendedPlaceBinding? = null
     private val binding get() = _binding!!
     
     private val viewModel: RecommendedPlaceViewModel by viewModels()
@@ -70,7 +70,7 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityRecommendedPlaceBinding.inflate(inflater, container, false)
+        _binding = FragmentRecommendedPlaceBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -302,22 +302,18 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             android.util.Log.d("RecommendedPlaceFragment", 
                 "🔍 allUsersCompleted 변경 - allCompleted: $allCompleted, hasConfirmedRanking: $hasConfirmedRanking, userDeferredFinalVote: $userDeferredFinalVote")
             
+            // ⭐ 자동으로 넘어가지 않도록 수정: 다이얼로그만 표시하고 사용자가 버튼을 눌러야 이동
             // 💡 분기 조건: 모든 유저가 완료했고, 내가 직접 순위를 확정했을 때
             if (allCompleted && hasConfirmedRanking) {
                 if (!userDeferredFinalVote) {
-                    // '보류' 상태가 아니면 버튼 활성화 및 다이얼로그 표시
+                    // '보류' 상태가 아니면 버튼 활성화 (다이얼로그는 사용자가 버튼을 눌렀을 때만 표시)
                     binding.btnProceedToVote.isEnabled = true
                     binding.btnProceedToVote.alpha = 1.0f
                     binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary)
                     
-                    if (view != null && !isRemoving) {
-                        if (!hasShownAllCompletedDialog) {
-                            hasShownAllCompletedDialog = true
-                            android.util.Log.d("RecommendedPlaceFragment", 
-                                "✅ 모든 사용자 완료! 확인 팝업 표시 및 화면 전환 준비")
-                            showAllCompletedDialog()
-                        }
-                    }
+                    // ⭐ 자동으로 다이얼로그를 표시하지 않음 - 사용자가 버튼을 눌러야만 표시
+                    android.util.Log.d("RecommendedPlaceFragment", 
+                        "✅ 모든 사용자 완료! 버튼 활성화 (사용자가 버튼을 눌러야 다이얼로그 표시)")
                 } else {
                     // '보류' 상태이면 버튼만 활성화 (다이얼로그는 표시하지 않음)
                     binding.btnProceedToVote.isEnabled = true

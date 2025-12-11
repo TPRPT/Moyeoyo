@@ -66,6 +66,26 @@ class FriendRepository @Inject constructor(
         }
     }
 
+    suspend fun getUserPhotoUrl(uid: String): String? {
+        return try {
+            val doc = usersCollection.document(uid).get().await()
+            doc.getString("photoUrl")
+        } catch (e: Exception) {
+            Log.e(TAG, "PhotoUrl fetch error: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun getUserEmail(uid: String): String? {
+        return try {
+            val doc = usersCollection.document(uid).get().await()
+            doc.getString("email")
+        } catch (e: Exception) {
+            Log.e(TAG, "Email fetch error: ${e.message}")
+            null
+        }
+    }
+
     // ===========================
     // 친구 요청 보내기
     // ===========================

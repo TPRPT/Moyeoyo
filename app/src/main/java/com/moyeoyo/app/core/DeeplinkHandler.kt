@@ -3,6 +3,7 @@ package com.moyeoyo.app.core
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.LifecycleCoroutineScope
@@ -11,6 +12,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.MainActivity
+import com.moyeoyo.app.R
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,8 +27,18 @@ class DeeplinkHandler constructor(
     private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 
     fun handle(intent: Intent?) {
+        if (intent == null) return
+
+        // 위젯 딥링크 처리
+        val fromWidget = intent.getBooleanExtra("from_widget", false)
+        if (fromWidget) {
+            handleWidgetDeepLink(intent)
+            return
+        }
+
+        // 웹 딥링크 처리
         val user = auth.currentUser ?: return
-        val data: Uri = intent?.data ?: return
+        val data: Uri = intent.data ?: return
         if (data.host != HOSTING_DOMAIN) return
 
         when {
@@ -42,15 +54,76 @@ class DeeplinkHandler constructor(
         }
     }
 
+    // 위젯 딥링크 처리
+    private fun handleWidgetDeepLink(intent: Intent) {
+        val groupId = intent.getStringExtra("widget_group_id") ?: return
+        val groupName = intent.getStringExtra("widget_group_name") ?: "모임"
+
+        // Navigation을 사용하여 GroupDetailFragment로 이동
+        navController?.let { nav ->
+            val bundle = Bundle().apply {
+                putString("groupId", groupId)
+                putString("groupName", groupName)
+            }
+            // MainFragment로 먼저 이동 (백스택에 없을 수 있음)
+            nav.navigate(R.id.mainFragment)
+            // MainFragment에서 GroupDetailFragment로 이동하는 action 사용
+            nav.navigate(R.id.action_mainFragment_to_groupDetailFragment, bundle)
+        }
+    }
+
     // 그룹 초대 처리
     private fun handleGroupInvite(groupId: String) {
         Toast.makeText(context, "그룹 초대 링크 확인 중...", Toast.LENGTH_SHORT).show()
 
         lifecycleScope.launch {
+            val currentUid = auth.currentUser?.uid ?: return@launch
             val group = groupRepository.getGroupById(groupId)
 
             if (group == null) {
                 Toast.makeText(context, "초대된 그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+
+            // ⭐ 이미 그룹 멤버인 경우
+            if (currentUid in group.memberUids) {
+                // 약속 정보 링크(status가 FINALIZED)인 경우 메시지 없이 바로 이동
+                if (group.status == "FINALIZED") {
+                    // 메시지 없이 바로 그룹 상세 페이지로 이동
+                    navController?.let { nav ->
+                        val action = com.moyeoyo.app.ui.main.MainFragmentDirections.actionMainFragmentToGroupDetailFragment(
+                            groupId = groupId,
+                            groupName = group.groupName
+                        )
+                        nav.navigate(action)
+                    } ?: run {
+                        val intent = Intent(context, MainActivity::class.java).apply {
+                            putExtra("groupId", groupId)
+                            putExtra("groupName", group.groupName)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    }
+                } else {
+                    // 일반 그룹 초대 링크인 경우 메시지 표시
+                    Toast.makeText(context, "이미 이 그룹의 멤버입니다.", Toast.LENGTH_SHORT).show()
+                    
+                    // 그룹 상세 페이지로 이동
+                    navController?.let { nav ->
+                        val action = com.moyeoyo.app.ui.main.MainFragmentDirections.actionMainFragmentToGroupDetailFragment(
+                            groupId = groupId,
+                            groupName = group.groupName
+                        )
+                        nav.navigate(action)
+                    } ?: run {
+                        val intent = Intent(context, MainActivity::class.java).apply {
+                            putExtra("groupId", groupId)
+                            putExtra("groupName", group.groupName)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    }
+                }
                 return@launch
             }
 

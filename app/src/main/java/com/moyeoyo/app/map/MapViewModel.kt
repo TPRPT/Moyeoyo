@@ -158,7 +158,7 @@ class MapViewModel @Inject constructor(
     fun loadGroupMembers(groupId: String) {
         val isGroupChanged = state.value?.groupId != groupId
         if (isGroupChanged) {
-        setGroupId(groupId)
+            setGroupId(groupId)
             update {
                 it.copy(
                     isLoading = true,
@@ -172,7 +172,19 @@ class MapViewModel @Inject constructor(
                 )
             }
         } else {
-            update { it.copy(isLoading = true, error = null) }
+            // ⭐ 그룹 ID가 같아도 상태를 초기화하여 빈 화면 문제 방지
+            // (중간값 계산 완료 후 다시 접근 시 최신 데이터 표시)
+            update { 
+                it.copy(
+                    isLoading = true, 
+                    error = null,
+                    // 멤버와 중간값은 유지하되, 주변 장소와 선택된 장소는 초기화
+                    nearbyPlaces = emptyList(),
+                    selectedPlace = null,
+                    distanceByMember = emptyList(),
+                    isDistanceLoading = false
+                ) 
+            }
         }
 
         viewModelScope.launch(Dispatchers.IO) {

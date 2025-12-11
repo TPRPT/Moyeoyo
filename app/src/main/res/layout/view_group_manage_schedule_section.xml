@@ -57,6 +57,7 @@
 
     <!-- 장소 이름 -->
     <TextView
+        android:id="@+id/labelPlace"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
@@ -71,7 +72,9 @@
         android:layout_marginTop="4dp"
         android:background="@drawable/bg_input_field"
         android:padding="10dp"
-        android:hint="장소 이름을 입력하세요"/>
+        android:hint="장소 이름을 입력하세요"
+        android:focusable="false"
+        android:clickable="true"/>
 
     <Button
         android:id="@+id/btnSaveSchedule"

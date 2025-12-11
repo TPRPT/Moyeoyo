@@ -6,8 +6,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.GroupRepository
@@ -15,8 +15,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * 그룹 생성용 친구 선택 Fragment
+ * CreateGroupFragment에서만 사용됨
+ */
 @AndroidEntryPoint
-class SelectFriendsFragment : Fragment() {
+class SelectFriendsForGroupCreationFragment : Fragment() {
 
     @Inject
     lateinit var friendRepository: FriendRepository
@@ -26,18 +30,11 @@ class SelectFriendsFragment : Fragment() {
     
     private val selectedUids = mutableSetOf<String>()
     
-    private val groupId: String? by lazy {
-        arguments?.getString("groupId")
+    private val groupName: String by lazy {
+        arguments?.getString("groupName") ?: throw IllegalStateException("groupName is required")
     }
-
-    companion object {
-        const val RESULT_KEY = "select_friends_result"
-        const val EXTRA_SELECTED_UIDS = "extra_selected_uids"
-        
-        fun newInstance(): SelectFriendsFragment {
-            return SelectFriendsFragment()
-        }
-    }
+    
+    private var groupCreationInProgress = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,20 +47,21 @@ class SelectFriendsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        selectedUids.clear()
+
         val container = view.findViewById<LinearLayout>(R.id.friends_checkbox_container)
         val btnComplete = view.findViewById<Button>(R.id.btn_complete_selection)
 
         loadFriends(container)
 
         btnComplete.setOnClickListener {
-            // Navigation 결과로 선택한 UID 전달
-            val result = Bundle().apply {
-                putStringArrayList(EXTRA_SELECTED_UIDS, ArrayList(selectedUids))
+            if (groupCreationInProgress) {
+                return@setOnClickListener
             }
-            parentFragmentManager.setFragmentResult(RESULT_KEY, result)
             
-            // 이전 화면으로 돌아가기
-            findNavController().popBackStack()
+            val selectedFriendUids = selectedUids.toList()
+            selectedUids.clear()
+            createGroup(groupName, selectedFriendUids)
         }
     }
 
@@ -71,26 +69,11 @@ class SelectFriendsFragment : Fragment() {
         container.removeAllViews()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            // 그룹의 현재 멤버 목록 가져오기 (groupId가 있는 경우)
-            val existingMemberUids = if (groupId != null) {
-                val group = groupRepository.getGroupById(groupId!!)
-                group?.memberUids?.toSet() ?: emptySet()
-            } else {
-                emptySet()
-            }
-
             val friendUids = friendRepository.getFriendUids()
-            
-            // 이미 멤버인 친구 제외
-            val availableFriendUids = friendUids.filter { it !in existingMemberUids }
 
-            if (availableFriendUids.isEmpty()) {
+            if (friendUids.isEmpty()) {
                 val textView = TextView(requireContext()).apply {
-                    text = if (friendUids.isEmpty()) {
-                        "친구 목록이 비어 있습니다. 먼저 친구를 추가해주세요."
-                    } else {
-                        "추가할 수 있는 친구가 없습니다. 모든 친구가 이미 그룹 멤버입니다."
-                    }
+                    text = "친구 목록이 비어 있습니다. 먼저 친구를 추가해주세요."
                     setPadding(16, 16, 16, 16)
                 }
                 container.addView(textView)
@@ -99,7 +82,7 @@ class SelectFriendsFragment : Fragment() {
 
             val inflater = LayoutInflater.from(requireContext())
 
-            availableFriendUids.forEach { uid ->
+            friendUids.forEach { uid ->
                 val nickname = friendRepository.getUserNickname(uid)
                 val itemView = inflater.inflate(R.layout.item_friend_card, container, false)
 
@@ -149,4 +132,50 @@ class SelectFriendsFragment : Fragment() {
             }
         }
     }
+    
+    private fun createGroup(groupName: String, friendUids: List<String>) {
+        if (groupCreationInProgress) return
+        
+        groupCreationInProgress = true
+        
+        // 로딩 표시
+        val loadingDialog = android.app.ProgressDialog(requireContext()).apply {
+            setMessage("그룹 생성 중...")
+            setCancelable(false)
+            show()
+        }
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val groupId = groupRepository.createGroupWithMembers(
+                    groupName = groupName,
+                    friendUids = friendUids
+                )
+                
+                loadingDialog.dismiss()
+                groupCreationInProgress = false
+                
+                if (groupId != null) {
+                    Toast.makeText(requireContext(), "그룹이 생성되었습니다!", Toast.LENGTH_SHORT).show()
+                    
+                    // Navigation 스택 정리 후 그룹 상세 화면으로 이동
+                    findNavController().popBackStack(R.id.mainFragment, false)
+                    findNavController().navigate(
+                        R.id.action_mainFragment_to_groupDetailFragment,
+                        Bundle().apply {
+                            putString("groupId", groupId)
+                            putString("groupName", groupName)
+                        }
+                    )
+                } else {
+                    Toast.makeText(requireContext(), "그룹 생성에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                loadingDialog.dismiss()
+                groupCreationInProgress = false
+                Toast.makeText(requireContext(), "그룹 생성 중 오류가 발생했습니다: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 }
+
