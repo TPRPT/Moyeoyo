@@ -23,7 +23,7 @@ import com.moyeoyo.app.R
 import com.moyeoyo.app.data.local.deleteMeetingFromLocal
 import com.moyeoyo.app.data.model.Group
 import com.moyeoyo.app.data.repository.GroupRepository
-import com.moyeoyo.app.databinding.ActivityGroupManageBinding
+import com.moyeoyo.app.databinding.FragmentGroupManageBinding
 import com.moyeoyo.app.widget.NextMeetingWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -33,7 +33,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class GroupManageFragment : Fragment() {
 
-    private var _binding: ActivityGroupManageBinding? = null
+    private var _binding: FragmentGroupManageBinding? = null
     private val binding get() = _binding!!
 
     @Inject lateinit var groupRepository: GroupRepository
@@ -57,7 +57,7 @@ class GroupManageFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityGroupManageBinding.inflate(inflater, container, false)
+        _binding = FragmentGroupManageBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -103,15 +103,20 @@ class GroupManageFragment : Fragment() {
 
         binding.btnSaveGroupName.setOnClickListener { saveGroupName() }
         binding.btnDeleteGroup.setOnClickListener { showDeleteGroupConfirmationDialog() }
+        binding.btnResetAllVotes.setOnClickListener { showResetAllVotesConfirmationDialog() }
 
         binding.scheduleSection.fieldDate.setOnClickListener { showDatePicker() }
         binding.scheduleSection.fieldTime.setOnClickListener { showTimePicker() }
 
-        // ⭐ 장소 입력창 → 검색창 열기
+        // ⭐ 장소 입력창 → 검색창 열기 (활성화된 경우에만)
         binding.scheduleSection.editPlaceName.apply {
             isFocusable = false
             keyListener = null
-            setOnClickListener { startPlaceAutocomplete() }
+            setOnClickListener {
+                if (isEnabled) {
+                    startPlaceAutocomplete()
+                }
+            }
         }
 
         binding.scheduleSection.btnSaveSchedule.setOnClickListener { saveSchedule() }
@@ -132,7 +137,8 @@ class GroupManageFragment : Fragment() {
             originalGroup = group
             binding.editGroupName.setText(group.groupName)
 
-            if (group.confirmedTime != null && group.confirmedPlace != null) {
+            // 시간이 확정된 경우 (시간만 확정 또는 시간+장소 모두 확정)
+            if (group.confirmedTime != null) {
                 binding.scheduleSection.root.visibility = View.VISIBLE
 
                 val cal = Calendar.getInstance().apply { time = group.confirmedTime!!.toDate() }
@@ -152,14 +158,28 @@ class GroupManageFragment : Fragment() {
                     )
                 )
 
-                val placeName = group.confirmedPlace?.get("name") as? String
-                    ?: group.confirmedPlace?.get("address") as? String
-                    ?: ""
-
-                binding.scheduleSection.editPlaceName.setText(placeName)
-
                 editedTimestamp = group.confirmedTime
-                editedPlaceMap = group.confirmedPlace?.toMutableMap() ?: mutableMapOf()
+
+                // 장소가 확정된 경우에만 장소 필드 표시 및 편집 가능
+                if (group.confirmedPlace != null) {
+                    val placeName = group.confirmedPlace?.get("name") as? String
+                        ?: group.confirmedPlace?.get("address") as? String
+                        ?: ""
+                    binding.scheduleSection.editPlaceName.setText(placeName)
+                    binding.scheduleSection.editPlaceName.isEnabled = true
+                    binding.scheduleSection.editPlaceName.alpha = 1f
+                    editedPlaceMap = group.confirmedPlace?.toMutableMap() ?: mutableMapOf()
+                } else {
+                    // 시간만 확정된 경우: 장소 필드 비활성화
+                    binding.scheduleSection.editPlaceName.setText("")
+                    binding.scheduleSection.editPlaceName.isEnabled = false
+                    binding.scheduleSection.editPlaceName.alpha = 0.5f
+                    binding.scheduleSection.editPlaceName.hint = "장소는 아직 확정되지 않았습니다"
+                    editedPlaceMap = null
+                }
+            } else {
+                // 시간이 확정되지 않았으면 섹션 숨기기
+                binding.scheduleSection.root.visibility = View.GONE
             }
         }
     }
@@ -268,29 +288,44 @@ class GroupManageFragment : Fragment() {
             Toast.makeText(requireContext(), "날짜/시간을 선택해주세요.", Toast.LENGTH_SHORT).show()
             return
         }
-        if (editedPlaceMap == null) {
-            Toast.makeText(requireContext(), "장소를 검색해주세요.", Toast.LENGTH_SHORT).show()
-            return
-        }
 
         viewLifecycleOwner.lifecycleScope.launch {
+            val group = groupRepository.getGroupById(groupId)
+            val currentPlace = group?.confirmedPlace
 
-            // ⭐ 여기서 context 넣어서 호출해야함!
-            val success = groupRepository.updateConfirmedSchedule(
-                context = requireContext(),
-                groupId = groupId,
-                confirmedTime = editedTimestamp!!,
-                confirmedPlace = editedPlaceMap!!
-            )
+            // 시간만 확정된 경우: 기존 장소 값(null) 유지
+            // 시간+장소 모두 확정된 경우: 수정된 장소 값 사용
+            val placeToSave = editedPlaceMap ?: currentPlace
 
-            if (success) {
-                Toast.makeText(requireContext(), "일정을 수정했습니다.", Toast.LENGTH_SHORT).show()
+            if (placeToSave == null && currentPlace == null) {
+                // 시간만 업데이트
+                val success = groupRepository.updateConfirmedTime(
+                    context = requireContext(),
+                    groupId = groupId,
+                    confirmedTime = editedTimestamp!!
+                )
 
-                // ⭐ 위젯 갱신
-                NextMeetingWidgetProvider.requestUpdateAll(requireContext())
-
+                if (success) {
+                    Toast.makeText(requireContext(), "시간을 수정했습니다.", Toast.LENGTH_SHORT).show()
+                    NextMeetingWidgetProvider.requestUpdateAll(requireContext())
+                } else {
+                    Toast.makeText(requireContext(), "시간 수정 실패", Toast.LENGTH_SHORT).show()
+                }
             } else {
-                Toast.makeText(requireContext(), "일정 수정 실패", Toast.LENGTH_SHORT).show()
+                // 시간과 장소 모두 업데이트
+                val success = groupRepository.updateConfirmedSchedule(
+                    context = requireContext(),
+                    groupId = groupId,
+                    confirmedTime = editedTimestamp!!,
+                    confirmedPlace = placeToSave!!
+                )
+
+                if (success) {
+                    Toast.makeText(requireContext(), "일정을 수정했습니다.", Toast.LENGTH_SHORT).show()
+                    NextMeetingWidgetProvider.requestUpdateAll(requireContext())
+                } else {
+                    Toast.makeText(requireContext(), "일정 수정 실패", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -340,6 +375,36 @@ class GroupManageFragment : Fragment() {
                 
                 // MainFragment로 이동 (모든 백 스택 제거)
                 findNavController().popBackStack(R.id.mainFragment, false)
+            }
+        }
+    }
+
+    // ----------------------------------------------------
+    // 전체 투표 초기화
+    // ----------------------------------------------------
+    private fun showResetAllVotesConfirmationDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("전체 투표 초기화")
+            .setMessage("모든 투표 결과를 삭제하고 처음부터 다시 시작하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.")
+            .setPositiveButton("초기화") { _, _ -> resetAllVotes() }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun resetAllVotes() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val success = groupRepository.resetAllVotes(requireContext(), groupId)
+
+            if (success) {
+                // ⭐ 위젯 갱신
+                NextMeetingWidgetProvider.requestUpdateAll(requireContext())
+
+                Toast.makeText(requireContext(), "모든 투표가 초기화되었습니다.", Toast.LENGTH_LONG).show()
+                
+                // 그룹 정보 다시 불러오기
+                loadGroupInfo()
+            } else {
+                Toast.makeText(requireContext(), "투표 초기화 실패", Toast.LENGTH_SHORT).show()
             }
         }
     }

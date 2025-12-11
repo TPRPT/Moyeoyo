@@ -717,7 +717,7 @@ class LocationInputFragment : Fragment() {
             val message = if (missingCount > 0) {
                 "⏳ 아직 ${missingCount}명의 그룹원이 위치를 입력하지 않았습니다. 모든 멤버가 위치를 입력하면 중간 지점을 계산할 수 있습니다."
             } else {
-                getString(R.string.location_input_waiting)
+                "⏳ 아직 그룹원이 위치를 입력하지 않았습니다"
             }
             infoTextView?.text = message
         }

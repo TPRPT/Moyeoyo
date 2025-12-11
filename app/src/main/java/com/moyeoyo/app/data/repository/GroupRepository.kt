@@ -23,7 +23,9 @@ import javax.inject.Singleton
 class GroupRepository @Inject constructor(
     private val db: FirebaseFirestore,
     private val auth: FirebaseAuth,
-    private val voteRepository: VoteRepository
+    private val voteRepository: VoteRepository,
+    private val timeVoteRepository: com.moyeoyo.app.data.repository.TimeVoteRepository,
+    private val mapRepository: com.moyeoyo.app.data.repository.MapRepository
 ) {
     private val groupsCollection = db.collection("groups")
     private val usersCollection = db.collection("users")
@@ -163,6 +165,72 @@ class GroupRepository @Inject constructor(
             true
         } catch (e: Exception) {
             Log.e("GroupRepo", "Join Group Transaction FAILED for $groupId. Reason: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * 그룹에 여러 멤버를 한 번에 추가합니다.
+     * @param groupId 그룹 ID
+     * @param friendUids 추가할 친구들의 UID 목록
+     * @return 성공 여부
+     */
+    suspend fun addMembersToGroup(groupId: String, friendUids: List<String>): Boolean {
+        if (friendUids.isEmpty()) return true
+        
+        val groupRef = groupsCollection.document(groupId)
+        var newMemberUids: List<String> = emptyList()
+        
+        return try {
+            // 1. 트랜잭션으로 그룹 멤버 추가 및 inputLocations 문서 생성
+            db.runTransaction { transaction ->
+                val groupSnapshot = transaction.get(groupRef)
+                
+                if (!groupSnapshot.exists()) {
+                    throw IllegalStateException("Group document does not exist.")
+                }
+                
+                @Suppress("UNCHECKED_CAST")
+                val existingMemberUids = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
+                
+                // 이미 멤버인 친구는 제외
+                newMemberUids = friendUids.filter { it !in existingMemberUids }
+                
+                if (newMemberUids.isEmpty()) {
+                    return@runTransaction null // 이미 모두 멤버이므로 성공으로 간주
+                }
+                
+                // 그룹 멤버 배열 업데이트
+                val updatedMembers = existingMemberUids + newMemberUids
+                transaction.update(groupRef, "memberUids", updatedMembers)
+                
+                // 각 새 멤버의 inputLocations 문서 생성
+                newMemberUids.forEach { uid ->
+                    val locationRef = groupRef.collection("inputLocations").document(uid)
+                    transaction.set(locationRef, mapOf(
+                        "latLng" to GeoPoint(0.0, 0.0),
+                        "transportMode" to "UNKNOWN",
+                        "timestamp" to Timestamp.now()
+                    ))
+                }
+                
+                null
+            }.await()
+            
+            // 2. 각 새 멤버의 users 문서에 groupId 추가 (트랜잭션 외부에서 배치 처리)
+            if (newMemberUids.isNotEmpty()) {
+                val batch = db.batch()
+                newMemberUids.forEach { uid ->
+                    val userRef = usersCollection.document(uid)
+                    batch.update(userRef, "groups", FieldValue.arrayUnion(groupId))
+                }
+                batch.commit().await()
+            }
+            
+            Log.d(TAG, "Members added successfully to group $groupId: ${newMemberUids.size} members")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "addMembersToGroup error: ${e.message}", e)
             false
         }
     }
@@ -482,6 +550,28 @@ class GroupRepository @Inject constructor(
     }
 
     /**
+     * ⭐ NEW: 확정된 시간만 수정 (장소는 변경하지 않음)
+     */
+    suspend fun updateConfirmedTime(
+        context: Context,
+        groupId: String,
+        confirmedTime: Timestamp
+    ): Boolean {
+        return try {
+            // Firestore 업데이트 (시간만 업데이트)
+            groupsCollection.document(groupId)
+                .update("confirmedTime", confirmedTime)
+                .await()
+
+            Log.d(TAG, "updateConfirmedTime SUCCESS - 시간만 업데이트됨")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "updateConfirmedTime FAILED: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * ⭐ NEW: 확정된 일정 수정
      */
     suspend fun updateConfirmedSchedule(
@@ -604,6 +694,48 @@ class GroupRepository @Inject constructor(
     private suspend fun deleteMeetingFromLocal(context: Context, groupId: String) {
         val dao = AppDatabase.getInstance(context).nextMeetingDao()
         dao.deleteByGroupId(groupId)
+    }
+
+    /**
+     * 전체 투표 초기화: 모든 투표 결과를 삭제하고 그룹을 초기 상태로 되돌립니다.
+     * - 그룹 상태를 "GROUP_CREATED"로 변경
+     * - 확정된 시간/장소 삭제
+     * - 모든 투표 데이터 삭제 (시간 투표, 장소 투표, 순위 투표)
+     */
+    suspend fun resetAllVotes(context: Context, groupId: String): Boolean {
+        return try {
+            val groupRef = groupsCollection.document(groupId)
+
+            // 1. 그룹 상태를 GROUP_CREATED로 변경하고 확정된 시간/장소 삭제
+            groupRef.update(
+                mapOf(
+                    "status" to "GROUP_CREATED",
+                    "confirmedTime" to FieldValue.delete(),
+                    "confirmedPlace" to FieldValue.delete()
+                )
+            ).await()
+
+            // 2. Vote 문서 초기화 (순위 투표)
+            voteRepository.resetVoteStatus(groupId)
+
+            // 3. 시간 투표 컬렉션 전체 삭제
+            deleteCollection(groupRef.collection("timeVotes"))
+
+            // 4. 장소 후보 컬렉션 전체 삭제
+            mapRepository.clearPlaceCandidates(groupId)
+
+            // 5. 시간 후보 컬렉션 전체 삭제
+            deleteCollection(groupRef.collection("timeCandidates"))
+
+            // 6. Room DB에서도 삭제
+            deleteMeetingFromLocal(context, groupId)
+
+            Log.d(TAG, "All votes reset successfully for group: $groupId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to reset all votes for group $groupId: ${e.message}", e)
+            false
+        }
     }
 
 

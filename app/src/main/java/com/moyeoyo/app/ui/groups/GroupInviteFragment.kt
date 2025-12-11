@@ -12,13 +12,13 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.moyeoyo.app.R
-import com.moyeoyo.app.databinding.ActivityGroupInviteBinding
+import com.moyeoyo.app.databinding.FragmentGroupInviteBinding
 
 class GroupInviteFragment : Fragment() {
 
     private val HOSTING_DOMAIN = "moyeoyo-57ac0.web.app"
 
-    private var _binding: ActivityGroupInviteBinding? = null
+    private var _binding: FragmentGroupInviteBinding? = null
     private val binding get() = _binding!!
     
     private lateinit var groupId: String
@@ -30,7 +30,7 @@ class GroupInviteFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityGroupInviteBinding.inflate(inflater, container, false)
+        _binding = FragmentGroupInviteBinding.inflate(inflater, container, false)
         return binding.root
     }
 

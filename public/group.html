@@ -11,7 +11,11 @@
             src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6485508614211221"
             crossorigin="anonymous"></script>
 
+
     <style>
+        * {
+          transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           text-align: center;
@@ -19,11 +23,31 @@
           background-color: #f4f4f4;
           color: #333;
           line-height: 1.6;
+          animation: fadeIn 0.4s ease-in-out;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
         h1 {
           color: #0284c7;
           font-size: 26px;
           margin-bottom: 10px;
+          animation: slideDown 0.5s ease-out;
+        }
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
         .card {
           background: #fff;
@@ -32,6 +56,17 @@
           box-shadow: 0 3px 12px rgba(0,0,0,0.08);
           max-width: 440px;
           margin: 0 auto;
+          animation: fadeInUp 0.5s ease-out;
+        }
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
         .desc {
           font-size: 15px;
@@ -48,6 +83,15 @@
           font-size: 16px;
           display: inline-block;
           margin-top: 16px;
+          transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn:hover {
+          background-color: #0369a1;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+        .btn:active {
+          transform: translateY(0);
         }
         .ad-container {
           width: 100%;
@@ -60,18 +104,63 @@
           color: #777;
           margin-top: 28px;
         }
+        .meeting-info {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 20px;
+          border-radius: 12px;
+          margin: 20px 0;
+          text-align: left;
+          opacity: 0;
+          transform: translateY(10px);
+          transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+        }
+        .meeting-info.show {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .meeting-info h2 {
+          margin: 0 0 12px 0;
+          font-size: 18px;
+        }
+        .meeting-info p {
+          margin: 8px 0;
+          font-size: 14px;
+        }
+        .loading {
+          color: #777;
+          font-size: 14px;
+          margin: 20px 0;
+          transition: opacity 0.3s ease-out;
+        }
+        .fade-in {
+          animation: fadeIn 0.4s ease-in-out;
+        }
+        .fade-out {
+          opacity: 0;
+          transition: opacity 0.3s ease-out;
+        }
     </style>
 </head>
 
 <body>
 
 <div class="card">
-    <h1>Moyeoyo 그룹 초대</h1>
+    <h1 id="pageTitle">Moyeoyo 그룹 초대</h1>
 
-    <p class="desc">
+    <p class="desc" id="pageDesc">
         친구가 공유한 모임 초대 링크입니다.<br>
         앱을 열어 모임 참여를 완료해주세요!
     </p>
+
+    <div id="loading" class="loading">약속 정보를 불러오는 중...</div>
+
+    <div id="meetingInfo" class="meeting-info" style="display: none;">
+        <h2 id="meetingGroupName"></h2>
+        <p id="meetingTime"></p>
+        <p id="meetingPlace"></p>
+        <a id="mapLink" class="btn" href="#" target="_blank" style="display: none; margin-top: 16px; background-color: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3);">구글 지도에서 보기</a>
+    </div>
 
     <!-- 광고 -->
     <div class="ad-container">
@@ -87,7 +176,7 @@
         (adsbygoogle = window.adsbygoogle || []).push({});
     </script>
 
-    <a id="openAppButton" class="btn" href="#">앱으로 이동하기</a>
+    <a id="openAppButton" class="btn" href="#" style="display: none;">앱으로 이동하기</a>
 
     <p class="footer-text">
         이 페이지는 Moyeoyo의 공식 모임 초대 페이지입니다.<br>
@@ -98,9 +187,148 @@
 <script>
     const APP_PACKAGE = "com.moyeoyo.app";
     const HOST = "moyeoyo-57ac0.web.app";
+    const FIRESTORE_PROJECT = "moyeoyo-57ac0";
+    const FIRESTORE_API = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT}/databases/(default)/documents/groups`;
+
+    let map = null;
 
     function getParam(name) {
       return new URL(location.href).searchParams.get(name);
+    }
+
+    function formatDate(timestampValue) {
+      let date;
+      
+      // Firestore REST API의 timestampValue는 문자열(ISO 8601) 또는 객체일 수 있음
+      if (typeof timestampValue === 'string') {
+        // ISO 8601 형식 문자열인 경우
+        date = new Date(timestampValue);
+      } else if (timestampValue.seconds) {
+        // 객체 형식인 경우 (seconds 필드가 있음)
+        date = new Date(timestampValue.seconds * 1000);
+      } else {
+        // 예상치 못한 형식
+        console.error('Invalid timestamp format:', timestampValue);
+        return '날짜 정보 없음';
+      }
+      
+      // 유효한 날짜인지 확인
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', timestampValue);
+        return '날짜 정보 없음';
+      }
+      
+      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const weekday = weekdays[date.getDay()];
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? '오후' : '오전';
+      const hour12 = hours % 12 || 12;
+      return `${year}년 ${month}월 ${day}일 (${weekday}) ${ampm} ${hour12}:${String(minutes).padStart(2, '0')}`;
+    }
+
+
+    async function loadGroupInfo(groupId) {
+      try {
+        const response = await fetch(`${FIRESTORE_API}/${groupId}`);
+        if (!response.ok) {
+          throw new Error('그룹 정보를 불러올 수 없습니다.');
+        }
+        
+        const data = await response.json();
+        const fields = data.fields || {};
+        
+        const status = fields.status?.stringValue || '';
+        const confirmedTime = fields.confirmedTime?.timestampValue;
+        const confirmedPlace = fields.confirmedPlace?.mapValue?.fields;
+        const groupName = fields.groupName?.stringValue || '모임';
+
+        const loadingEl = document.getElementById('loading');
+        loadingEl.classList.add('fade-out');
+        setTimeout(() => {
+          loadingEl.style.display = 'none';
+        }, 300);
+
+        const openAppBtn = document.getElementById('openAppButton');
+        openAppBtn.style.display = 'inline-block';
+        openAppBtn.style.opacity = '0';
+        setTimeout(() => {
+          openAppBtn.classList.add('fade-in');
+          openAppBtn.style.opacity = '1';
+        }, 100);
+
+        // 일정이 확정된 경우
+        if (status === 'FINALIZED' && confirmedTime && confirmedPlace) {
+          document.getElementById('pageTitle').textContent = '약속 정보';
+          document.getElementById('pageDesc').textContent = '앱 없이도 약속 정보를 확인할 수 있어요!';
+          
+          const meetingInfo = document.getElementById('meetingInfo');
+          meetingInfo.style.display = 'block';
+          setTimeout(() => {
+            meetingInfo.classList.add('show');
+          }, 50);
+          
+          document.getElementById('meetingGroupName').textContent = groupName;
+          
+          // 시간 정보 표시 (디버깅을 위해 콘솔 로그 추가)
+          console.log('confirmedTime:', confirmedTime);
+          const timeText = formatDate(confirmedTime);
+          console.log('formatted time:', timeText);
+          document.getElementById('meetingTime').textContent = `🕒 ${timeText}`;
+          
+          const placeName = confirmedPlace.name?.stringValue || '';
+          const address = confirmedPlace.address?.stringValue || '';
+          document.getElementById('meetingPlace').textContent = `📍 ${placeName}\n${address}`;
+
+          // 지도 링크 생성
+          const lat = confirmedPlace.latitude?.doubleValue || confirmedPlace.lat?.doubleValue;
+          const lng = confirmedPlace.longitude?.doubleValue || confirmedPlace.lng?.doubleValue;
+          const mapLink = document.getElementById('mapLink');
+          
+          if (placeName || address || (lat && lng)) {
+            let mapUrl = '';
+            if (placeName && address) {
+              // 장소 이름과 주소를 함께 검색
+              const query = encodeURIComponent(`${placeName} ${address}`);
+              mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            } else if (address) {
+              // 주소만 검색
+              const query = encodeURIComponent(address);
+              mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            } else if (placeName) {
+              // 장소 이름만 검색
+              const query = encodeURIComponent(placeName);
+              mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            } else if (lat && lng) {
+              // 좌표로 검색
+              mapUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+            }
+            
+            if (mapUrl) {
+              mapLink.href = mapUrl;
+              mapLink.style.display = 'inline-block';
+            }
+          }
+        } else {
+          // 일정이 확정되지 않은 경우 기존 UI 유지
+          document.getElementById('pageTitle').textContent = 'Moyeoyo 그룹 초대';
+          document.getElementById('pageDesc').textContent = '친구가 공유한 모임 초대 링크입니다.\n앱을 열어 모임 참여를 완료해주세요!';
+        }
+      } catch (error) {
+        console.error('Error loading group info:', error);
+        const loadingEl = document.getElementById('loading');
+        loadingEl.textContent = '약속 정보를 불러오는 데 실패했습니다.';
+        const openAppBtn = document.getElementById('openAppButton');
+        openAppBtn.style.display = 'inline-block';
+        openAppBtn.style.opacity = '0';
+        setTimeout(() => {
+          openAppBtn.classList.add('fade-in');
+          openAppBtn.style.opacity = '1';
+        }, 100);
+      }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -108,16 +336,30 @@
       const btn = document.getElementById("openAppButton");
 
       if (!groupId) {
-        btn.style.display = "none";
-        document.querySelector("h1").textContent = "유효하지 않은 초대 링크";
-        document.querySelector(".desc").textContent = "Group ID 정보가 누락되었습니다.";
+        const loadingEl = document.getElementById('loading');
+        loadingEl.classList.add('fade-out');
+        setTimeout(() => {
+          loadingEl.style.display = 'none';
+        }, 300);
+        const titleEl = document.getElementById("pageTitle");
+        const descEl = document.getElementById("pageDesc");
+        titleEl.style.opacity = "0";
+        descEl.style.opacity = "0";
+        titleEl.textContent = "유효하지 않은 초대 링크";
+        descEl.textContent = "Group ID 정보가 누락되었습니다.";
+        setTimeout(() => {
+          titleEl.style.opacity = "1";
+          descEl.style.opacity = "1";
+        }, 50);
         return;
       }
+
+      // 그룹 정보 로드
+      loadGroupInfo(groupId);
 
       // 버튼 눌렀을 때만 앱 실행
       btn.addEventListener("click", (e) => {
         e.preventDefault();
-
         const deepLink = `android-app://${APP_PACKAGE}/https/${HOST}/join?groupId=${groupId}`;
         window.location.href = deepLink;
       });

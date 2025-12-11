@@ -32,4 +32,15 @@
         android:text="강퇴"
         android:textSize="12sp"
         android:backgroundTint="#FF4444"
-        android:visibility="gone" /> </LinearLayout>
+        android:visibility="gone" />
+    
+    <Button
+        android:id="@+id/btn_leave_group"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_marginStart="16dp"
+        android:text="나가기"
+        android:textSize="12sp"
+        android:backgroundTint="#888888"
+        android:visibility="gone" />
+</LinearLayout>

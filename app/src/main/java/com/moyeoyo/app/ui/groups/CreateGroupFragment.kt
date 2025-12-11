@@ -13,7 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.GroupRepository
-import com.moyeoyo.app.databinding.ActivityCreateGroupBinding
+import com.moyeoyo.app.databinding.FragmentCreateGroupBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -21,7 +21,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class CreateGroupFragment : Fragment() {
 
-    private var _binding: ActivityCreateGroupBinding? = null
+    private var _binding: FragmentCreateGroupBinding? = null
     private val binding get() = _binding!!
 
     @Inject
@@ -38,7 +38,7 @@ class CreateGroupFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = ActivityCreateGroupBinding.inflate(inflater, container, false)
+        _binding = FragmentCreateGroupBinding.inflate(inflater, container, false)
         return binding.root
     }
 

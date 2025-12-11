@@ -11,7 +11,8 @@
         android:id="@+id/appBarShare"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/white">
+        android:background="@color/white"
+        android:fitsSystemWindows="true">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbarShare"
@@ -32,7 +33,7 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
-        android:paddingBottom="40dp">
+        android:paddingBottom="100dp">
 
         <LinearLayout
             android:orientation="vertical"
@@ -126,62 +127,38 @@
                     android:textColor="@color/white" />
             </LinearLayout>
 
-
-            <!-- 공유 링크 -->
-            <TextView
-                android:layout_marginTop="20dp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="공유 링크"
-                android:textStyle="bold"
-                android:textColor="@color/black" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_search_bar"
-                android:gravity="center_vertical"
-                android:paddingHorizontal="12dp">
-
-                <TextView
-                    android:id="@+id/tvShareLink"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="https://meetapp.kr/meeting/abc123"
-                    android:textSize="14sp"
-                    android:textColor="@color/black"/>
-
-                <ImageButton
-                    android:id="@+id/btnCopyLink"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_copy"
-                    android:background="@android:color/transparent"/>
-            </LinearLayout>
-
-            <TextView
-                android:layout_marginTop="6dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="이 링크를 받은 사람은 앱 없이도 약속 정보를 볼 수 있어요"
-                android:textColor="@color/gray_700"
-                android:textSize="12sp"/>
-
-            <android.widget.Button
+            <!-- 카카오톡 공유 버튼 -->
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnKakaoShare"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="8dp"
+                android:layout_height="56dp"
+                android:layout_marginTop="20dp"
                 android:text="카카오톡으로 공유"
-                android:backgroundTint="@color/quantum_yellow600"
-                android:textColor="@color/black"/>
+                android:textColor="@color/black"
+                android:textSize="14sp"
+                android:background="@drawable/bg_round_button"
+                app:backgroundTint="@color/quantum_yellow700"
+                app:icon="@drawable/ic_kakao_24"
+                app:iconGravity="start"
+                app:iconPadding="12dp"
+                android:paddingStart="24dp"
+                android:layout_marginBottom="12dp"/>
+            
+            <!-- Info Text -->
+            <TextView
+                android:id="@+id/tvInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💡 앱 없이도 약속 정보를 볼 수 있어요"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:layout_marginBottom="32dp"
+                android:gravity="center"/>
 
 
             <!-- 지도 링크 -->
             <LinearLayout
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="8dp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -209,52 +186,40 @@
                         android:textColor="@color/green_700"/>
                 </LinearLayout>
 
-                <android.widget.Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnOpenMap"
                     android:layout_width="match_parent"
-                    android:layout_height="44dp"
+                    android:layout_height="56dp"
                     android:layout_marginTop="12dp"
                     android:text="구글 지도에서 열기"
                     android:textColor="@color/black"
-                    android:textSize="12sp"
-                    android:backgroundTint="@color/white"/>
+                    android:textSize="14sp"
+                    android:background="@drawable/bg_round_button"
+                    app:backgroundTint="@color/white"/>
             </LinearLayout>
-
-
-            <!-- 미리보기 안내 -->
-            <LinearLayout
-                android:layout_marginTop="16dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:background="@drawable/bg_card_light_blue"
-                android:padding="12dp">
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_lightbulb_24"/>
-
-                <TextView
-                    android:layout_marginStart="8dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="링크를 클릭한 사람은 약속 정보와 지도를 볼 수 있습니다. 앱이 있다면 앱에서, 없다면 웹에서 볼 수 있어요."
-                    android:textColor="@color/brand_blue"
-                    android:textSize="12sp"/>
-            </LinearLayout>
-
-
-            <!-- 완료 버튼 -->
-            <android.widget.Button
-                android:id="@+id/btnDone"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="24dp"
-                android:text="완료"
-                android:textColor="@color/white"
-                android:background="@drawable/bg_black_button"/>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <!-- 하단 고정 버튼 -->
+    <LinearLayout
+        android:id="@+id/bottomCompleteLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:padding="20dp"
+        android:elevation="8dp"
+        android:layout_gravity="bottom">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDone"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="돌아가기"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:background="@drawable/bg_round_button"
+            app:backgroundTint="@color/brand_blue"/>
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,12 +1,12 @@
 package com.moyeoyo.app
 
 import android.Manifest
-import com.moyeoyo.app.DeepLinkHandler
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import androidx.navigation.NavController
+import com.google.android.libraries.places.api.Places
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import com.moyeoyo.app.core.DeeplinkHandler
@@ -75,6 +76,22 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Google Places SDK 초기화 (앱 시작 시 1회)
+        if (!Places.isInitialized()) {
+            Places.initialize(this, getString(R.string.google_maps_key))
+        }
+        
+        // 상태바 설정: 하얀색 배경, 검은색 글자
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.statusBarColor = getColor(R.color.white)
+            var flags = window.decorView.systemUiVisibility
+            flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            window.decorView.systemUiVisibility = flags
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            window.statusBarColor = getColor(R.color.white)
+        }
+        
         setContentView(R.layout.activity_main_host)
 
         // 🔔 알림 권한 요청
@@ -120,7 +137,6 @@ class MainActivity : AppCompatActivity() {
 
         // 딥링크 처리
         deeplinkHandler.handle(intent)
-        DeepLinkHandler(navController).handle(intent)
         
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)
@@ -150,7 +166,6 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         deeplinkHandler.handle(intent)
-        DeepLinkHandler(navController).handle(intent)
         
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)

@@ -118,8 +118,8 @@ class ShareMeetingFragment : Fragment() {
                         ?: (it["lng"] as? Number)?.toDouble()
                 }
                 
-                // 공유 링크 생성 (index 링크)
-                shareLink = "https://$HOSTING_DOMAIN/"
+                // 공유 링크 생성 (그룹 링크)
+                shareLink = "https://$HOSTING_DOMAIN/join?groupId=$groupId"
             }
             .addOnFailureListener {
                 // 실패 처리

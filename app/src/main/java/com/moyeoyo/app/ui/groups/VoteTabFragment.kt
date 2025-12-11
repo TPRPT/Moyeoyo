@@ -308,17 +308,6 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                     "PLACE_RANKING" -> {
                         // ⭐ 순위 지정 단계일 때는 RecommendedPlaceFragment로 이동
                         // (아직 최종 투표 단계가 아니므로 FinalVoteFragment로 가면 안 됨)
-                        val voteRepository = com.moyeoyo.app.data.repository.VoteRepository(
-                            FirebaseFirestore.getInstance(),
-                            FirebaseAuth.getInstance()
-                        )
-                        val voteStatus = voteRepository.getVoteStatus(groupId)
-                        
-                        // 중간 지점 정보가 필요하므로 MapRepository에서 가져오기
-                        val mapRepository = com.moyeoyo.app.data.repository.MapRepository(
-                            FirebaseFirestore.getInstance(),
-                            FirebaseAuth.getInstance()
-                        )
                         val inputLocations = mapRepository.getInputLocations(groupId)
                         val weightedCenter = mapRepository.computeWeightedCenter(inputLocations)
                         

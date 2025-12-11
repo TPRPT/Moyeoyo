@@ -17,7 +17,8 @@
         android:paddingHorizontal="20dp"
         android:gravity="center_vertical"
         android:background="#FFFFFF"
-        android:elevation="6dp">
+        android:elevation="6dp"
+        android:fitsSystemWindows="true">
 
         <TextView
             android:id="@+id/appbar_title"
@@ -41,8 +42,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:padding="8dp"
                 android:src="@drawable/ic_notification_bell"
-                android:contentDescription="알림"
-                app:tint="#000000" />
+                android:contentDescription="알림" />
 
             <TextView
                 android:id="@+id/notification_badge"
@@ -169,7 +169,8 @@
                     android:layout_height="40dp"
                     android:text="새 그룹 만들기"
                     android:textSize="14sp"
-                    android:backgroundTint="#050505"
+                    android:textColor="@color/white"
+                    android:backgroundTint="@color/brand_blue"
                     android:drawableStart="@drawable/ic_plus_white"
                     android:drawablePadding="4dp"
                     android:paddingHorizontal="12dp" />

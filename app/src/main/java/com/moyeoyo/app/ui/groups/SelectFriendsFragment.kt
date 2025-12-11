@@ -10,6 +10,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.lifecycle.lifecycleScope
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.FriendRepository
+import com.moyeoyo.app.data.repository.GroupRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,7 +20,15 @@ class SelectFriendsFragment : Fragment() {
 
     @Inject
     lateinit var friendRepository: FriendRepository
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
+    
     private val selectedUids = mutableSetOf<String>()
+    
+    private val groupId: String? by lazy {
+        arguments?.getString("groupId")
+    }
 
     companion object {
         const val RESULT_KEY = "select_friends_result"
@@ -35,7 +44,7 @@ class SelectFriendsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.activity_select_friends, container, false)
+        return inflater.inflate(R.layout.fragment_select_friends, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -62,11 +71,26 @@ class SelectFriendsFragment : Fragment() {
         container.removeAllViews()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val friendUids = friendRepository.getFriendUids()
+            // 그룹의 현재 멤버 목록 가져오기 (groupId가 있는 경우)
+            val existingMemberUids = if (groupId != null) {
+                val group = groupRepository.getGroupById(groupId!!)
+                group?.memberUids?.toSet() ?: emptySet()
+            } else {
+                emptySet()
+            }
 
-            if (friendUids.isEmpty()) {
+            val friendUids = friendRepository.getFriendUids()
+            
+            // 이미 멤버인 친구 제외
+            val availableFriendUids = friendUids.filter { it !in existingMemberUids }
+
+            if (availableFriendUids.isEmpty()) {
                 val textView = TextView(requireContext()).apply {
-                    text = "친구 목록이 비어 있습니다. 먼저 친구를 추가해주세요."
+                    text = if (friendUids.isEmpty()) {
+                        "친구 목록이 비어 있습니다. 먼저 친구를 추가해주세요."
+                    } else {
+                        "추가할 수 있는 친구가 없습니다. 모든 친구가 이미 그룹 멤버입니다."
+                    }
                     setPadding(16, 16, 16, 16)
                 }
                 container.addView(textView)
@@ -75,22 +99,50 @@ class SelectFriendsFragment : Fragment() {
 
             val inflater = LayoutInflater.from(requireContext())
 
-            friendUids.forEach { uid ->
+            availableFriendUids.forEach { uid ->
                 val nickname = friendRepository.getUserNickname(uid)
                 val itemView = inflater.inflate(R.layout.item_friend_card, container, false)
 
                 val tvInitial = itemView.findViewById<TextView>(R.id.tvInitial)
+                val imgProfile = itemView.findViewById<ImageView>(R.id.imgProfile)
                 val tvName = itemView.findViewById<TextView>(R.id.tvName)
                 val tvUid = itemView.findViewById<TextView>(R.id.tvUid)
                 val checkbox = itemView.findViewById<CheckBox>(R.id.checkboxSelect)
 
-                tvInitial.text = (nickname ?: uid.take(1)).uppercase()
-                tvName.text = nickname ?: uid.take(8)
-                tvUid.text = uid.take(8)
+                // 프로필 사진 및 이메일 로드
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val photoUrl = friendRepository.getUserPhotoUrl(uid)
+                    val email = friendRepository.getUserEmail(uid)
+                    
+                    if (!photoUrl.isNullOrEmpty()) {
+                        tvInitial.visibility = View.GONE
+                        imgProfile.visibility = View.VISIBLE
+                        com.bumptech.glide.Glide.with(requireContext())
+                            .load(photoUrl)
+                            .circleCrop()
+                            .placeholder(com.moyeoyo.app.R.drawable.ic_user_placeholder)
+                            .into(imgProfile)
+                    } else {
+                        tvInitial.visibility = View.VISIBLE
+                        imgProfile.visibility = View.GONE
+                        tvInitial.text = (nickname ?: uid.take(1)).uppercase()
+                    }
+                    
+                    tvName.text = nickname ?: uid.take(8)
+                    tvUid.text = email ?: uid.take(8)
+                }
 
+                // 체크박스 상태 변경 리스너
+                checkbox.setOnCheckedChangeListener(null) // 기존 리스너 제거
+                checkbox.isChecked = selectedUids.contains(uid)
                 checkbox.setOnCheckedChangeListener { _, isChecked ->
                     if (isChecked) selectedUids.add(uid)
                     else selectedUids.remove(uid)
+                }
+
+                // 카드 전체 클릭 시 체크박스 토글
+                itemView.setOnClickListener {
+                    checkbox.isChecked = !checkbox.isChecked
                 }
 
                 container.addView(itemView)

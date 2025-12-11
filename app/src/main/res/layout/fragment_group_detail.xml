@@ -11,7 +11,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/white"
-        android:elevation="2dp">
+        android:elevation="2dp"
+        android:fitsSystemWindows="true">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
@@ -53,44 +54,7 @@
                 android:layout_marginTop="4dp"
                 android:text="멤버 5명"
                 android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-
-            <!-- 확정된 시간 블록 -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/confirmed_time_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp"
-                android:visibility="gone"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:cardBackgroundColor="@color/white">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="확정된 시간"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/black"
-                        android:layout_marginBottom="8dp"/>
-
-                    <TextView
-                        android:id="@+id/text_confirmed_time_only"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="일시: 2025년 11월 20일 (수) 오후 2:00"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_secondary"/>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:textSize="14sp" />
 
             <!-- 그룹 삭제/나가기 버튼 -->
             <LinearLayout
@@ -124,6 +88,54 @@
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- 확정된 시간 카드 (시간만 확정된 경우) -->
+            <LinearLayout
+                android:id="@+id/confirmed_time_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_header_blue"
+                android:clipToOutline="true"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/labelConfirmedTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="확정된 시간"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="10dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_event_24"
+                        app:tint="@color/white" />
+
+                    <TextView
+                        android:id="@+id/text_confirmed_time_only"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="2025년 10월 20일 (일) 18:00"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- 다음 모임 카드 (최종 확정된 일정 블록 대신 표시) -->
             <LinearLayout
                 android:id="@+id/nextMeetingCard"
@@ -137,14 +149,24 @@
                 android:clipToOutline="true"
                 android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/labelNext"
-                    android:layout_width="wrap_content"
+                <!-- 상단: 다음 모임 라벨과 공유 버튼 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="다음 모임"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/labelNext"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="다음 모임"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -241,7 +263,7 @@
 
             </LinearLayout>
 
-            <!-- 탭 (장소 / 멤버) -->
+            <!-- 탭 (투표 / 멤버 / 사진) -->
             <RadioGroup
                 android:id="@+id/tabGroup"
                 android:layout_width="match_parent"

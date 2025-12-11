@@ -56,7 +56,7 @@ class CurrentLocationFragment : Fragment(), OnMapReadyCallback, GoogleMap.OnCame
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.activity_confirm_location, container, false)
+        return inflater.inflate(R.layout.fragment_confirm_location, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

@@ -39,6 +39,8 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private lateinit var auth: FirebaseAuth
     private lateinit var firestore: FirebaseFirestore
     private lateinit var progressDialog: ProgressDialog
+    private var progressDialogShowTime: Long = 0
+    private val MIN_PROGRESS_DISPLAY_TIME = 500L // 최소 표시 시간 (밀리초)
 
     // UI
     private lateinit var profileImage: ImageView
@@ -142,12 +144,12 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         val user = auth.currentUser ?: return
         textEmail.text = user.email ?: ""
 
-        progressDialog.show()
+        showProgressDialog()
 
         firestore.collection("users").document(user.uid)
             .get()
             .addOnSuccessListener { doc ->
-                progressDialog.dismiss()
+                dismissProgressDialog()
 
                 if (!doc.exists()) {
                     Snackbar.make(requireView(), "사용자 정보를 찾을 수 없습니다.", Snackbar.LENGTH_LONG).show()
@@ -172,9 +174,38 @@ class MainFragment : Fragment(R.layout.fragment_main) {
                 }
             }
             .addOnFailureListener {
-                progressDialog.dismiss()
+                dismissProgressDialog()
                 Snackbar.make(requireView(), "불러오기 실패", Snackbar.LENGTH_LONG).show()
             }
+    }
+
+    /**
+     * ProgressDialog를 표시하고 시간을 기록
+     */
+    private fun showProgressDialog() {
+        progressDialogShowTime = System.currentTimeMillis()
+        progressDialog.show()
+    }
+
+    /**
+     * ProgressDialog를 닫되, 최소 표시 시간이 지나지 않았으면 대기 후 닫기
+     */
+    private fun dismissProgressDialog() {
+        val elapsedTime = System.currentTimeMillis() - progressDialogShowTime
+        val remainingTime = MIN_PROGRESS_DISPLAY_TIME - elapsedTime
+
+        if (remainingTime > 0) {
+            // 최소 표시 시간이 지나지 않았으면 대기 후 닫기
+            viewLifecycleOwner.lifecycleScope.launch {
+                kotlinx.coroutines.delay(remainingTime)
+                if (progressDialog.isShowing) {
+                    progressDialog.dismiss()
+                }
+            }
+        } else {
+            // 이미 최소 표시 시간이 지났으면 바로 닫기
+            progressDialog.dismiss()
+        }
     }
 
     // ─ 그룹 목록 로드 ─
@@ -205,6 +236,31 @@ class MainFragment : Fragment(R.layout.fragment_main) {
             groupView.findViewById<TextView>(R.id.group_card_name).text = group.groupName
             groupView.findViewById<TextView>(R.id.group_card_members).text =
                 "${group.memberUids.size}명 참여 중"
+
+            // 확정된 일정 정보 표시 (오른쪽에 배치)
+            val scheduleLayout = groupView.findViewById<LinearLayout>(R.id.group_card_schedule)
+            val timeText = groupView.findViewById<TextView>(R.id.group_card_time)
+            val placeText = groupView.findViewById<TextView>(R.id.group_card_place)
+
+            if (group.status == "FINALIZED" && group.confirmedTime != null && group.confirmedPlace != null) {
+                scheduleLayout.visibility = View.VISIBLE
+
+                // 시간 포맷팅 (간단하게)
+                val sdf = java.text.SimpleDateFormat("M/d (E) a h:mm", java.util.Locale.getDefault())
+                val formattedTime = sdf.format(group.confirmedTime.toDate())
+                timeText.text = formattedTime
+
+                // 장소 정보 (간단하게)
+                val placeName = group.confirmedPlace["name"] as? String ?: ""
+                val displayPlace = if (placeName.isNotEmpty()) {
+                    if (placeName.length > 8) placeName.substring(0, 8) + "..." else placeName
+                } else {
+                    "장소 미정"
+                }
+                placeText.text = displayPlace
+            } else {
+                scheduleLayout.visibility = View.GONE
+            }
 
             groupView.setOnClickListener {
                 val action = MainFragmentDirections.actionMainFragmentToGroupDetailFragment(

@@ -103,12 +103,8 @@ class TimeVoteFragment : Fragment() {
             checkUserVotedStatus()
         }
 
-        // 스크롤뷰 설정 & 드래그 리스너
+        // 스크롤뷰 설정
         binding.scrollViewTimeSlots.isNestedScrollingEnabled = false
-        binding.scrollViewTimeSlots.setOnTouchListener { _, event ->
-            handleDragSelect(event)
-            true
-        }
     }
 
     override fun onDestroyView() {
@@ -126,6 +122,7 @@ class TimeVoteFragment : Fragment() {
 
     private var isDragging = false
     private var initialDragSelectionState: Boolean? = null // 드래그 시작 시 첫 버튼의 선택 상태
+    private var firstButtonInDrag: MaterialButton? = null // 드래그 시작 버튼
 
     private fun handleDragSelect(event: MotionEvent) {
         // 이미 투표를 완료한 경우 드래그 비활성화
@@ -138,9 +135,10 @@ class TimeVoteFragment : Fragment() {
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                isDragging = true
-                initialDragSelectionState = null // 초기화
-                processedButtonsDuringDrag.clear() // 초기화
+                // ACTION_DOWN에서는 첫 버튼의 상태만 기록 (선택하지 않음)
+                initialDragSelectionState = null
+                processedButtonsDuringDrag.clear()
+                firstButtonInDrag = null
                 
                 // 드래그 시작 지점의 버튼 찾기
                 timeButtons.forEach { button ->
@@ -149,13 +147,24 @@ class TimeVoteFragment : Fragment() {
                     if (rect.contains(x, y)) {
                         // 드래그 시작 시 첫 버튼의 상태를 기억
                         initialDragSelectionState = button.tag as? Boolean == true
-                        selectTimeSlot(button)
+                        firstButtonInDrag = button
                         processedButtonsDuringDrag.add(button)
                         return@forEach
                     }
                 }
             }
             MotionEvent.ACTION_MOVE -> {
+                // ACTION_MOVE에서 드래그 시작
+                if (!isDragging && initialDragSelectionState != null && firstButtonInDrag != null) {
+                    isDragging = true
+                    // 드래그 시작 시 첫 버튼을 선택 상태로 변경 (드래그 시작점 표시)
+                    val shouldSelect = !initialDragSelectionState!!
+                    val currentState = firstButtonInDrag!!.tag as? Boolean == true
+                    if (shouldSelect != currentState) {
+                        selectTimeSlotForDrag(firstButtonInDrag!!, shouldSelect)
+                    }
+                }
+                
                 if (!isDragging) return
                 
                 // 드래그 중: 터치 위치에 있는 버튼 처리
@@ -182,9 +191,20 @@ class TimeVoteFragment : Fragment() {
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                // 드래그가 아니었고 첫 버튼이 변경되었다면 원래 상태로 되돌림
+                if (!isDragging && firstButtonInDrag != null && initialDragSelectionState != null) {
+                    val currentState = firstButtonInDrag!!.tag as? Boolean == true
+                    val originalState = initialDragSelectionState!!
+                    if (currentState != originalState) {
+                        // 원래 상태로 되돌림
+                        selectTimeSlotForDrag(firstButtonInDrag!!, originalState)
+                    }
+                }
+                
                 isDragging = false
                 initialDragSelectionState = null
                 processedButtonsDuringDrag.clear()
+                firstButtonInDrag = null
                 binding.scrollViewTimeSlots.requestDisallowInterceptTouchEvent(false)
             }
         }
@@ -268,6 +288,17 @@ class TimeVoteFragment : Fragment() {
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
+        }
+        
+        // 툴바 메뉴 아이템 클릭 리스너
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.menu_reset -> {
+                    handleResetClick()
+                    true
+                }
+                else -> false
+            }
         }
     }
 
@@ -431,10 +462,42 @@ class TimeVoteFragment : Fragment() {
                     setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
                 }
 
-                // 터치 리스너로 드래그와 클릭 모두 처리
-                var touchStartTime = 0L
+                // 클릭 리스너로 단순 터치 처리
+                setOnClickListener {
+                    // 이미 투표를 완료한 경우 클릭 비활성화
+                    if (hasVoted) return@setOnClickListener
+
+                    val wasSelected = tag as Boolean
+                    // ViewModel의 장바구니에 추가/제거
+                    viewModel.toggleTimeSelection(dateStr, time)
+
+                    tag = !wasSelected
+                    if (!wasSelected) {
+                        backgroundTintList =
+                            ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
+                        setTextColor(
+                            ContextCompat.getColor(
+                                requireContext(),
+                                R.color.white
+                            )
+                        )
+                    } else {
+                        backgroundTintList =
+                            ContextCompat.getColorStateList(requireContext(), R.color.white)
+                        setTextColor(
+                            ContextCompat.getColor(
+                                requireContext(),
+                                R.color.black
+                            )
+                        )
+                    }
+                    updateButtonState()
+                }
+                
+                // 터치 리스너로 드래그 처리
                 var touchStartX = 0f
                 var touchStartY = 0f
+                var isDraggingTouch = false
                 
                 setOnTouchListener { v, event ->
                     if (hasVoted) {
@@ -442,54 +505,44 @@ class TimeVoteFragment : Fragment() {
                     } else {
                         when (event.action) {
                             MotionEvent.ACTION_DOWN -> {
-                                touchStartTime = System.currentTimeMillis()
                                 touchStartX = event.rawX
                                 touchStartY = event.rawY
-                                // 드래그 핸들러에 이벤트 전달
+                                isDraggingTouch = false
+                                // 드래그 핸들러에 ACTION_DOWN 전달 (상태만 기록)
                                 handleDragSelect(event)
+                                // true를 반환하여 터치 이벤트를 소비 (드래그를 위해)
                                 true
                             }
                             MotionEvent.ACTION_MOVE -> {
-                                // 드래그 핸들러에 이벤트 전달
-                                handleDragSelect(event)
-                                true
-                            }
-                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                val touchDuration = System.currentTimeMillis() - touchStartTime
                                 val touchDistance = sqrt(
                                     (event.rawX - touchStartX).pow(2) + (event.rawY - touchStartY).pow(2)
                                 )
-                                
-                                // 드래그 핸들러에 이벤트 전달
-                                handleDragSelect(event)
-                                
-                                // 짧은 클릭이고 이동 거리가 작으면 클릭으로 처리
-                                if (touchDuration < 200 && touchDistance < 50) {
-                                    val wasSelected = tag as Boolean
-                                    viewModel.toggleTimeSelection(dateStr, time)
-                                    tag = !wasSelected
-                                    if (!wasSelected) {
-                                        backgroundTintList =
-                                            ContextCompat.getColorStateList(requireContext(), R.color.brand_blue)
-                                        setTextColor(
-                                            ContextCompat.getColor(
-                                                requireContext(),
-                                                R.color.white
-                                            )
-                                        )
-                                    } else {
-                                        backgroundTintList =
-                                            ContextCompat.getColorStateList(requireContext(), R.color.white)
-                                        setTextColor(
-                                            ContextCompat.getColor(
-                                                requireContext(),
-                                                R.color.black
-                                            )
-                                        )
+                                // 이동 거리가 일정 이상이면 드래그로 판단
+                                if (touchDistance > 20) {
+                                    if (!isDraggingTouch) {
+                                        isDraggingTouch = true
+                                        // 드래그 시작
+                                        isDragging = true
                                     }
-                                    updateButtonState()
+                                    // 드래그 핸들러에 이벤트 전달
+                                    handleDragSelect(event)
+                                    true
+                                } else {
+                                    false
                                 }
-                                true
+                            }
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                // 드래그였다면 드래그 종료 처리
+                                if (isDraggingTouch) {
+                                    handleDragSelect(event)
+                                    true
+                                } else {
+                                    // 드래그가 아니었으면 드래그 핸들러에 ACTION_UP 전달하여 원래 상태로 되돌림
+                                    handleDragSelect(event)
+                                    // 클릭 리스너를 직접 호출하여 처리
+                                    performClick()
+                                    true
+                                }
                             }
                             else -> false
                         }
@@ -628,9 +681,6 @@ class TimeVoteFragment : Fragment() {
             binding.btnCompleteVote.isEnabled = false
             binding.btnCompleteVote.backgroundTintList =
                 ContextCompat.getColorStateList(requireContext(), R.color.light_gray)
-            binding.btnReset.isEnabled = false
-            binding.btnReset.backgroundTintList =
-                ContextCompat.getColorStateList(requireContext(), R.color.light_gray)
             return
         }
 
@@ -651,14 +701,6 @@ class TimeVoteFragment : Fragment() {
             ContextCompat.getColorStateList(
                 requireContext(),
                 if (enabled) R.color.black else R.color.light_gray
-            )
-        
-        // 초기화 버튼 상태 업데이트
-        binding.btnReset.isEnabled = enabled
-        binding.btnReset.backgroundTintList =
-            ContextCompat.getColorStateList(
-                requireContext(),
-                if (enabled) R.color.white else R.color.light_gray
             )
     }
 
@@ -741,43 +783,45 @@ class TimeVoteFragment : Fragment() {
         }
     }
 
-    private fun setupButton() {
-        // 초기화 버튼
-        binding.btnReset.setOnClickListener {
-            // 이미 투표를 완료한 경우 초기화 비활성화
-            if (hasVoted) {
-                Toast.makeText(requireContext(), "이미 저장된 투표는 초기화할 수 없습니다.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val pendingSelections = viewModel.pendingSelections.value
-            val totalCount = pendingSelections.values.sumOf { it.size }
-
-            if (totalCount == 0) {
-                Toast.makeText(requireContext(), "초기화할 선택 항목이 없습니다.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            // 확인 다이얼로그 표시
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("선택 초기화")
-                .setMessage("선택한 모든 시간을 초기화하시겠습니까?")
-                .setPositiveButton("초기화") { _, _ ->
-                    // ViewModel의 장바구니 초기화
-                    viewModel.clearPendingSelections()
-                    
-                    // 현재 선택된 날짜의 그리드 UI 업데이트
-                    setupTimeGrid()
-                    
-                    // 버튼 상태 업데이트
-                    updateButtonState()
-                    
-                    Toast.makeText(requireContext(), "선택이 초기화되었습니다.", Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton("취소", null)
-                .show()
+    /**
+     * 초기화 버튼 클릭 처리
+     */
+    private fun handleResetClick() {
+        // 이미 투표를 완료한 경우 초기화 비활성화
+        if (hasVoted) {
+            Toast.makeText(requireContext(), "이미 저장된 투표는 초기화할 수 없습니다.", Toast.LENGTH_SHORT).show()
+            return
         }
 
+        val pendingSelections = viewModel.pendingSelections.value
+        val totalCount = pendingSelections.values.sumOf { it.size }
+
+        if (totalCount == 0) {
+            Toast.makeText(requireContext(), "초기화할 선택 항목이 없습니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 확인 다이얼로그 표시
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("선택 초기화")
+            .setMessage("선택한 모든 시간을 초기화하시겠습니까?")
+            .setPositiveButton("초기화") { _, _ ->
+                // ViewModel의 장바구니 초기화
+                viewModel.clearPendingSelections()
+                
+                // 현재 선택된 날짜의 그리드 UI 업데이트
+                setupTimeGrid()
+                
+                // 버튼 상태 업데이트
+                updateButtonState()
+                
+                Toast.makeText(requireContext(), "선택이 초기화되었습니다.", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun setupButton() {
         // 저장 버튼
         binding.btnCompleteVote.setOnClickListener {
             // ViewModel의 장바구니에서 모든 날짜의 선택된 시간 확인

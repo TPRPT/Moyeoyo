@@ -8,10 +8,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
+import com.bumptech.glide.Glide
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -48,7 +52,7 @@ class AddFriendFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.activity_add_friend, container, false)
+        return inflater.inflate(R.layout.fragment_add_friend, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -123,10 +127,31 @@ class AddFriendFragment : Fragment() {
             if (uid != null) {
                 // 사용자 있음 → 카드뷰 표시
                 val nickname = friendRepository.getUserNickname(uid)
+                val photoUrl = friendRepository.getUserPhotoUrl(uid)
 
                 foundUserUid = uid
                 tvName.text = nickname ?: "알 수 없음"
                 tvEmail.text = email
+
+                // 프로필 사진 로드
+                val tvInitial = view?.findViewById<TextView>(R.id.tvInitial)
+                val imgProfile = view?.findViewById<ImageView>(R.id.imgProfile)
+                
+                if (!photoUrl.isNullOrEmpty()) {
+                    tvInitial?.visibility = View.GONE
+                    imgProfile?.visibility = View.VISIBLE
+                    imgProfile?.let {
+                        com.bumptech.glide.Glide.with(requireContext())
+                            .load(photoUrl)
+                            .circleCrop()
+                            .placeholder(R.drawable.ic_user_placeholder)
+                            .into(it)
+                    }
+                } else {
+                    tvInitial?.visibility = View.VISIBLE
+                    imgProfile?.visibility = View.GONE
+                    tvInitial?.text = (nickname ?: uid.take(1)).uppercase()
+                }
 
                 cardSearchResult.visibility = View.VISIBLE
 
@@ -188,37 +213,62 @@ class AddFriendFragment : Fragment() {
                 return@launch
             }
 
+            val inflater = LayoutInflater.from(requireContext())
+
             friendUids.forEach { uid ->
                 val nickname = friendRepository.getUserNickname(uid)
+                val itemView = inflater.inflate(R.layout.item_friend_card, friendListContainer, false)
 
-                val friendItemView = LinearLayout(requireContext()).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        topMargin = 6
-                        bottomMargin = 6
-                    }
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(16, 12, 16, 12)
-                }
+                val tvInitial = itemView.findViewById<TextView>(R.id.tvInitial)
+                val imgProfile = itemView.findViewById<ImageView>(R.id.imgProfile)
+                val tvName = itemView.findViewById<TextView>(R.id.tvName)
+                val tvUid = itemView.findViewById<TextView>(R.id.tvUid)
+                val checkbox = itemView.findViewById<CheckBox>(R.id.checkboxSelect)
+                val cardLayout = itemView.findViewById<LinearLayout>(R.id.cardLayout)
 
-                val nameTextView = TextView(requireContext()).apply {
-                    text = "${nickname ?: uid.take(8)}"
-                    textSize = 17f
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                }
+                // 체크박스는 친구 목록에서는 숨김
+                checkbox.visibility = View.GONE
 
+                // 삭제 버튼 추가
                 val deleteButton = Button(requireContext()).apply {
                     text = "삭제"
                     textSize = 12f
+                    backgroundTintList = ContextCompat.getColorStateList(requireContext(), android.R.color.holo_red_dark)
+                    setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
                     setOnClickListener { showDeleteConfirmation(uid, nickname ?: uid.take(8)) }
                 }
 
-                friendItemView.addView(nameTextView)
-                friendItemView.addView(deleteButton)
-                friendListContainer.addView(friendItemView)
+                // 프로필 사진 및 이메일 로드
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val photoUrl = friendRepository.getUserPhotoUrl(uid)
+                    val email = friendRepository.getUserEmail(uid)
+                    
+                    if (!photoUrl.isNullOrEmpty()) {
+                        tvInitial.visibility = View.GONE
+                        imgProfile.visibility = View.VISIBLE
+                        Glide.with(requireContext())
+                            .load(photoUrl)
+                            .circleCrop()
+                            .placeholder(R.drawable.ic_user_placeholder)
+                            .into(imgProfile)
+                    } else {
+                        tvInitial.visibility = View.VISIBLE
+                        imgProfile.visibility = View.GONE
+                        tvInitial.text = (nickname ?: uid.take(1)).uppercase()
+                    }
+                    
+                    tvName.text = nickname ?: uid.take(8)
+                    tvUid.text = email ?: uid.take(8)
+                }
+
+                // 삭제 버튼을 카드 레이아웃에 추가
+                cardLayout?.addView(deleteButton)
+
+                friendListContainer.addView(itemView)
             }
         }
     }

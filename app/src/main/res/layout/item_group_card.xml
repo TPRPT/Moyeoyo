@@ -1,28 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:padding="16dp"
     android:layout_marginBottom="8dp"
     android:background="@drawable/bg_input_field"
-    android:elevation="1dp">
+    android:elevation="1dp"
+    android:gravity="center_vertical">
 
-    <TextView
-        android:id="@+id/group_card_name"
-        android:layout_width="match_parent"
+    <!-- 왼쪽: 그룹 정보 -->
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="#111"
-        android:layout_marginBottom="4dp"
-        android:text="대학 동기 모임" />
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/group_card_members"
-        android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/group_card_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#111"
+            android:layout_marginBottom="4dp"
+            android:text="대학 동기 모임" />
+
+        <TextView
+            android:id="@+id/group_card_members"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#666"
+            android:text="5명 참여 중" />
+    </LinearLayout>
+
+    <!-- 오른쪽: 확정된 일정 정보 (FINALIZED 상태일 때만 표시) -->
+    <LinearLayout
+        android:id="@+id/group_card_schedule"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="#666"
-        android:text="5명 참여 중" />
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_marginStart="16dp"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/group_card_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#666"
+            android:text="🕒 1/15 (월) 오후 6시"
+            android:gravity="end"
+            android:layout_marginBottom="2dp" />
+
+        <TextView
+            android:id="@+id/group_card_place"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#666"
+            android:text="📍 스타벅스 역삼역점"
+            android:gravity="end"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
 </LinearLayout>
