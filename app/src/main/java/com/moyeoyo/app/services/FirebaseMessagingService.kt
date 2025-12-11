@@ -1,6 +1,5 @@
 package com.moyeoyo.app.services
 
-import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -82,15 +81,7 @@ class FirebaseMessagingService : FirebaseMessagingService() {
         if (body != null) {
             Log.d(TAG, "포그라운드 알림 표시 - Title: $title, Body: $body")
             Log.d(TAG, "Message data payload: $data")
-            
-            // ⭐ 포그라운드 알림 표시 (기존 기능)
             sendNotification(title, body, data)
-            
-            // ⭐ 포그라운드일 때 추가로 다이얼로그도 표시 (헤드업 알림 대체)
-            if (isAppInForeground()) {
-                Log.d(TAG, "앱이 포그라운드에 있음 - 다이얼로그 추가 표시")
-                showNotificationAsActivity(title, body, data)
-            }
         } else {
             Log.d(TAG, "알림 본문이 없어 표시하지 않음")
         }
@@ -216,43 +207,6 @@ class FirebaseMessagingService : FirebaseMessagingService() {
 
         notificationManager.notify(notificationId, notificationBuilder.build())
         Log.d(TAG, "포그라운드 알림 표시 완료 - 헤드업 알림 활성화 (PRIORITY_MAX, IMPORTANCE_HIGH, FullScreenIntent)")
-    }
-
-    /**
-     * 앱이 포그라운드에 있는지 확인
-     */
-    private fun isAppInForeground(): Boolean {
-        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val runningAppProcesses = activityManager.runningAppProcesses ?: return false
-        
-        val packageName = packageName
-        for (processInfo in runningAppProcesses) {
-            if (processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND &&
-                processInfo.processName == packageName) {
-                return true
-            }
-        }
-        return false
-    }
-    
-    /**
-     * 포그라운드일 때 Activity를 직접 띄워서 헤드업 알림 효과
-     */
-    private fun showNotificationAsActivity(title: String?, messageBody: String?, data: Map<String, String>) {
-        val notificationType = data["type"]
-        val groupId = data["groupId"]
-        
-        val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            putExtra("showNotificationDialog", true)
-            putExtra("notificationTitle", title)
-            putExtra("notificationMessage", messageBody)
-            groupId?.let { putExtra("groupId", it) }
-            notificationType?.let { putExtra("notificationType", it) }
-        }
-        
-        startActivity(intent)
-        Log.d(TAG, "포그라운드 알림 Activity 띄우기 완료")
     }
 
     /**

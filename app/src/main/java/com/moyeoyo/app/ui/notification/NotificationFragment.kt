@@ -288,7 +288,7 @@ class NotificationFragment : Fragment() {
                     }
 
                     // 🔵 그룹 관련 알림 → 그룹 상세로 이동
-                    "time_vote", "location_input", "final_vote", "finalized", "ranking", "reminder" -> {
+                    "time_vote", "location_input", "final_vote", "finalized", "ranking", "reminder", "final_time_vote", "final_place_vote" -> {
                         if (item.groupId == null || item.groupId.isBlank()) {
                             Log.e("NotificationFragment", "그룹 ID가 없습니다. 알림 ID: ${item.id}, 타입: ${item.type}")
                             Toast.makeText(

@@ -526,6 +526,7 @@ class FinalVoteViewModel @Inject constructor(
                     kotlinx.coroutines.delay(1500) // Firestore 동기화 시간 확보
                     
                     // 5. ⭐ 핵심: 내 투표 후에만 모든 사용자가 투표했는지 확인하고 승리 장소 결정
+                    // determineWinner 내부에서 모든 멤버 완료 확인 후 상태 변경
                     determineWinner(groupId)
                     
                     _voteSuccess.value = true

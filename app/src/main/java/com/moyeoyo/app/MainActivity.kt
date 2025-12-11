@@ -138,18 +138,6 @@ class MainActivity : AppCompatActivity() {
         
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)
-        
-        // ⭐ 포그라운드 알림 다이얼로그 표시
-        if (intent.getBooleanExtra("showNotificationDialog", false)) {
-            val title = intent.getStringExtra("notificationTitle")
-            val message = intent.getStringExtra("notificationMessage")
-            val groupId = intent.getStringExtra("groupId")
-            val notificationType = intent.getStringExtra("notificationType")
-            
-            if (title != null && message != null) {
-                showNotificationDialog(title, message, groupId, notificationType)
-            }
-        }
     }
     
     override fun onDestroy() {
@@ -174,18 +162,6 @@ class MainActivity : AppCompatActivity() {
         
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)
-        
-        // ⭐ 포그라운드 알림 다이얼로그 표시
-        if (intent.getBooleanExtra("showNotificationDialog", false)) {
-            val title = intent.getStringExtra("notificationTitle")
-            val message = intent.getStringExtra("notificationMessage")
-            val groupId = intent.getStringExtra("groupId")
-            val notificationType = intent.getStringExtra("notificationType")
-            
-            if (title != null && message != null) {
-                showNotificationDialog(title, message, groupId, notificationType)
-            }
-        }
         
         // ⭐ 알림 배지 업데이트는 MainFragment의 실시간 리스너(observeNotificationBadge)에서 자동으로 처리됨
     }
@@ -213,7 +189,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     
                     // 그룹 관련 알림 → 그룹 상세 화면으로 이동 + 자동 읽음 처리
-                    groupId != null && notificationType != null && notificationType in listOf("time_vote", "location_input", "final_vote", "finalized", "ranking", "reminder") -> {
+                    groupId != null && notificationType != null && notificationType in listOf("time_vote", "location_input", "final_vote", "finalized", "ranking", "reminder", "final_time_vote", "final_place_vote") -> {
                         Log.d("MainActivity", "Group notification clicked: navigating to group detail - groupId: $groupId, type: $notificationType")
                         
                         // 그룹 정보 가져오기
@@ -252,31 +228,6 @@ class MainActivity : AppCompatActivity() {
                 Log.e("MainActivity", "Failed to handle notification intent: ${e.message}", e)
             }
         }
-    }
-
-    /**
-     * 포그라운드 알림 다이얼로그 표시 (헤드업 알림 대체)
-     */
-    private fun showNotificationDialog(title: String, message: String, groupId: String?, notificationType: String?) {
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton("확인") { dialog, _ ->
-                dialog.dismiss()
-                // 알림 클릭 처리
-                if (groupId != null && notificationType != null) {
-                    val intent = Intent(this, MainActivity::class.java).apply {
-                        putExtra("groupId", groupId)
-                        putExtra("notificationType", notificationType)
-                    }
-                    handleNotificationIntent(intent)
-                }
-            }
-            .setCancelable(true)
-            .setOnCancelListener {
-                // 다이얼로그가 취소되면 그냥 닫기
-            }
-            .show()
     }
 
     private fun saveFCMToken() {
