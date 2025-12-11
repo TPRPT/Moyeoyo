@@ -54,6 +54,10 @@ class PhotoTabFragment : Fragment() {
 
     private var imageUri: Uri? = null
     private var cameraImageUri: Uri? = null
+    
+    // ⭐ 오버레이 상태 추적
+    private var currentOverlayView: View? = null
+    private var onBackPressedCallback: androidx.activity.OnBackPressedCallback? = null
 
     // 갤러리 런처
     private val galleryLauncher = registerForActivityResult(
@@ -134,6 +138,18 @@ class PhotoTabFragment : Fragment() {
         }
 
         loadPhotos()
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // ⭐ 오버레이 정리
+        currentOverlayView?.let {
+            val rootView = requireActivity().window.decorView.rootView as? android.view.ViewGroup
+            rootView?.removeView(it)
+            currentOverlayView = null
+        }
+        onBackPressedCallback?.remove()
+        onBackPressedCallback = null
     }
 
     private fun showImagePickerDialog() {
@@ -270,10 +286,24 @@ class PhotoTabFragment : Fragment() {
         val rootView = requireActivity().window.decorView.rootView as? android.view.ViewGroup
             ?: return
         
+        // ⭐ 기존 오버레이가 있으면 제거
+        currentOverlayView?.let {
+            rootView.removeView(it)
+            currentOverlayView = null
+        }
+        
         val overlayView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_photo_viewer, rootView, false)
         val imageView = overlayView.findViewById<android.widget.ImageView>(R.id.photoViewerImage)
         val btnDownload = overlayView.findViewById<android.widget.ImageButton>(R.id.btnDownloadPhoto)
         val btnDelete = overlayView.findViewById<android.widget.ImageButton>(R.id.btnDeletePhoto)
+        
+        // ⭐ 오버레이 닫기 함수
+        val closeOverlay = {
+            rootView.removeView(overlayView)
+            currentOverlayView = null
+            onBackPressedCallback?.remove()
+            onBackPressedCallback = null
+        }
         
         // 이미지 로드 - 원본 비율 유지하며 전체 화면에 맞춤
         Glide.with(requireContext())
@@ -288,7 +318,7 @@ class PhotoTabFragment : Fragment() {
         } else {
             btnDelete.visibility = View.VISIBLE
             btnDelete.setOnClickListener {
-                rootView.removeView(overlayView)
+                closeOverlay()
                 deletePhoto(photo)
             }
         }
@@ -300,13 +330,21 @@ class PhotoTabFragment : Fragment() {
         
         // 오버레이 클릭 시 닫기
         overlayView.setOnClickListener { 
-            rootView.removeView(overlayView)
+            closeOverlay()
         }
         
         // 이미지 클릭은 오버레이 클릭으로 전파되지 않도록
         imageView.setOnClickListener { 
-            rootView.removeView(overlayView)
+            closeOverlay()
         }
+        
+        // ⭐ 뒤로가기 처리: 오버레이가 표시되어 있으면 오버레이만 닫기
+        onBackPressedCallback = object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                closeOverlay()
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, onBackPressedCallback!!)
         
         // 오버레이를 root view에 추가
         overlayView.layoutParams = android.view.ViewGroup.LayoutParams(
@@ -314,6 +352,7 @@ class PhotoTabFragment : Fragment() {
             android.view.ViewGroup.LayoutParams.MATCH_PARENT
         )
         rootView.addView(overlayView)
+        currentOverlayView = overlayView
     }
 
     private fun downloadPhoto(photo: GroupPhoto) {

@@ -19,18 +19,24 @@ class VoteRepository(
     private val TAG = "VoteRepository"
 
     /**
-     * vote 문서 참조를 가져오는 헬퍼 함수
+     * placeVote 문서 참조를 가져오는 헬퍼 함수
+     * 구조: groups/{groupId}/placeVote/placeVote (단일 문서)
      */
     private fun getVoteRef(groupId: String) = groupsCollection.document(groupId)
-        .collection("vote")
-        .document("vote")
+        .collection("placeVote")
+        .document("placeVote")
 
     /**
-     * 투표 문서 초기화 (그룹 생성 시 호출)
+     * placeVote 문서가 존재하는지 확인하고, 없으면 생성
+     * ⭐ 투표가 시작될 때 자동으로 호출됨
      */
-    suspend fun initializeVoteDocument(groupId: String) {
-        try {
-            getVoteRef(groupId).set(
+    private suspend fun ensureVoteDocumentExists(groupId: String) {
+        val voteRef = getVoteRef(groupId)
+        val snapshot = voteRef.get().await()
+        
+        if (!snapshot.exists()) {
+            // 문서가 없으면 생성
+            voteRef.set(
                 Vote(
                     status = "RANKING",
                     rankedUsers = emptyList(),
@@ -38,11 +44,17 @@ class VoteRepository(
                     finalVotedUsers = emptyList()
                 )
             ).await()
-            Log.d(TAG, "Vote document initialized for group: $groupId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize vote document: ${e.message}", e)
-            throw e
+            Log.d(TAG, "✅ placeVote 문서 자동 생성됨: groupId=$groupId")
         }
+    }
+
+    /**
+     * 투표 문서 초기화 (그룹 생성 시 호출) - ⚠️ 더 이상 사용하지 않음
+     * @deprecated 그룹 생성 시점에는 투표가 시작되지 않았으므로 문서를 생성하지 않음
+     */
+    @Deprecated("그룹 생성 시점에는 투표가 시작되지 않았으므로 문서를 생성하지 않음")
+    suspend fun initializeVoteDocument(groupId: String) {
+        // 더 이상 사용하지 않음
     }
 
     /**
@@ -50,6 +62,7 @@ class VoteRepository(
      */
     suspend fun addUserToRankedList(groupId: String, uid: String) {
         try {
+            ensureVoteDocumentExists(groupId) // 문서가 없으면 생성
             getVoteRef(groupId).update("rankedUsers", FieldValue.arrayUnion(uid)).await()
             Log.d(TAG, "User $uid added to rankedUsers for group $groupId")
         } catch (e: Exception) {
@@ -88,6 +101,7 @@ class VoteRepository(
      */
     suspend fun updateVoteStatus(groupId: String, status: String) {
         try {
+            ensureVoteDocumentExists(groupId) // 문서가 없으면 생성
             getVoteRef(groupId).update("status", status).await()
             Log.d(TAG, "Vote status updated to $status for group $groupId")
         } catch (e: Exception) {
@@ -101,6 +115,7 @@ class VoteRepository(
      */
     suspend fun updateFinalCandidates(groupId: String, finalCandidates: List<FinalCandidateData>) {
         try {
+            ensureVoteDocumentExists(groupId) // 문서가 없으면 생성
             // finalCandidates를 Firestore에 저장할 수 있는 형태로 변환
             val candidatesData = finalCandidates.map { candidate ->
                 mapOf(
@@ -131,6 +146,7 @@ class VoteRepository(
      */
     suspend fun addUserToFinalVotedList(groupId: String, uid: String) {
         try {
+            ensureVoteDocumentExists(groupId) // 문서가 없으면 생성
             getVoteRef(groupId).update("finalVotedUsers", FieldValue.arrayUnion(uid)).await()
             Log.d(TAG, "User $uid added to finalVotedUsers for group $groupId")
         } catch (e: Exception) {
@@ -268,6 +284,7 @@ class VoteRepository(
      */
     suspend fun setWinningPlace(groupId: String, placeId: String, placeName: String) {
         try {
+            ensureVoteDocumentExists(groupId) // 문서가 없으면 생성
             getVoteRef(groupId).update(
                 "winningPlaceId", placeId,
                 "winningPlaceName", placeName,

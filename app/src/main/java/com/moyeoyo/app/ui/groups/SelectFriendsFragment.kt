@@ -15,6 +15,10 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * 멤버 추가용 친구 선택 Fragment
+ * MemberTabFragment에서만 사용됨
+ */
 @AndroidEntryPoint
 class SelectFriendsFragment : Fragment() {
 
@@ -26,17 +30,13 @@ class SelectFriendsFragment : Fragment() {
     
     private val selectedUids = mutableSetOf<String>()
     
-    private val groupId: String? by lazy {
-        arguments?.getString("groupId")
+    private val groupId: String by lazy {
+        arguments?.getString("groupId") ?: throw IllegalStateException("groupId is required for SelectFriendsFragment")
     }
 
     companion object {
-        const val RESULT_KEY = "select_friends_result"
+        const val RESULT_KEY = "select_friends_for_add_members"
         const val EXTRA_SELECTED_UIDS = "extra_selected_uids"
-        
-        fun newInstance(): SelectFriendsFragment {
-            return SelectFriendsFragment()
-        }
     }
 
     override fun onCreateView(
@@ -50,20 +50,35 @@ class SelectFriendsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // ⭐ 선택 상태 초기화 (이전 값 제거)
+        selectedUids.clear()
+
         val container = view.findViewById<LinearLayout>(R.id.friends_checkbox_container)
         val btnComplete = view.findViewById<Button>(R.id.btn_complete_selection)
 
         loadFriends(container)
 
         btnComplete.setOnClickListener {
-            // Navigation 결과로 선택한 UID 전달
+            // ⭐ 선택 완료 버튼 클릭 시에만 결과 전달
+            android.util.Log.d("SelectFriendsFragment", "선택 완료 클릭: ${selectedUids.size}명 선택됨, groupId=$groupId")
+            
+            // Navigation 결과로 선택한 UID 전달 (Activity의 FragmentManager 사용)
             val result = Bundle().apply {
                 putStringArrayList(EXTRA_SELECTED_UIDS, ArrayList(selectedUids))
             }
-            parentFragmentManager.setFragmentResult(RESULT_KEY, result)
             
-            // 이전 화면으로 돌아가기
-            findNavController().popBackStack()
+            android.util.Log.d("SelectFriendsFragment", "결과 전달 시작: selectedUids=${selectedUids.size}명")
+            requireActivity().supportFragmentManager.setFragmentResult(RESULT_KEY, result)
+            android.util.Log.d("SelectFriendsFragment", "결과 전달 완료")
+            
+            // 선택 상태 초기화
+            selectedUids.clear()
+            
+            // ⭐ 멤버 추가용: 즉시 돌아가기
+            view?.post {
+                android.util.Log.d("SelectFriendsFragment", "popBackStack 호출 (멤버 추가용)")
+                findNavController().popBackStack()
+            }
         }
     }
 
@@ -71,13 +86,9 @@ class SelectFriendsFragment : Fragment() {
         container.removeAllViews()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            // 그룹의 현재 멤버 목록 가져오기 (groupId가 있는 경우)
-            val existingMemberUids = if (groupId != null) {
-                val group = groupRepository.getGroupById(groupId!!)
-                group?.memberUids?.toSet() ?: emptySet()
-            } else {
-                emptySet()
-            }
+            // 멤버 추가용이므로 그룹의 현재 멤버 목록 가져오기
+            val group = groupRepository.getGroupById(groupId)
+            val existingMemberUids = group?.memberUids?.toSet() ?: emptySet()
 
             val friendUids = friendRepository.getFriendUids()
             

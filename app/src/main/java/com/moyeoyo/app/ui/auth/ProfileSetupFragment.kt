@@ -151,6 +151,8 @@ class ProfileSetupFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupToolbar()
+
         // Fragment Result 리스너 설정
         requireActivity().supportFragmentManager.setFragmentResultListener(CurrentLocationFragment.RESULT_KEY, viewLifecycleOwner) { _, bundle ->
             Log.d("ProfileSetup", "Fragment result received in listener: $bundle")
@@ -223,7 +225,8 @@ class ProfileSetupFragment : Fragment() {
         // 저장 버튼
         btnSave.setOnClickListener { saveProfile() }
 
-        // 회원 탈퇴 버튼
+        // 회원 탈퇴 버튼 (기본적으로 숨김 - 기존 사용자만 보임)
+        binding.btnDeleteAccount.visibility = View.GONE
         binding.btnDeleteAccount.setOnClickListener { showDeleteAccountDialog() }
 
         loadCurrentUserData()
@@ -243,6 +246,14 @@ class ProfileSetupFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    // ===================== 상단 UI =====================
+
+    private fun setupToolbar() {
+        binding.toolbar.setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
     }
 
     // ===================== 위치 관련 =====================
@@ -458,9 +469,14 @@ class ProfileSetupFragment : Fragment() {
                     }
 
                     btnSave.text = "프로필 수정 완료"
+                    
+                    // 기존 사용자이므로 회원 탈퇴 버튼 표시
+                    binding.btnDeleteAccount.visibility = View.VISIBLE
 
                 } else {
                     Log.w("PROFILE", "Firestore에 사용자 문서가 존재하지 않음: $uid")
+                    // 신규 사용자이므로 회원 탈퇴 버튼 숨김
+                    binding.btnDeleteAccount.visibility = View.GONE
                 }
             }
             .addOnFailureListener { e ->

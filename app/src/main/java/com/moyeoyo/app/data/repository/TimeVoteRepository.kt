@@ -12,7 +12,7 @@ import javax.inject.Singleton
 
 /**
  * 시간 투표 데이터를 관리하는 Repository
- * Firestore 구조: groups/{groupId}/timeVotes/{date}/times/{time}/voters: [uid1, uid2, ...]
+ * Firestore 구조: groups/{groupId}/timeVote/{date}/times/{time}/voters: [uid1, uid2, ...]
  */
 @Singleton
 class TimeVoteRepository @Inject constructor(
@@ -29,10 +29,21 @@ class TimeVoteRepository @Inject constructor(
      */
     suspend fun voteTime(groupId: String, date: String, time: String, uid: String) {
         try {
-            val timeVoteRef = db.collection("groups")
+            // ⭐ 날짜 문서 생성 (timeVote/{date} 문서가 존재하도록 보장)
+            val dateDocRef = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
+            
+            // 날짜 문서가 없으면 생성 (빈 문서로 생성)
+            val dateDoc = dateDocRef.get().await()
+            if (!dateDoc.exists()) {
+                dateDocRef.set(mapOf("createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp())).await()
+                Log.d(TAG, "✅ 날짜 문서 생성: groupId=$groupId, date=$date")
+            }
+            
+            // 시간 슬롯 문서에 투표 저장
+            val timeVoteRef = dateDocRef
                 .collection("times")
                 .document(time)
 
@@ -55,7 +66,7 @@ class TimeVoteRepository @Inject constructor(
         try {
             val timeVoteRef = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
                 .collection("times")
                 .document(time)
@@ -75,7 +86,7 @@ class TimeVoteRepository @Inject constructor(
     fun observeVotes(groupId: String, date: String): Flow<Map<String, List<String>>> = callbackFlow {
         val timeVotesRef = db.collection("groups")
             .document(groupId)
-            .collection("timeVotes")
+            .collection("timeVote")
             .document(date)
             .collection("times")
 
@@ -113,7 +124,7 @@ class TimeVoteRepository @Inject constructor(
         return try {
             val snapshot = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
                 .collection("times")
                 .get()
@@ -173,7 +184,7 @@ class TimeVoteRepository @Inject constructor(
         try {
             val finalVoteRef = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
 
             // 기존 finalVotes 맵을 가져오기 (없으면 빈 맵)
@@ -249,7 +260,7 @@ class TimeVoteRepository @Inject constructor(
         return try {
             val doc = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
                 .get()
                 .await()
@@ -272,7 +283,7 @@ class TimeVoteRepository @Inject constructor(
         return try {
             val doc = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
                 .get()
                 .await()
@@ -293,7 +304,7 @@ class TimeVoteRepository @Inject constructor(
         return try {
             val doc = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
                 .get()
                 .await()
@@ -363,7 +374,7 @@ class TimeVoteRepository @Inject constructor(
     fun observeFinalVotes(groupId: String, date: String): Flow<List<String>> = callbackFlow {
         val finalVoteRef = db.collection("groups")
             .document(groupId)
-            .collection("timeVotes")
+            .collection("timeVote")
             .document(date)
 
         val listenerRegistration = finalVoteRef.addSnapshotListener { snapshot, error ->
@@ -396,7 +407,7 @@ class TimeVoteRepository @Inject constructor(
         try {
             val finalVoteRef = db.collection("groups")
                 .document(groupId)
-                .collection("timeVotes")
+                .collection("timeVote")
                 .document(date)
 
             // finalVotes와 finalVotedUsers 필드 삭제

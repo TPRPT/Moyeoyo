@@ -59,16 +59,8 @@ class MemberListAdapter(
             holder.kickButton.visibility = View.GONE
         }
 
-        // 나가기 버튼: 방장이 아닌 경우 본인에게만 표시
-        val canLeave = !isHost && uid == currentUid
-        if (canLeave) {
-            holder.leaveButton.visibility = View.VISIBLE
-            holder.leaveButton.setOnClickListener {
-                onLeave()
-            }
-        } else {
-            holder.leaveButton.visibility = View.GONE
-        }
+        // ⭐ 나가기 버튼 숨김 (멤버 리스트에서는 표시하지 않음)
+        holder.leaveButton.visibility = View.GONE
     }
 
     override fun getItemCount(): Int = members.size

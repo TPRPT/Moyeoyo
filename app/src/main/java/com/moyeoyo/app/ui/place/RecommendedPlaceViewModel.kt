@@ -116,17 +116,25 @@ class RecommendedPlaceViewModel @Inject constructor(
                 // FINAL_VOTING 상태는 이미 모든 사용자가 1차 투표를 완료한 상태
                 // ⚠️ 핵심: 현재 사용자가 이미 확정한 경우에만 allUsersCompleted를 true로 설정
                 // Firestore에 데이터가 있다고 해서 확정한 것은 아니므로, 현재 세션에서 확정한 경우만 처리
+                // ⭐ 그룹 상태가 GROUP_CREATED이면 투표가 시작되지 않은 상태이므로 무시
                 if (vote.status == "FINAL_VOTING") {
-                    android.util.Log.d("RecommendedPlaceViewModel", 
-                        "✅ FINAL_VOTING 상태 감지 - rankedUsers: ${vote.rankedUsers.size}명, _hasUserRanking: ${_hasUserRanking.value}")
-                    
-                    // ⚠️ 핵심: 현재 사용자가 이미 확정한 경우에만 화면 전환 가능
-                    // 단순히 Firestore에 데이터가 있다고 해서 확정한 것은 아님
-                    // saveUserRankings()에서 _hasUserRanking.value = true 설정 후에만 여기로 올 수 있음
-                    if (_hasUserRanking.value == true) {
-                        viewModelScope.launch {
+                    viewModelScope.launch {
+                        // ⭐ 그룹 상태 확인: GROUP_CREATED이면 투표 초기화 상태이므로 무시
+                        val group = groupRepository.getGroupById(groupId)
+                        if (group?.status == "GROUP_CREATED") {
+                            android.util.Log.d("RecommendedPlaceViewModel", 
+                                "⏸️ FINAL_VOTING 상태이지만 그룹 상태가 GROUP_CREATED - 투표 초기화 상태이므로 무시")
+                            return@launch
+                        }
+                        
+                        android.util.Log.d("RecommendedPlaceViewModel", 
+                            "✅ FINAL_VOTING 상태 감지 - rankedUsers: ${vote.rankedUsers.size}명, _hasUserRanking: ${_hasUserRanking.value}")
+                        
+                        // ⚠️ 핵심: 현재 사용자가 이미 확정한 경우에만 화면 전환 가능
+                        // 단순히 Firestore에 데이터가 있다고 해서 확정한 것은 아님
+                        // saveUserRankings()에서 _hasUserRanking.value = true 설정 후에만 여기로 올 수 있음
+                        if (_hasUserRanking.value == true) {
                             // 한 번 더 확인하여 모든 사용자가 확정했는지 검증
-                            val group = groupRepository.getGroupById(groupId)
                             val memberUids = group?.memberUids ?: emptyList()
                             val allRanked = voteRepository.checkAllUsersRanked(groupId, memberUids)
                             android.util.Log.d("RecommendedPlaceViewModel", 
@@ -141,10 +149,10 @@ class RecommendedPlaceViewModel @Inject constructor(
                                 android.util.Log.d("RecommendedPlaceViewModel", 
                                     "⏸️ FINAL_VOTING 상태이지만 아직 모든 사용자가 확정하지 않음")
                             }
+                        } else {
+                            android.util.Log.d("RecommendedPlaceViewModel", 
+                                "⏸️ FINAL_VOTING 상태이지만 현재 사용자가 아직 확정하지 않음 - 대기")
                         }
-                    } else {
-                        android.util.Log.d("RecommendedPlaceViewModel", 
-                            "⏸️ FINAL_VOTING 상태이지만 현재 사용자가 아직 확정하지 않음 - 대기")
                     }
                     return@onEach
                 }

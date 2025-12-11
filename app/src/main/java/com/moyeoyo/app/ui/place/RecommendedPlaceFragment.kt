@@ -36,6 +36,7 @@ import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.ui.place.FinalVoteViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -51,6 +52,12 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
     @Inject
     lateinit var groupRepository: GroupRepository
     
+    @Inject
+    lateinit var voteRepository: com.moyeoyo.app.data.repository.VoteRepository
+    
+    @Inject
+    lateinit var mapRepository: com.moyeoyo.app.data.repository.MapRepository
+    
     private lateinit var adapter: RecommendedPlaceAdapter
     private var googleMap: GoogleMap? = null
     private var isMapReady = false
@@ -58,8 +65,13 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
     private var isRankMode = false
     private var hasConfirmedRanking = false
     private var hasShownAllCompletedDialog = false
+    private var isShowingAllCompletedDialog = false // ⭐ 다이얼로그가 현재 표시 중인지 확인하는 플래그
     // 💡 사용자가 의도적으로 최종 투표를 보류했는지 기억하는 플래그
     private var userDeferredFinalVote = false
+    // ⭐ 모든 멤버 순위 설정 완료 여부 (최종 투표 버튼 표시용)
+    private var allMembersRanked = false
+    // ⭐ 저장된 순위 (읽기 전용 표시용)
+    private var savedRanks: Map<String, Int> = emptyMap()
     private val selectedRanks = mutableMapOf<String, Int>()
     private var currentRank = 1
 
@@ -76,6 +88,9 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // ⭐ 상태바 설정 (다른 화면과 동일하게)
+        setupStatusBar()
 
         // 그룹 ID 받기
         val groupId = args.groupId
@@ -106,14 +121,33 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             viewModel.loadNearbyPlaces(it)
         }
         
-        hasConfirmedRanking = false
+        hasShownAllCompletedDialog = false // ⭐ Fragment 재생성 시 플래그 초기화
+        // hasConfirmedRanking은 checkUserRankingStatus()에서 설정됨
         viewModel.checkUserRankingStatus()
+    }
+    
+    /**
+     * 상태바 설정 (앱 배경색과 동일하게)
+     */
+    private fun setupStatusBar() {
+        activity?.window?.let { window ->
+            window.statusBarColor = requireContext().getColor(R.color.white)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                var flags = window.decorView.systemUiVisibility
+                flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                window.decorView.systemUiVisibility = flags
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        if (!hasConfirmedRanking) {
-            viewModel.checkUserRankingStatus()
+        // ⭐ 항상 사용자 랭킹 상태 확인 (후보군 투표 후에도 화면 재진입 가능하도록)
+        viewModel.checkUserRankingStatus()
+        
+        // 저장된 순위가 있으면 진행상황 업데이트
+        if (hasConfirmedRanking) {
+            updateVotingProgress()
         }
     }
 
@@ -127,26 +161,21 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             findNavController().popBackStack()
         }
 
-        binding.btnRankMode.setOnClickListener {
-            toggleRankMode()
-        }
-
+        // ⭐ 장소 투표 버튼이 토글 방식으로 동작 (장소 투표 <-> 선택 취소)
         binding.btnStartVote.setOnClickListener {
             toggleRankMode()
         }
 
-        binding.btnProceedToVote.setOnClickListener {
-            if (!binding.btnProceedToVote.isEnabled) {
-                showWaitingDialog()
+        // 저장 버튼 클릭 리스너 설정
+        binding.btnSaveRanking.setOnClickListener {
+            // ⭐ 모든 멤버 순위 설정 완료 시 최종 투표 화면으로 이동
+            if (hasConfirmedRanking && allMembersRanked) {
+                navigateToFinalVote()
                 return@setOnClickListener
             }
             
-            // 💡 모든 그룹원이 완료한 상태에서 버튼을 누른 경우 (나중에를 눌렀다가 다시 돌아온 경우)
-            if (hasConfirmedRanking && viewModel.allUsersCompleted.value == true) {
-                // 최종 후보를 생성하고 최종 투표 화면으로 이동
-                android.util.Log.d("RecommendedPlaceFragment", 
-                    "🔘 최종 투표 버튼 클릭 - 모든 그룹원 완료 상태, 최종 후보 생성 후 이동")
-                navigateToFinalVoteWithCandidateCreation()
+            if (hasConfirmedRanking) {
+                Toast.makeText(requireContext(), "이미 저장된 순위는 수정할 수 없습니다.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             
@@ -154,7 +183,7 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             if (selectedRanks.size == 3) {
                 showConfirmRankingDialog()
             } else {
-                Toast.makeText(requireContext(), "3개 장소를 모두 선택해주세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "3개 장소를 선택해주세요.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -278,23 +307,44 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             
             // 💡 로직 단순화: 서버에 랭킹이 있으면(hasRanking), UI를 '확정 대기' 상태로 만든다.
             if (hasRanking) {
+                // hasConfirmedRanking이 이미 true이면 중복 업데이트 방지
+                if (!hasConfirmedRanking) {
+                    hasConfirmedRanking = true
+                }
+                
+                // ⭐ 저장된 순위 로드 및 표시
+                loadAndDisplaySavedRanks()
+                
                 // UI를 '순위 확정 후 다른 멤버 대기 중' 상태로 강제 고정
-                binding.tvSelectedCount.text = "다른 그룹원의 순위 확정을 기다리는 중..."
-                binding.btnRankMode.isEnabled = false // 순위 선택 모드 진입 불가
-                binding.btnRankMode.alpha = 0.5f
-                binding.layoutBottomButton.visibility = View.VISIBLE // 하단 버튼 레이아웃은 보여주되
-                binding.btnProceedToVote.isEnabled = false // '진행' 버튼은 비활성화
-                binding.btnProceedToVote.alpha = 0.5f
-                binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary_disabled)
+                // ⭐ 장소 투표 버튼 비활성화
+                binding.btnStartVote.isEnabled = false
+                binding.btnStartVote.alpha = 0.5f
+                binding.btnStartVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary_disabled)
+                binding.btnStartVote.text = "장소 투표"
+                
+                // 하단 버튼 레이아웃 표시
+                binding.layoutBottomButton.visibility = View.VISIBLE
                 
                 isRankMode = false // 랭크 모드 강제 종료
                 adapter.updateRankMode(false, emptyMap())
+                
+                // ⭐ 버튼 상태 업데이트 (모든 멤버 완료 여부 확인)
+                updateSelectedCount()
+                
+                // 다른 멤버 진행상황 확인 및 표시
+                updateVotingProgress()
             } else {
                 // 서버에 내 랭킹이 없으면, 모든 것을 초기 상태로 돌림
-                binding.tvSelectedCount.text = "0/3개 장소 선택됨"
-                binding.btnRankMode.isEnabled = true
-                binding.btnRankMode.alpha = 1.0f
-                binding.layoutBottomButton.visibility = View.GONE
+                // 단, 사용자가 현재 화면에서 저장한 경우가 아니면 초기화하지 않음
+                if (!hasConfirmedRanking) {
+                    hasConfirmedRanking = false
+                    // ⭐ 장소 투표 버튼 활성화
+                    binding.btnStartVote.isEnabled = true
+                    binding.btnStartVote.alpha = 1.0f
+                    binding.btnStartVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary)
+                    binding.btnStartVote.text = "장소 투표"
+                    binding.layoutBottomButton.visibility = View.GONE
+                }
             }
         }
 
@@ -302,31 +352,27 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             android.util.Log.d("RecommendedPlaceFragment", 
                 "🔍 allUsersCompleted 변경 - allCompleted: $allCompleted, hasConfirmedRanking: $hasConfirmedRanking, userDeferredFinalVote: $userDeferredFinalVote")
             
-            // ⭐ 자동으로 넘어가지 않도록 수정: 다이얼로그만 표시하고 사용자가 버튼을 눌러야 이동
-            // 💡 분기 조건: 모든 유저가 완료했고, 내가 직접 순위를 확정했을 때
+            // ⭐ 모든 멤버 순위 설정 완료 여부 업데이트
+            allMembersRanked = allCompleted && hasConfirmedRanking
+            
+            // 버튼 상태 업데이트
+            updateSelectedCount()
+            
+            // 모든 멤버가 완료했으면 진행상황 업데이트
             if (allCompleted && hasConfirmedRanking) {
-                if (!userDeferredFinalVote) {
-                    // '보류' 상태가 아니면 버튼 활성화 (다이얼로그는 사용자가 버튼을 눌렀을 때만 표시)
-                    binding.btnProceedToVote.isEnabled = true
-                    binding.btnProceedToVote.alpha = 1.0f
-                    binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary)
-                    
-                    // ⭐ 자동으로 다이얼로그를 표시하지 않음 - 사용자가 버튼을 눌러야만 표시
+                binding.tvVotingProgress.visibility = View.GONE
+                
+                // 모든 그룹원이 완료했을 때 다이얼로그 표시 (한 번만, 그리고 현재 표시 중이 아닐 때만)
+                if (!hasShownAllCompletedDialog && !isShowingAllCompletedDialog && !userDeferredFinalVote) {
+                    hasShownAllCompletedDialog = true
+                    isShowingAllCompletedDialog = true
+                    showAllCompletedDialog()
                     android.util.Log.d("RecommendedPlaceFragment", 
-                        "✅ 모든 사용자 완료! 버튼 활성화 (사용자가 버튼을 눌러야 다이얼로그 표시)")
-                } else {
-                    // '보류' 상태이면 버튼만 활성화 (다이얼로그는 표시하지 않음)
-                    binding.btnProceedToVote.isEnabled = true
-                    binding.btnProceedToVote.alpha = 1.0f
-                    binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary)
-                    android.util.Log.d("RecommendedPlaceFragment", 
-                        "⏸️ 모든 사용자 완료 상태이지만 '보류' 상태 - 버튼만 활성화, 다이얼로그는 표시하지 않음")
+                        "✅ 모든 사용자 완료! 다이얼로그 표시")
                 }
-            } else {
-                // 다른 조건이 만족되지 않으면 '진행' 버튼은 비활성화 상태로 유지
-                binding.btnProceedToVote.isEnabled = false
-                binding.btnProceedToVote.alpha = 0.5f
-                binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary_disabled)
+            } else if (hasConfirmedRanking) {
+                // 저장된 순위가 있으면 진행상황 업데이트
+                updateVotingProgress()
             }
         }
     }
@@ -402,18 +448,15 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
         isRankMode = !isRankMode
         
         if (isRankMode) {
-            binding.btnRankMode.text = "순위 선택 취소"
-            binding.btnRankMode.visibility = View.VISIBLE
+            // ⭐ 순위 선택 모드 진입: 버튼 텍스트를 "선택 취소"로 변경
+            binding.btnStartVote.text = "선택 취소"
             selectedRanks.clear() // 순위 선택 모드를 처음 켤 때만 초기화
             currentRank = 1
             binding.layoutBottomButton.visibility = View.VISIBLE
-            binding.btnProceedToVote.isEnabled = false
-            binding.btnProceedToVote.alpha = 0.5f
-            binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary_disabled)
             updateSelectedCount() // 버튼 상태 업데이트를 위해 추가
         } else {
-            binding.btnRankMode.text = "순위 선택"
-            binding.btnRankMode.visibility = View.VISIBLE
+            // ⭐ 순위 선택 모드 취소: 버튼 텍스트를 "장소 투표"로 변경
+            binding.btnStartVote.text = "장소 투표"
             selectedRanks.clear() // 취소할 때도 초기화
             currentRank = 1
             if (!hasConfirmedRanking) {
@@ -467,19 +510,69 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
         dialog.show()
     }
 
-    private fun updateSelectedCount() {
-        val count = selectedRanks.size
-        binding.tvSelectedCount.text = "$count/3개 장소 선택됨"
+    /**
+     * 저장된 순위 로드 및 표시
+     */
+    private fun loadAndDisplaySavedRanks() {
+        val groupId = args.groupId
+        if (groupId.isEmpty()) return
         
-        if (isRankMode && count == 3) {
-            binding.btnProceedToVote.isEnabled = true
-            binding.btnProceedToVote.alpha = 1.0f
-            binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary)
-        } else if (isRankMode) {
-            binding.btnProceedToVote.isEnabled = false
-            binding.btnProceedToVote.alpha = 0.5f
-            binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary_disabled)
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                val userRankings = mapRepository.getUserRankings(
+                    groupId,
+                    uid,
+                    com.google.firebase.firestore.Source.SERVER
+                )
+                
+                // 저장된 순위를 Map으로 변환 (placeId -> rank)
+                savedRanks = userRankings.associate { rankedPlace ->
+                    rankedPlace.place.placeId to rankedPlace.rank
+                }
+                
+                // 어댑터에 저장된 순위 전달
+                adapter.updateSavedRanks(savedRanks)
+                
+                android.util.Log.d("RecommendedPlaceFragment", 
+                    "✅ 저장된 순위 로드 완료: ${savedRanks.size}개")
+            } catch (e: Exception) {
+                android.util.Log.e("RecommendedPlaceFragment", 
+                    "❌ 저장된 순위 로드 실패: ${e.message}", e)
+            }
         }
+    }
+
+    private fun updateSelectedCount() {
+        // ⭐ 모든 멤버 순위 설정 완료 시 최종 투표로 이동하기 버튼 표시
+        if (hasConfirmedRanking && allMembersRanked) {
+            binding.btnSaveRanking.isEnabled = true
+            binding.btnSaveRanking.text = "최종 투표로 이동하기"
+            binding.btnSaveRanking.alpha = 1.0f
+            return
+        }
+        
+        // ⭐ 저장된 순위가 있지만 모든 멤버가 투표하지 않은 경우
+        if (hasConfirmedRanking) {
+            binding.btnSaveRanking.isEnabled = false
+            binding.btnSaveRanking.text = "저장 완료"
+            binding.btnSaveRanking.alpha = 0.5f
+            return
+        }
+        
+        val count = selectedRanks.size
+        
+        // 저장 버튼 텍스트 업데이트
+        val buttonText = if (count > 0) {
+            "저장 (${count}개 장소 선택됨)"
+        } else {
+            "저장"
+        }
+        binding.btnSaveRanking.text = buttonText
+        
+        // 저장 버튼 활성화/비활성화 (3개 선택했을 때만 활성화)
+        binding.btnSaveRanking.isEnabled = count == 3 && !hasConfirmedRanking
+        binding.btnSaveRanking.alpha = if (count == 3 && !hasConfirmedRanking) 1.0f else 0.5f
     }
 
     private fun showConfirmRankingDialog() {
@@ -536,18 +629,70 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             return
         }
 
-        viewModel.saveUserRankings(rankedPlaces.sortedBy { it.rank })
+        // ⭐ 저장 전에 즉시 UI 업데이트
         hasConfirmedRanking = true
         isRankMode = false
-        binding.btnRankMode.text = "순위 선택"
         adapter.updateRankMode(false, emptyMap())
         selectedRanks.clear()
         currentRank = 1
+        
+        // 장소 투표 버튼 비활성화
+        binding.btnStartVote.isEnabled = false
+        binding.btnStartVote.alpha = 0.5f
+        binding.btnStartVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary_disabled)
+        binding.btnStartVote.text = "장소 투표"
+        
+        // 하단 버튼 레이아웃 표시
         binding.layoutBottomButton.visibility = View.VISIBLE
-        binding.btnProceedToVote.isEnabled = false
-        binding.btnProceedToVote.alpha = 0.5f
-        binding.btnProceedToVote.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_button_primary_disabled)
-        binding.tvSelectedCount.text = "다른 그룹원의 순위 확정을 기다리는 중..."
+        
+        // 저장 실행
+        viewModel.saveUserRankings(rankedPlaces.sortedBy { it.rank })
+        
+        // ⭐ 저장 후 버튼 상태 업데이트 (모든 멤버 완료 여부 확인)
+        // allUsersCompleted observer에서 자동으로 업데이트되지만, 즉시 확인도 수행
+        updateSelectedCount()
+        
+        // 다른 멤버 진행상황 확인 및 표시
+        updateVotingProgress()
+    }
+    
+    /**
+     * 다른 멤버들의 투표 진행상황 업데이트
+     */
+    private fun updateVotingProgress() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val group = groupRepository.getGroupDetail(args.groupId)
+                val memberUids = group?.memberUids ?: emptyList()
+                
+                if (memberUids.isEmpty()) {
+                    binding.tvVotingProgress.visibility = View.GONE
+                    return@launch
+                }
+                
+                // VoteRepository를 통해 rankedUsers 확인
+                val voteSnapshot = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection("groups")
+                    .document(args.groupId)
+                    .collection("placeVote")
+                    .document("placeVote")
+                    .get()
+                    .await()
+                val rankedUsers = voteSnapshot.get("rankedUsers") as? List<*> ?: emptyList<Any>()
+                
+                val missingCount = memberUids.count { it !in rankedUsers }
+                
+                if (missingCount > 0) {
+                    binding.tvVotingProgress.text = "⏳ 아직 ${missingCount}명의 그룹원이 순위를 확정하지 않았습니다"
+                    binding.tvVotingProgress.visibility = View.VISIBLE
+                } else {
+                    // 모든 멤버가 완료
+                    binding.tvVotingProgress.visibility = View.GONE
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RecommendedPlaceFragment", "투표 진행상황 업데이트 중 오류: ${e.message}", e)
+            }
+        }
     }
 
     private fun showWaitingDialog() {
@@ -565,7 +710,8 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
             .setPositiveButton("진행하기") { _, _ ->
                 // 💡 '진행'을 누르면 '보류' 상태를 리셋하고 최종 후보를 생성한 후 이동
                 userDeferredFinalVote = false
-                hasShownAllCompletedDialog = false // 다시 팝업이 뜰 수 있도록 리셋
+                isShowingAllCompletedDialog = false // 다이얼로그 닫힘 표시
+                // ⚠️ '진행하기'를 누르면 더 이상 다이얼로그를 표시하지 않음 (hasShownAllCompletedDialog는 true 유지)
                 android.util.Log.d("RecommendedPlaceFragment", 
                     "✅ '진행하기' 선택 - 보류 상태 리셋, 최종 후보 생성 후 최종 투표 화면으로 이동")
                 navigateToFinalVoteWithCandidateCreation()
@@ -574,9 +720,13 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
                 // 💡 '나중에'를 누르면 '보류' 상태를 true로 설정
                 userDeferredFinalVote = true
                 hasShownAllCompletedDialog = false // 다시 다이얼로그가 표시될 수 있도록 리셋
+                isShowingAllCompletedDialog = false // 다이얼로그 닫힘 표시
                 android.util.Log.d("RecommendedPlaceFragment", 
                     "⏸️ '나중에' 선택 - 보류 상태로 설정, 투표 기록은 Firestore에 유지됨")
                 dialog.dismiss()
+            }
+            .setOnDismissListener {
+                isShowingAllCompletedDialog = false // 다이얼로그가 닫힐 때 플래그 리셋
             }
             .setCancelable(false)
             .show()
@@ -600,6 +750,9 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
                     "📥 최종 후보 생성 시작 - groupId: $groupId")
                 finalVoteViewModel.loadAllUserRankingsAndCreateCandidates(groupId)
                 
+                // ⭐ 최종 후보 생성이 완료될 때까지 대기 (순위 데이터가 비어있을 수 있으므로 약간의 지연)
+                kotlinx.coroutines.delay(1000)
+                
                 // 그룹 상태 업데이트
                 val currentGroup = groupRepository.getGroupDetail(groupId)
                 if (currentGroup?.status == "LOCATION_DONE" || currentGroup?.status == "PLACE_RANKING") {
@@ -621,9 +774,21 @@ class RecommendedPlaceFragment : Fragment(), OnMapReadyCallback {
                 )
                 findNavController().navigate(action)
             } catch (e: Exception) {
-                android.util.Log.e("RecommendedPlaceFragment", 
-                    "❌ 최종 후보 생성 및 화면 이동 중 오류: ${e.message}", e)
-                Toast.makeText(requireContext(), "최종 후보 생성 중 오류가 발생했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                // ⚠️ 순위 데이터가 비어있을 때는 정상적인 상황이므로 오류 메시지를 표시하지 않음
+                val errorMessage = e.message ?: ""
+                if (errorMessage.contains("순위 지정 데이터가 아직 없습니다") || 
+                    errorMessage.contains("최종 후보를 생성할 수 없습니다")) {
+                    android.util.Log.d("RecommendedPlaceFragment", 
+                        "ℹ️ 순위 데이터가 아직 없음 (정상적인 상황): ${e.message}")
+                    // 정상적인 상황이므로 그냥 진행
+                } else {
+                    android.util.Log.e("RecommendedPlaceFragment", 
+                        "❌ 최종 후보 생성 및 화면 이동 중 오류: ${e.message}", e)
+                    // 실제 오류인 경우에만 Toast 표시
+                    if (isAdded && view != null) {
+                        Toast.makeText(requireContext(), "최종 후보 생성 중 오류가 발생했습니다: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
     }

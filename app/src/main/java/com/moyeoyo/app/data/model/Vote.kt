@@ -3,7 +3,7 @@ package com.moyeoyo.app.data.model
 import com.google.firebase.firestore.GeoPoint
 
 /**
- * 투표 상태를 관리하는 모델 (groups/{groupId}/vote 문서)
+ * 투표 상태를 관리하는 모델 (groups/{groupId}/placeVote/placeVote 문서)
  * Single Source of Truth - 모든 사용자가 이 문서를 보고 투표 상태를 확인
  */
 data class Vote(

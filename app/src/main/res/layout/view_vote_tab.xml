@@ -54,13 +54,16 @@
                 android:background="@drawable/bg_chip_outline"
                 android:layout_marginBottom="12dp"
                 android:clickable="true"
-                android:focusable="true">
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_event_24"
-                    app:tint="@color/black"/>
+                    app:tint="@color/black"
+                    android:clickable="false"
+                    android:focusable="false"/>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -69,7 +72,9 @@
                     android:textColor="@color/black"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:layout_marginStart="8dp"/>
+                    android:layout_marginStart="8dp"
+                    android:clickable="false"
+                    android:focusable="false"/>
             </LinearLayout>
 
             <!-- 위치 버튼 -->
@@ -111,6 +116,18 @@
                 android:backgroundTint="@color/brand_blue"
                 android:textSize="16sp"
                 android:textStyle="bold"
+                android:visibility="gone" />
+            
+            <!-- 투표 시작 대기 메시지 (방장이 아닌 멤버에게 표시) -->
+            <TextView
+                android:id="@+id/tvWaitingForHost"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="아직 방장이 투표를 시작하지 않았습니다"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:background="@drawable/bg_light_gray_outline"
                 android:visibility="gone" />
         </LinearLayout>
 

@@ -67,13 +67,23 @@ class FinalVoteViewModel @Inject constructor(
 
     /**
      * 순위별 점수 합산하여 상위 3개 후보를 Firestore에 저장
+     * ⭐ 중요: placeCandidates 컬렉션에 문서를 생성함
      */
     fun savePlaceCandidates(groupId: String, rankedPlaces: List<RankedPlace>) {
         _saveComplete.value = false
         viewModelScope.launch {
             try {
-                // 기존 후보 모두 삭제 (이전 세션 데이터 정리) - 완료될 때까지 대기
+                android.util.Log.d("FinalVoteViewModel", 
+                    "💾 savePlaceCandidates 시작 - 후보 수: ${rankedPlaces.size}")
+                
+                // ⭐ 기존 후보 모두 삭제 (이전 세션 데이터 정리) - 완료될 때까지 대기
                 mapRepository.clearPlaceCandidates(groupId)
+                
+                // ⭐ 삭제 완료 후 잠시 대기하여 Firestore 동기화 시간 확보
+                kotlinx.coroutines.delay(500)
+                
+                android.util.Log.d("FinalVoteViewModel", 
+                    "✅ 기존 후보 삭제 완료 - 새 후보 저장 시작")
                 
                 // placeId별로 점수 합산
                 val scoreMap = mutableMapOf<String, Int>()
@@ -87,17 +97,28 @@ class FinalVoteViewModel @Inject constructor(
                     .sortedByDescending { it.value }
                     .take(3)
 
-                // Firestore에 후보 저장 (1차 투표 총점 포함)
-                top3.forEach { (placeId, totalScore) ->
+                android.util.Log.d("FinalVoteViewModel", 
+                    "📊 상위 3개 후보 선택 완료 - 후보 수: ${top3.size}")
+
+                // ⭐ Firestore에 후보 저장 (placeCandidates 컬렉션에 문서 생성)
+                // 각 후보마다 placeCandidates 컬렉션에 문서를 생성함
+                top3.forEachIndexed { index, (placeId, totalScore) ->
                     rankedPlaces.firstOrNull { it.place.placeId == placeId }?.let { rankedPlace ->
                         val candidate = rankedPlace.toPlaceCandidate(firstRoundScore = totalScore)
-                        mapRepository.addPlaceCandidate(groupId, candidate)
+                        val docId = mapRepository.addPlaceCandidate(groupId, candidate)
+                        android.util.Log.d("FinalVoteViewModel", 
+                            "✅ 후보 ${index + 1} 저장 완료 - placeId: $placeId, docId: $docId")
                     }
                 }
+                
+                android.util.Log.d("FinalVoteViewModel", 
+                    "✅ 모든 후보 저장 완료 - placeCandidates 컬렉션에 ${top3.size}개 문서 생성됨")
                 
                 // 저장 완료 신호
                 _saveComplete.value = true
             } catch (e: Exception) {
+                android.util.Log.e("FinalVoteViewModel", 
+                    "❌ 후보 저장 실패: ${e.message}", e)
                 _error.value = "후보 저장에 실패했습니다: ${e.message}"
                 _saveComplete.value = false
             }
@@ -114,13 +135,16 @@ class FinalVoteViewModel @Inject constructor(
                 val group = groupRepository.getGroupById(groupId)
                 val totalMembers = group?.memberUids?.size ?: 0
                 
-                // UI 표시용 투표 상태 (placeCandidates에서 집계)
+                // ⭐ UI 표시용 투표 상태: 고유한 투표자 수 계산 (중복 제거)
                 val candidates = mapRepository.getPlaceCandidates(groupId)
-                val completedVotes = candidates.sumOf { it.voterUids.size }
+                // 모든 후보의 voterUids를 합쳐서 고유한 사용자 수 계산
+                val allVoterUids = candidates.flatMap { it.voterUids }.distinct()
+                val completedVotes = allVoterUids.size
+                
                 _voteStatus.value = VoteStatus(completedVotes, totalMembers)
                 
                 android.util.Log.d("FinalVoteViewModel", 
-                    "🔍 투표 상태 확인 (UI 업데이트) - groupId: $groupId, totalMembers: $totalMembers, completedVotes: $completedVotes")
+                    "🔍 투표 상태 확인 (UI 업데이트) - groupId: $groupId, totalMembers: $totalMembers, completedVotes: $completedVotes (고유 투표자 수)")
             } catch (e: Exception) {
                 android.util.Log.e("FinalVoteViewModel", 
                     "❌ 투표 상태 확인 실패: ${e.message}", e)
@@ -179,39 +203,12 @@ class FinalVoteViewModel @Inject constructor(
                     
                     winningCandidate?.let { candidate ->
                 // ⭐ vote 문서에 승리한 장소 저장 및 상태를 FINISHED로 변경
+                // ⚠️ winningPlace는 리스너에서 자동으로 설정되므로 여기서는 설정하지 않음
                 voteRepository.setWinningPlace(groupId, candidate.placeId, candidate.name)
                 
                 android.util.Log.d("FinalVoteViewModel", 
                     "✅ 승리한 장소 결정: ${candidate.name} (placeId: ${candidate.placeId})")
-                
-                // ⭐ vote 문서의 finalCandidates에서 승리한 장소의 상세 정보 가져오기 (주소 포함)
-                val voteStatus = voteRepository.getVoteStatus(groupId)
-                val finalCandidate = voteStatus?.finalCandidates?.firstOrNull { 
-                    it.placeId == candidate.placeId 
-                }
-                
-                // PlaceCandidate를 NearbyPlace로 변환하여 UI에 표시
-                        val latLng = candidate.latLng?.let { 
-                            LatLngData(it.latitude, it.longitude) 
-                        } ?: LatLngData(0.0, 0.0)
-                        
-                        val winningPlace = NearbyPlace(
-                            placeId = candidate.placeId,
-                            name = candidate.name,
-                            address = finalCandidate?.address, // ⭐ finalCandidates에서 주소 가져오기
-                            latLng = latLng,
-                            categories = finalCandidate?.categories ?: emptyList(),
-                            rating = finalCandidate?.rating,
-                    distanceMeters = userInputLocation?.let { inputLoc ->
-                        calculateDistanceMeters(
-                            inputLoc.latLng,
-                            latLng
-                        )
-                    } ?: 0.0
-                )
-                
-                _winningPlace.value = winningPlace
-                // ⚠️ 대중교통 시간 계산은 MidpointActivity에서 자동으로 처리됨 (selectNearbyPlace 호출 시)
+                // ⚠️ winningPlace는 startListeningToVoteStatus의 리스너에서 자동으로 설정됨
             }
         } catch (e: Exception) {
             android.util.Log.e("FinalVoteViewModel", 
@@ -240,6 +237,14 @@ class FinalVoteViewModel @Inject constructor(
                     if (vote != null) {
                         android.util.Log.d("FinalVoteViewModel", 
                             "🔍 vote 문서 업데이트 - status: ${vote.status}, finalCandidates: ${vote.finalCandidates.size}개")
+                        
+                        // 투표 상태 실시간 업데이트 (vote 문서의 finalVotedUsers 사용)
+                        val group = groupRepository.getGroupById(groupId)
+                        val totalMembers = group?.memberUids?.size ?: 0
+                        val completedVotes = vote.finalVotedUsers.size
+                        _voteStatus.value = VoteStatus(completedVotes, totalMembers)
+                        android.util.Log.d("FinalVoteViewModel", 
+                            "🔍 투표 상태 업데이트 - completedVotes: $completedVotes, totalMembers: $totalMembers")
                         
                         when (vote.status) {
                             "FINAL_VOTING" -> {
@@ -411,8 +416,8 @@ class FinalVoteViewModel @Inject constructor(
                 android.util.Log.d("FinalVoteViewModel", 
                     "✅ vote 문서 업데이트 완료 - status: FINAL_VOTING")
                 
-                // 상위 3개 후보를 RankedPlace로 변환하여 Firestore에 저장 (placeCandidates 컬렉션)
-                // ⚠️ 참고: 이건 기존 로직 유지 (finalVote에서 투표 수 집계용)
+                // ⭐ 상위 3개 후보를 RankedPlace로 변환하여 Firestore에 저장 (placeCandidates 컬렉션)
+                // ⚠️ 중요: placeCandidates 컬렉션에 문서를 생성해야 함 (기존 로직 복구)
                 val top3RankedPlaces = top3.mapNotNull { (placeId, totalScore) ->
                     allRankedPlaces.firstOrNull { it.place.placeId == placeId }
                 }
@@ -420,8 +425,12 @@ class FinalVoteViewModel @Inject constructor(
                 android.util.Log.d("FinalVoteViewModel", 
                     "💾 placeCandidates 컬렉션에 후보 저장 시작 - 후보 수: ${top3RankedPlaces.size}")
                 
-                // Firestore에 후보 저장 (완료 후 투표 상태 확인)
+                // ⭐ Firestore에 후보 저장 (placeCandidates 컬렉션에 문서 생성)
+                // 이 함수는 placeCandidates 컬렉션에 각 후보를 문서로 저장함
                 savePlaceCandidates(groupId, top3RankedPlaces)
+                
+                android.util.Log.d("FinalVoteViewModel", 
+                    "✅ placeCandidates 컬렉션에 후보 저장 완료")
                 
             } catch (e: Exception) {
                 android.util.Log.e("FinalVoteViewModel", 

@@ -172,6 +172,9 @@ class LocationInputFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        allMembersInputtedDialog?.dismiss()
+        allMembersInputtedDialog = null
+        hasShownAllInputtedDialog = false
         inputLocationListener?.remove()
         rootView = null
     }
@@ -680,6 +683,10 @@ class LocationInputFragment : Fragment() {
                 withContext(Dispatchers.Main) {
                     if (allInputted) {
                         isLocationLocked = true
+                        
+                        // ⭐ 모든 멤버 위치 입력 완료 다이얼로그 표시
+                        showAllMembersLocationInputtedDialog()
+                        
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 val currentGroup = groupRepository.getGroupDetail(groupId)
@@ -704,6 +711,40 @@ class LocationInputFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private var allMembersInputtedDialog: androidx.appcompat.app.AlertDialog? = null
+    private var hasShownAllInputtedDialog = false
+
+    /**
+     * 모든 멤버 위치 입력 완료 다이얼로그 표시
+     */
+    private fun showAllMembersLocationInputtedDialog() {
+        // ⭐ 다이얼로그 중복 표시 방지
+        if (hasShownAllInputtedDialog) {
+            return
+        }
+        
+        if (context == null || !isAdded) {
+            return
+        }
+        
+        hasShownAllInputtedDialog = true
+        allMembersInputtedDialog?.dismiss()
+        
+        allMembersInputtedDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("모든 그룹원 위치 입력 완료")
+            .setMessage("모든 그룹원이 위치를 입력했습니다!\n\n이제 중간 지점을 계산하여 장소를 추천받을 수 있습니다.")
+            .setPositiveButton("확인") { _, _ ->
+                hasShownAllInputtedDialog = false
+            }
+            .setCancelable(false)
+            .setOnDismissListener {
+                hasShownAllInputtedDialog = false
+            }
+            .create()
+        
+        allMembersInputtedDialog?.show()
     }
 
     private fun updateUIForInputStatus(allInputted: Boolean, missingUids: List<String>) {
