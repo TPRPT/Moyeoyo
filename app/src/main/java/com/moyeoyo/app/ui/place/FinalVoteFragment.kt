@@ -41,6 +41,7 @@ class FinalVoteFragment : Fragment() {
     private val auth = FirebaseAuth.getInstance()
     
     private var winningPlaceDialog: AlertDialog? = null
+    private var hasShownWinningDialog = false // ⭐ 다이얼로그 중복 표시 방지 플래그
 
     private val args: FinalVoteFragmentArgs by navArgs()
 
@@ -81,6 +82,9 @@ class FinalVoteFragment : Fragment() {
         // ⭐ 최종 후보는 '진행하기' 버튼을 눌렀을 때만 생성되므로, 여기서는 리스너만 시작
         // loadAllUserRankingsAndCreateCandidates는 navigateToFinalVote()에서 호출됨
         viewModel.startListeningToVoteStatus(groupId)
+        
+        // 투표 상태 초기 로드
+        viewModel.loadVoteStatus(groupId)
     }
 
     override fun onDestroyView() {
@@ -169,10 +173,18 @@ class FinalVoteFragment : Fragment() {
 
         viewModel.winningPlace.observe(viewLifecycleOwner) { winningPlace ->
             winningPlace?.let { place ->
+                // ⭐ 다이얼로그 중복 표시 방지
+                if (hasShownWinningDialog) {
+                    android.util.Log.d("FinalVoteFragment", 
+                        "⚠️ 이미 승리 장소 다이얼로그를 표시했으므로 건너뜁니다.")
+                    return@observe
+                }
+                
                 // ⭐ Fragment 유효성 확인
                 if (isFragmentValid()) {
                     android.util.Log.d("FinalVoteFragment", 
                         "🏆 승리한 장소 확인: ${place.name}")
+                    hasShownWinningDialog = true
                     showWinningPlaceDialog(place)
                 } else {
                     android.util.Log.w("FinalVoteFragment", 

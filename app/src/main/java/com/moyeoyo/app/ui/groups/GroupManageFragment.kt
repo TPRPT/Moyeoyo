@@ -393,18 +393,24 @@ class GroupManageFragment : Fragment() {
 
     private fun resetAllVotes() {
         viewLifecycleOwner.lifecycleScope.launch {
-            val success = groupRepository.resetAllVotes(requireContext(), groupId)
+            try {
+                val success = groupRepository.resetAllVotes(requireContext(), groupId)
 
-            if (success) {
-                // ⭐ 위젯 갱신
-                NextMeetingWidgetProvider.requestUpdateAll(requireContext())
+                if (success) {
+                    // ⭐ 위젯 갱신
+                    NextMeetingWidgetProvider.requestUpdateAll(requireContext())
 
-                Toast.makeText(requireContext(), "모든 투표가 초기화되었습니다.", Toast.LENGTH_LONG).show()
-                
-                // 그룹 정보 다시 불러오기
-                loadGroupInfo()
-            } else {
-                Toast.makeText(requireContext(), "투표 초기화 실패", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "모든 투표가 초기화되었습니다.", Toast.LENGTH_LONG).show()
+                    
+                    // 그룹 정보 다시 불러오기
+                    loadGroupInfo()
+                } else {
+                    android.util.Log.e("GroupManageFragment", "❌ 투표 초기화 실패: resetAllVotes가 false 반환")
+                    Toast.makeText(requireContext(), "투표 초기화에 실패했습니다. 잠시 후 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GroupManageFragment", "❌ 투표 초기화 중 예외 발생: ${e.message}", e)
+                Toast.makeText(requireContext(), "투표 초기화 중 오류가 발생했습니다: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }

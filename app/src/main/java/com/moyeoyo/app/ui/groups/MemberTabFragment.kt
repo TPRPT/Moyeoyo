@@ -64,6 +64,10 @@ class MemberTabFragment : Fragment() {
 
     private var imageUri: Uri? = null
     private var cameraImageUri: Uri? = null
+    
+    // ⭐ 오버레이 상태 추적
+    private var currentOverlayView: View? = null
+    private var onBackPressedCallback: androidx.activity.OnBackPressedCallback? = null
 
     // 갤러리 런처
     private val galleryLauncher = registerForActivityResult(
@@ -115,12 +119,22 @@ class MemberTabFragment : Fragment() {
             navigateToSelectFriends()
         }
         
-        // 친구 선택 결과 리스너 설정
-        setFragmentResultListener(SelectFriendsFragment.RESULT_KEY) { _, bundle ->
+        // ⭐ 이전 리스너 제거 (중복 방지)
+        requireActivity().supportFragmentManager.clearFragmentResultListener(SelectFriendsFragment.RESULT_KEY)
+        
+        // ⭐ 친구 선택 결과 리스너를 onViewCreated에서 미리 등록 (항상 활성화)
+        // ⭐ 멤버 추가용 Result Key만 사용
+        requireActivity().supportFragmentManager.setFragmentResultListener(SelectFriendsFragment.RESULT_KEY, viewLifecycleOwner) { _, bundle ->
+            android.util.Log.d("MemberTabFragment", "친구 선택 결과 수신 (멤버 추가용)")
+            
             val selected = bundle.getStringArrayList(SelectFriendsFragment.EXTRA_SELECTED_UIDS)
             val selectedUids = selected?.toList() ?: emptyList()
+            
+            android.util.Log.d("MemberTabFragment", "멤버 추가 진행: groupId=$groupId, friends=${selectedUids.size}명")
             if (selectedUids.isNotEmpty()) {
                 addMembersToGroup(selectedUids)
+            } else {
+                android.util.Log.d("MemberTabFragment", "선택된 친구가 없습니다.")
             }
         }
 
@@ -153,6 +167,20 @@ class MemberTabFragment : Fragment() {
         loadMemberList()
         loadPhotos()
     }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // ⭐ Fragment Result Listener 제거 (멤버 추가용 Result Key만 사용)
+        requireActivity().supportFragmentManager.clearFragmentResultListener(SelectFriendsFragment.RESULT_KEY)
+        // ⭐ 오버레이 정리
+        currentOverlayView?.let {
+            val rootView = requireActivity().window.decorView.rootView as? android.view.ViewGroup
+            rootView?.removeView(it)
+            currentOverlayView = null
+        }
+        onBackPressedCallback?.remove()
+        onBackPressedCallback = null
+    }
 
     private fun loadMemberList() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -182,11 +210,13 @@ class MemberTabFragment : Fragment() {
                     }
                 )
                 
-                // 초대 버튼 상태 업데이트
+                // 초대 버튼 상태 업데이트: 방장 여부와 관계없이 모든 멤버가 사용 가능
+                // 단, 투표가 시작되면 비활성화
                 if (isVotingStarted) {
                     btnInviteMember.alpha = 0.5f
                     btnInviteMember.isEnabled = false
                 } else {
+                    // 투표가 시작되지 않았으면 모든 멤버가 멤버 추가 가능
                     btnInviteMember.alpha = 1.0f
                     btnInviteMember.isEnabled = true
                 }
@@ -234,6 +264,9 @@ class MemberTabFragment : Fragment() {
     }
 
     private fun navigateToSelectFriends() {
+        // ⭐ 리스너는 이미 onViewCreated에서 등록되어 있음
+        // ⭐ groupId를 전달하여 멤버 추가용임을 명시
+        android.util.Log.d("MemberTabFragment", "친구 선택 화면으로 이동: groupId=$groupId")
         findNavController().navigate(
             R.id.selectFriendsFragment,
             Bundle().apply {
@@ -243,13 +276,36 @@ class MemberTabFragment : Fragment() {
     }
     
     private fun addMembersToGroup(friendUids: List<String>) {
+        // ⭐ 로딩 다이얼로그 표시
+        val loadingDialog = ProgressDialog(requireContext()).apply {
+            setMessage("멤버 추가 중...")
+            setCancelable(false)
+            show()
+        }
+        
         viewLifecycleOwner.lifecycleScope.launch {
-            val success = groupRepository.addMembersToGroup(groupId, friendUids)
-            if (success) {
-                Toast.makeText(requireContext(), "멤버가 추가되었습니다.", Toast.LENGTH_SHORT).show()
-                loadMemberList() // 멤버 목록 새로고침
-            } else {
-                Toast.makeText(requireContext(), "멤버 추가에 실패했습니다.", Toast.LENGTH_SHORT).show()
+            try {
+                android.util.Log.d("MemberTabFragment", "멤버 추가 시작: groupId=$groupId, friends=${friendUids.size}명")
+                
+                val success = groupRepository.addMembersToGroup(groupId, friendUids)
+                
+                loadingDialog.dismiss()
+                
+                if (success) {
+                    android.util.Log.d("MemberTabFragment", "멤버 추가 성공")
+                    Toast.makeText(requireContext(), "멤버가 추가되었습니다.", Toast.LENGTH_SHORT).show()
+                    
+                    // ⭐ 약간의 지연 후 멤버 목록 새로고침 (Firestore 업데이트 반영 시간 확보)
+                    kotlinx.coroutines.delay(500)
+                    loadMemberList()
+                } else {
+                    android.util.Log.e("MemberTabFragment", "멤버 추가 실패: success=false")
+                    Toast.makeText(requireContext(), "멤버 추가에 실패했습니다.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                loadingDialog.dismiss()
+                android.util.Log.e("MemberTabFragment", "멤버 추가 중 예외 발생: ${e.message}", e)
+                Toast.makeText(requireContext(), "멤버 추가 중 오류가 발생했습니다: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -365,10 +421,24 @@ class MemberTabFragment : Fragment() {
         val rootView = requireActivity().window.decorView.rootView as? android.view.ViewGroup
             ?: return
         
+        // ⭐ 기존 오버레이가 있으면 제거
+        currentOverlayView?.let {
+            rootView.removeView(it)
+            currentOverlayView = null
+        }
+        
         val overlayView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_photo_viewer, rootView, false)
         val imageView = overlayView.findViewById<android.widget.ImageView>(R.id.photoViewerImage)
         val btnDownload = overlayView.findViewById<android.widget.ImageButton>(R.id.btnDownloadPhoto)
         val btnDelete = overlayView.findViewById<android.widget.ImageButton>(R.id.btnDeletePhoto)
+        
+        // ⭐ 오버레이 닫기 함수
+        val closeOverlay = {
+            rootView.removeView(overlayView)
+            currentOverlayView = null
+            onBackPressedCallback?.remove()
+            onBackPressedCallback = null
+        }
         
         // 이미지 로드 - 원본 비율 유지하며 전체 화면에 맞춤
         Glide.with(requireContext())
@@ -383,7 +453,7 @@ class MemberTabFragment : Fragment() {
         } else {
             btnDelete.visibility = View.VISIBLE
             btnDelete.setOnClickListener {
-                rootView.removeView(overlayView)
+                closeOverlay()
                 deletePhoto(photo)
             }
         }
@@ -395,13 +465,21 @@ class MemberTabFragment : Fragment() {
         
         // 오버레이 클릭 시 닫기
         overlayView.setOnClickListener { 
-            rootView.removeView(overlayView)
+            closeOverlay()
         }
         
         // 이미지 클릭은 오버레이 클릭으로 전파되지 않도록
         imageView.setOnClickListener { 
-            rootView.removeView(overlayView)
+            closeOverlay()
         }
+        
+        // ⭐ 뒤로가기 처리: 오버레이가 표시되어 있으면 오버레이만 닫기
+        onBackPressedCallback = object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                closeOverlay()
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, onBackPressedCallback!!)
         
         // 오버레이를 root view에 추가
         overlayView.layoutParams = android.view.ViewGroup.LayoutParams(
@@ -409,6 +487,7 @@ class MemberTabFragment : Fragment() {
             android.view.ViewGroup.LayoutParams.MATCH_PARENT
         )
         rootView.addView(overlayView)
+        currentOverlayView = overlayView
     }
 
     private fun downloadPhoto(photo: PhotoTabFragment.GroupPhoto) {

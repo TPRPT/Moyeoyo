@@ -63,6 +63,9 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
 
     // 그룹 상태 실시간 리스너
     private var groupStatusListener: ListenerRegistration? = null
+    
+    // 중복 navigation 방지 플래그
+    private var isNavigating = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -89,7 +92,24 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
         // 시간 버튼 → 시간 최종투표 화면으로 이동
         val btnFilterTime = view.findViewById<View>(R.id.btnFilterTime)
         btnFilterTime.setOnClickListener {
+            android.util.Log.d("VoteTabFragment", "✅ 일정 버튼 클릭됨 - isNavigating: $isNavigating, isClickable: ${btnFilterTime.isClickable}")
+            if (!btnFilterTime.isClickable) {
+                android.util.Log.w("VoteTabFragment", "⚠️ 일정 버튼이 비활성화되어 있음")
+                Toast.makeText(requireContext(), "투표를 시작한 후 사용할 수 있습니다.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (isNavigating) {
+                android.util.Log.w("VoteTabFragment", "⚠️ 이미 navigation 진행 중")
+                return@setOnClickListener
+            }
             startFinalTimeVote()
+        }
+        // 자식 뷰들이 클릭 이벤트를 가로채지 않도록 설정
+        btnFilterTime.setOnTouchListener { v, event ->
+            if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                android.util.Log.d("VoteTabFragment", "✅ 일정 버튼 터치 이벤트 발생 - isClickable: ${btnFilterTime.isClickable}")
+            }
+            false // LinearLayout의 클릭 리스너가 처리하도록 false 반환
         }
 
         // 위치 버튼 → 장소 최종투표 화면으로 이동
@@ -145,6 +165,13 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
             // 상태가 변경되면 UI 업데이트
             if (currentStatus != null) {
                 android.util.Log.d("VoteTabFragment", "📊 그룹 상태 변경 감지: $currentStatus")
+                
+                // ⭐ GROUP_CREATED 상태로 변경되면 isNavigating 플래그 리셋
+                if (currentStatus == "GROUP_CREATED") {
+                    isNavigating = false
+                    android.util.Log.d("VoteTabFragment", "🔄 그룹 상태가 GROUP_CREATED로 변경됨 - isNavigating 플래그 리셋")
+                }
+                
                 updateVoteTabUI(view)
             }
         }
@@ -175,14 +202,18 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
 
                 // ⭐ 투표 시작 전이면 버튼 비활성화
                 if (!isVotingStarted) {
-                    btnFilterTime?.isEnabled = false
+                    btnFilterTime?.isClickable = false
+                    btnFilterTime?.isFocusable = false
                     btnFilterTime?.alpha = 0.5f
-                    btnFilterLocation?.isEnabled = false
+                    btnFilterLocation?.isClickable = false
+                    btnFilterLocation?.isFocusable = false
                     btnFilterLocation?.alpha = 0.5f
                 } else {
-                    btnFilterTime?.isEnabled = true
+                    btnFilterTime?.isClickable = true
+                    btnFilterTime?.isFocusable = true
                     btnFilterTime?.alpha = 1.0f
-                    btnFilterLocation?.isEnabled = false
+                    btnFilterLocation?.isClickable = false
+                    btnFilterLocation?.isFocusable = false
                     btnFilterLocation?.alpha = 0.5f
                 }
 
@@ -190,44 +221,102 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                 view.findViewById<RecyclerView>(R.id.rvFinalCandidates)?.visibility = View.GONE
                 view.findViewById<Button>(R.id.btnSubmitVote)?.visibility = View.GONE
             } else if (confirmedTime != null && confirmedPlace == null) {
-                // 시간만 확정된 경우: 시간 버튼만 숨기고 장소 버튼은 표시
+                // 시간만 확정된 경우: 시간 버튼은 비활성화, 장소 버튼은 표시
                 layoutInitialButtons?.visibility = View.VISIBLE
-                btnFilterTime?.visibility = View.GONE
+                btnFilterTime?.visibility = View.VISIBLE
+                btnFilterTime?.isClickable = false
+                btnFilterTime?.isFocusable = false
+                btnFilterTime?.alpha = 0.5f
                 btnFilterLocation?.visibility = View.VISIBLE
 
                 // ⭐ 투표 시작 전이면 장소 버튼도 비활성화
                 if (!isVotingStarted) {
-                    btnFilterLocation?.isEnabled = false
+                    btnFilterLocation?.isClickable = false
+                    btnFilterLocation?.isFocusable = false
                     btnFilterLocation?.alpha = 0.5f
                 } else {
-                    btnFilterLocation?.isEnabled = true
+                    btnFilterLocation?.isClickable = true
+                    btnFilterLocation?.isFocusable = true
                     btnFilterLocation?.alpha = 1.0f
                 }
-            } else {
-                // 둘 다 확정된 경우: 초기 버튼 모두 숨기기
-                layoutInitialButtons?.visibility = View.GONE
+            } else if (confirmedTime != null && confirmedPlace != null) {
+                // 둘 다 확정된 경우: 버튼들은 비활성화 상태로 표시 (숨기지 않음)
+                layoutInitialButtons?.visibility = View.VISIBLE
+                btnFilterTime?.visibility = View.VISIBLE
+                btnFilterTime?.isClickable = false
+                btnFilterTime?.isFocusable = false
+                btnFilterTime?.alpha = 0.5f
+                btnFilterLocation?.visibility = View.VISIBLE
+                btnFilterLocation?.isClickable = false
+                btnFilterLocation?.isFocusable = false
+                btnFilterLocation?.alpha = 0.5f
             }
 
             // 투표 시작 버튼 표시 여부 (방장만)
             val currentUid = auth.currentUser?.uid ?: return@launch
             val isHost = group?.hostUid == currentUid
             val btnStartVoting = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnStartVoting)
-            btnStartVoting?.visibility = if (isHost && status == "GROUP_CREATED") {
-                View.VISIBLE
+            val tvWaitingForHost = view.findViewById<android.widget.TextView>(R.id.tvWaitingForHost)
+            
+            if (status == "GROUP_CREATED") {
+                // 투표 시작 전 상태
+                if (isHost) {
+                    // 방장: 투표 시작 버튼 표시
+                    btnStartVoting?.visibility = View.VISIBLE
+                    tvWaitingForHost?.visibility = View.GONE
+                } else {
+                    // 다른 멤버: 대기 메시지 표시
+                    btnStartVoting?.visibility = View.GONE
+                    tvWaitingForHost?.visibility = View.VISIBLE
+                }
             } else {
-                View.GONE
+                // 투표가 시작된 상태
+                btnStartVoting?.visibility = View.GONE
+                tvWaitingForHost?.visibility = View.GONE
             }
         }
     }
 
     private fun startFinalTimeVote() {
+        // 중복 navigation 방지
+        if (isNavigating) {
+            android.util.Log.d("VoteTabFragment", "⏸️ 이미 navigation 진행 중 - 중복 호출 무시")
+            return
+        }
+        
         viewLifecycleOwner.lifecycleScope.launch {
             try {
+                // Fragment 유효성 확인
+                if (!isFragmentValid()) {
+                    android.util.Log.w("VoteTabFragment", "⚠️ Fragment가 유효하지 않아 navigation을 건너뜁니다.")
+                    isNavigating = false
+                    return@launch
+                }
+                
+                // ⭐ 그룹 상태 확인 - GROUP_CREATED 상태면 진입 불가
                 val group = groupRepository.getGroupById(groupId)
+                val status = group?.status
+                
+                if (status == "GROUP_CREATED") {
+                    android.util.Log.w("VoteTabFragment", "⚠️ 그룹 상태가 GROUP_CREATED - 투표 시작 전 상태")
+                    if (isFragmentValid()) {
+                        Toast.makeText(requireContext(), "투표를 시작한 후 사용할 수 있습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    isNavigating = false
+                    return@launch
+                }
+                
+                isNavigating = true
+                android.util.Log.d("VoteTabFragment", "🚀 일정 투표 시작 - isNavigating=true, status=$status")
+
                 val memberUids = group?.memberUids ?: emptyList()
 
                 if (memberUids.isEmpty()) {
-                    Toast.makeText(requireContext(), "멤버 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    android.util.Log.w("VoteTabFragment", "⚠️ 멤버 정보를 불러올 수 없음")
+                    if (isFragmentValid()) {
+                        Toast.makeText(requireContext(), "멤버 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    isNavigating = false
                     return@launch
                 }
 
@@ -253,30 +342,104 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                     }
                 }
 
+                // Fragment 유효성 재확인 (비동기 작업 후)
+                if (!isFragmentValid()) {
+                    android.util.Log.w("VoteTabFragment", "⚠️ 비동기 작업 후 Fragment가 유효하지 않게 되었습니다.")
+                    isNavigating = false
+                    return@launch
+                }
+
                 if (dateWithAllVoted == null) {
                     // 아직 모든 멤버가 투표하지 않았으면 TimeVoteFragment로 이동
-                    // TODO: Safe Args가 생성되면 Directions 사용
-                    findNavController().navigate(
-                        com.moyeoyo.app.R.id.action_groupDetailFragment_to_timeVoteFragment,
-                        Bundle().apply {
-                            putString("groupId", groupId)
-                        }
-                    )
+                    android.util.Log.d("VoteTabFragment", "📌 모든 멤버 투표 완료 날짜 없음 - TimeVoteFragment로 이동")
+                    safeNavigateToTimeVote()
+                    // safeNavigateToTimeVote() 내부에서 isNavigating을 리셋하므로 여기서는 리셋하지 않음
                     return@launch
                 }
 
                 // 최종 시간 투표 화면으로 이동
-                // TODO: Safe Args가 생성되면 Directions 사용
-                findNavController().navigate(
-                    com.moyeoyo.app.R.id.action_groupDetailFragment_to_finalTimeVoteFragment,
-                    Bundle().apply {
-                        putString("groupId", groupId)
-                        putString("date", dateWithAllVoted)
-                    }
-                )
+                android.util.Log.d("VoteTabFragment", "📌 모든 멤버 투표 완료 날짜 발견: $dateWithAllVoted - FinalTimeVoteFragment로 이동")
+                safeNavigateToFinalTimeVote(dateWithAllVoted)
+                // safeNavigateToFinalTimeVote() 내부에서 isNavigating을 리셋하므로 여기서는 리셋하지 않음
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("VoteTabFragment", "❌ 일정 투표 시작 중 오류: ${e.message}", e)
+                if (isFragmentValid()) {
+                    Toast.makeText(requireContext(), "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+                isNavigating = false
             }
+        }
+    }
+
+    /**
+     * Fragment가 유효한지 확인하는 안전한 체크 함수
+     */
+    private fun isFragmentValid(): Boolean {
+        return isAdded && view != null && !isDetached && !isRemoving
+    }
+
+    /**
+     * 안전한 네비게이션 - TimeVoteFragment로 이동
+     */
+    private fun safeNavigateToTimeVote() {
+        if (!isFragmentValid()) {
+            android.util.Log.w("VoteTabFragment", "⚠️ Fragment가 유효하지 않아 navigation을 건너뜁니다.")
+            isNavigating = false
+            return
+        }
+
+        try {
+            findNavController().navigate(
+                com.moyeoyo.app.R.id.action_groupDetailFragment_to_timeVoteFragment,
+                Bundle().apply {
+                    putString("groupId", groupId)
+                }
+            )
+            android.util.Log.d("VoteTabFragment", "✅ TimeVoteFragment로 navigation 성공")
+            // navigation 성공 후 약간의 지연 후 플래그 리셋
+            viewLifecycleOwner.lifecycleScope.launch {
+                kotlinx.coroutines.delay(300)
+                isNavigating = false
+                android.util.Log.d("VoteTabFragment", "🔄 isNavigating 플래그 리셋 완료")
+            }
+        } catch (e: IllegalStateException) {
+            android.util.Log.e("VoteTabFragment", "❌ 네비게이션 실패: ${e.message}", e)
+            isNavigating = false
+            // Fragment가 이미 제거된 경우, Activity로 돌아가기
+            activity?.onBackPressedDispatcher?.onBackPressed()
+        }
+    }
+
+    /**
+     * 안전한 네비게이션 - FinalTimeVoteFragment로 이동
+     */
+    private fun safeNavigateToFinalTimeVote(date: String) {
+        if (!isFragmentValid()) {
+            android.util.Log.w("VoteTabFragment", "⚠️ Fragment가 유효하지 않아 navigation을 건너뜁니다.")
+            isNavigating = false
+            return
+        }
+
+        try {
+            findNavController().navigate(
+                com.moyeoyo.app.R.id.action_groupDetailFragment_to_finalTimeVoteFragment,
+                Bundle().apply {
+                    putString("groupId", groupId)
+                    putString("date", date)
+                }
+            )
+            android.util.Log.d("VoteTabFragment", "✅ FinalTimeVoteFragment로 navigation 성공")
+            // navigation 성공 후 약간의 지연 후 플래그 리셋
+            viewLifecycleOwner.lifecycleScope.launch {
+                kotlinx.coroutines.delay(300)
+                isNavigating = false
+                android.util.Log.d("VoteTabFragment", "🔄 isNavigating 플래그 리셋 완료")
+            }
+        } catch (e: IllegalStateException) {
+            android.util.Log.e("VoteTabFragment", "❌ 네비게이션 실패: ${e.message}", e)
+            isNavigating = false
+            // Fragment가 이미 제거된 경우, Activity로 돌아가기
+            activity?.onBackPressedDispatcher?.onBackPressed()
         }
     }
 
@@ -331,13 +494,29 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                         }
                     }
                     "FINAL_PLACE_VOTE" -> {
-                        // 장소 최종 투표 화면으로 이동
-                        findNavController().navigate(
-                            com.moyeoyo.app.R.id.action_groupDetailFragment_to_finalVoteFragment,
-                            Bundle().apply {
-                                putString("groupId", groupId)
-                            }
-                        )
+                        // ⭐ FINAL_PLACE_VOTE 상태에서도 RecommendedPlaceFragment로 진입 가능하도록 수정
+                        // (저장된 순위를 확인하거나 다른 멤버 진행상황을 확인할 수 있도록)
+                        val inputLocations = mapRepository.getInputLocations(groupId)
+                        val weightedCenter = mapRepository.computeWeightedCenter(inputLocations)
+                        
+                        if (weightedCenter != null) {
+                            findNavController().navigate(
+                                com.moyeoyo.app.R.id.action_groupDetailFragment_to_recommendedPlaceFragment,
+                                Bundle().apply {
+                                    putString("groupId", groupId)
+                                    putFloat("centerLat", weightedCenter.lat.toFloat())
+                                    putFloat("centerLng", weightedCenter.lng.toFloat())
+                                }
+                            )
+                        } else {
+                            // 중간 지점이 없으면 중간 지점 계산 화면으로 이동
+                            findNavController().navigate(
+                                com.moyeoyo.app.R.id.action_groupDetailFragment_to_midpointFragment,
+                                Bundle().apply {
+                                    putString("groupId", groupId)
+                                }
+                            )
+                        }
                     }
                     else -> {
                         Toast.makeText(requireContext(), "현재 장소 투표를 진행할 수 없습니다.", Toast.LENGTH_SHORT).show()
@@ -367,12 +546,19 @@ class VoteTabFragment : Fragment(), OnMapReadyCallback {
                 val success = groupRepository.startVoting(groupId)
                 if (success) {
                     Toast.makeText(requireContext(), "투표가 시작되었습니다.", Toast.LENGTH_SHORT).show()
+                    
+                    // ⭐ 상태 변경 후 약간의 지연을 두고 UI 업데이트 (Firestore 동기화 시간 확보)
+                    kotlinx.coroutines.delay(300)
+                    
                     // UI 업데이트
                     view?.let { updateVoteTabUI(it) }
+                    
+                    android.util.Log.d("VoteTabFragment", "✅ 투표 시작 완료 - UI 업데이트됨")
                 } else {
                     Toast.makeText(requireContext(), "투표 시작에 실패했습니다.", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
+                android.util.Log.e("VoteTabFragment", "❌ 투표 시작 중 오류: ${e.message}", e)
                 Toast.makeText(requireContext(), "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }

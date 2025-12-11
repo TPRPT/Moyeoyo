@@ -19,6 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/white"
+            android:contentInsetEnd="16dp"
             app:navigationIcon="@drawable/ic_chevron_left_24"
             app:titleTextColor="@color/black"
             app:subtitleTextColor="@color/text_secondary"

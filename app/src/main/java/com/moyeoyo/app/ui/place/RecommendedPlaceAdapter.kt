@@ -22,6 +22,7 @@ class RecommendedPlaceAdapter(
 
     private var isRankMode: Boolean = false
     private var selectedRanks: Map<String, Int> = emptyMap() // placeId -> rank
+    private var savedRanks: Map<String, Int> = emptyMap() // placeId -> rank (저장된 순위, 읽기 전용)
     private var transitTimes: Map<String, Int> = emptyMap() // placeId -> 대중교통 소요시간 (초)
 
     /**
@@ -71,6 +72,25 @@ class RecommendedPlaceAdapter(
         }
     }
 
+    /**
+     * 저장된 순위 업데이트 (읽기 전용 표시용)
+     */
+    fun updateSavedRanks(savedRanks: Map<String, Int>) {
+        val oldSavedRanks = this.savedRanks.toMap()
+        this.savedRanks = savedRanks.toMap()
+        
+        // 저장된 순위가 변경된 아이템만 업데이트
+        for (i in 0 until itemCount) {
+            val place = getItem(i)
+            val placeId = place.placeId
+            val oldRank = oldSavedRanks[placeId]
+            val newRank = savedRanks[placeId]
+            if (oldRank != newRank) {
+                notifyItemChanged(i)
+            }
+        }
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaceViewHolder {
         val binding = ItemRecommendedPlaceBinding.inflate(
             LayoutInflater.from(parent.context),
@@ -114,16 +134,23 @@ class RecommendedPlaceAdapter(
                 binding.tvTransitTime.visibility = View.GONE
             }
 
-            // 순위 모드인 경우 순위 표시 및 배경 변경
-            val rank = if (isRankMode) selectedRanks[place.placeId] else null
+            // ⭐ 순위 표시: 순위 모드 중 선택된 순위 또는 저장된 순위
+            val rank = if (isRankMode) {
+                // 순위 모드 중: 선택 중인 순위 표시
+                selectedRanks[place.placeId]
+            } else {
+                // 순위 모드 아님: 저장된 순위 표시 (읽기 전용)
+                savedRanks[place.placeId]
+            }
+            
             if (rank != null) {
-                // 선택된 장소: 선택 효과 배경 적용 (진한 파란색 배경 + 파란색 테두리)
+                // 순위가 있는 장소: 선택 효과 배경 적용 (진한 파란색 배경 + 파란색 테두리)
                 binding.cardContainer.setBackgroundResource(R.drawable.bg_card_selected)
                 binding.tvRankBadge.visibility = View.VISIBLE
                 binding.tvRankBadge.text = rank.toString()
                 binding.tvRankBadge.setBackgroundResource(R.drawable.bg_rank_badge)
             } else {
-                // 선택되지 않은 장소: 기본 배경
+                // 순위가 없는 장소: 기본 배경
                 binding.cardContainer.setBackgroundResource(R.drawable.bg_card)
                 binding.tvRankBadge.visibility = View.GONE
             }

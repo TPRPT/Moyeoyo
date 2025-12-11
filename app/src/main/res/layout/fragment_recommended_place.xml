@@ -23,7 +23,7 @@
             android:id="@+id/btnBack"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:src="@android:drawable/ic_menu_revert"
+            android:src="@drawable/ic_arrow_back"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/back" />
 
@@ -139,26 +139,28 @@
         android:elevation="4dp"
         android:visibility="gone">
 
+        <!-- 다른 멤버 진행상황 표시 -->
         <TextView
-            android:id="@+id/tvSelectedCount"
+            android:id="@+id/tvVotingProgress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="3개 장소를 선택해주세요"
-            android:textSize="14sp"
+            android:text=""
+            android:textSize="13sp"
             android:textColor="@color/text_secondary"
             android:gravity="center"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
 
-        <Button
-            android:id="@+id/btnProceedToVote"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSaveRanking"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="투표 진행하기"
-            android:textSize="16sp"
+            android:layout_height="56dp"
+            android:text="저장"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="@color/white"
-            android:background="@drawable/bg_button_primary"
-            android:padding="14dp" />
+            android:background="@drawable/bg_round_button"
+            app:backgroundTint="@color/black" />
     </LinearLayout>
 </LinearLayout>
 

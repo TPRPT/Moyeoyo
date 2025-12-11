@@ -137,29 +137,4 @@
         android:layout_weight="1"
         android:layout_marginTop="10dp" />
 
-    <!-- 하단 안내 -->
-    <LinearLayout
-        android:layout_marginTop="12dp"
-        android:orientation="horizontal"
-        android:padding="12dp"
-        android:background="@drawable/bg_blue_box"
-        android:gravity="center_vertical"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:src="@drawable/ic_lightbulb_24" />
-
-        <TextView
-            android:layout_marginStart="8dp"
-            android:text="중요한 약속 알림은 자동 전송됩니다."
-            android:textColor="@color/black"
-            android:textSize="13sp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1" />
-    </LinearLayout>
-
 </LinearLayout>

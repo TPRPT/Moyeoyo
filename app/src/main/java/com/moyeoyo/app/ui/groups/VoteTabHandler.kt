@@ -52,6 +52,9 @@ class VoteTabHandler(
     private lateinit var finalTimeAdapter: FinalTimeAdapter
     private var selectedTime: String? = null
     private var finalTimeDate: String? = null
+    
+    // 중복 navigation 방지 플래그
+    private var isNavigating = false
     private var layoutFinalTimeVote: View? = null
     private val overlappingTimes = mutableListOf<Pair<String, Int>>()
     
@@ -194,13 +197,29 @@ class VoteTabHandler(
     }
 
     private fun startFinalTimeVote() {
+        // 중복 navigation 방지
+        if (isNavigating) {
+            android.util.Log.d("VoteTabHandler", "⏸️ 이미 navigation 진행 중 - 중복 호출 무시")
+            return
+        }
+        
         lifecycleScope.launch {
             try {
+                // Fragment 유효성 확인
+                if (!isFragmentValid(fragment)) {
+                    android.util.Log.w("VoteTabHandler", "⚠️ Fragment가 유효하지 않아 navigation을 건너뜁니다.")
+                    return@launch
+                }
+                
+                isNavigating = true
+
                 val group = groupRepository.getGroupById(groupId)
                 val memberUids = group?.memberUids ?: emptyList()
 
                 if (memberUids.isEmpty()) {
-                    Toast.makeText(fragment.requireContext(), "멤버 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    if (isFragmentValid(fragment)) {
+                        Toast.makeText(fragment.requireContext(), "멤버 정보를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    }
                     return@launch
                 }
 
@@ -226,12 +245,21 @@ class VoteTabHandler(
                     }
                 }
 
+                // Fragment 유효성 재확인 (비동기 작업 후)
+                if (!isFragmentValid(fragment)) {
+                    android.util.Log.w("VoteTabHandler", "⚠️ 비동기 작업 후 Fragment가 유효하지 않게 되었습니다.")
+                    return@launch
+                }
+
                 if (dateWithAllVoted == null) {
                     // 아직 모든 멤버가 투표하지 않았으면 TimeVoteFragment로 이동
-                    fragment.findNavController().navigate(
-                        R.id.action_groupDetailFragment_to_timeVoteFragment,
-                        android.os.Bundle().apply { putString("groupId", groupId) }
-                    )
+                    safeNavigateToTimeVote(fragment)
+                    return@launch
+                }
+
+                // Fragment 유효성 재확인 (비동기 작업 후)
+                if (!isFragmentValid(fragment)) {
+                    android.util.Log.w("VoteTabHandler", "⚠️ 비동기 작업 후 Fragment가 유효하지 않게 되었습니다.")
                     return@launch
                 }
 
@@ -239,7 +267,15 @@ class VoteTabHandler(
                 val overlapping = timeVoteRepository.getOverlappingTimes(groupId, dateWithAllVoted, memberUids)
 
                 if (overlapping.isEmpty()) {
-                    Toast.makeText(fragment.requireContext(), "모든 멤버가 겹치는 시간이 없습니다.", Toast.LENGTH_LONG).show()
+                    if (isFragmentValid(fragment)) {
+                        Toast.makeText(fragment.requireContext(), "모든 멤버가 겹치는 시간이 없습니다.", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+
+                // Fragment 유효성 재확인 (비동기 작업 후)
+                if (!isFragmentValid(fragment)) {
+                    android.util.Log.w("VoteTabHandler", "⚠️ 비동기 작업 후 Fragment가 유효하지 않게 되었습니다.")
                     return@launch
                 }
 
@@ -247,8 +283,47 @@ class VoteTabHandler(
                 finalTimeDate = dateWithAllVoted
                 showFinalTimeVoteUI(overlapping.toList().sortedByDescending { it.second })
             } catch (e: Exception) {
-                Toast.makeText(fragment.requireContext(), "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("VoteTabHandler", "일정 투표 시작 중 오류: ${e.message}", e)
+                if (isFragmentValid(fragment)) {
+                    Toast.makeText(fragment.requireContext(), "오류 발생: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+                isNavigating = false
+            } finally {
+                // navigation 완료 후 플래그 리셋 (약간의 지연 후)
+                kotlinx.coroutines.delay(500)
+                isNavigating = false
             }
+        }
+    }
+
+    /**
+     * Fragment가 유효한지 확인하는 안전한 체크 함수
+     */
+    private fun isFragmentValid(fragment: androidx.fragment.app.Fragment): Boolean {
+        return fragment.isAdded && fragment.view != null && !fragment.isDetached && !fragment.isRemoving
+    }
+
+    /**
+     * 안전한 네비게이션 - TimeVoteFragment로 이동
+     */
+    private fun safeNavigateToTimeVote(fragment: androidx.fragment.app.Fragment) {
+        if (!isFragmentValid(fragment)) {
+            android.util.Log.w("VoteTabHandler", "⚠️ Fragment가 유효하지 않아 navigation을 건너뜁니다.")
+            isNavigating = false
+            return
+        }
+
+        try {
+            fragment.findNavController().navigate(
+                R.id.action_groupDetailFragment_to_timeVoteFragment,
+                android.os.Bundle().apply { putString("groupId", groupId) }
+            )
+            android.util.Log.d("VoteTabHandler", "✅ TimeVoteFragment로 navigation 성공")
+        } catch (e: IllegalStateException) {
+            android.util.Log.e("VoteTabHandler", "❌ 네비게이션 실패: ${e.message}", e)
+            isNavigating = false
+            // Fragment가 이미 제거된 경우, Activity로 돌아가기
+            fragment.activity?.onBackPressedDispatcher?.onBackPressed()
         }
     }
 

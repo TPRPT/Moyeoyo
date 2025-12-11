@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.CollectionReference
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.Timestamp
@@ -12,6 +13,7 @@ import com.google.firebase.firestore.FieldPath
 import com.moyeoyo.app.data.local.AppDatabase
 import com.moyeoyo.app.data.local.NextMeetingEntity
 import com.moyeoyo.app.data.model.Group
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -75,10 +77,47 @@ class GroupRepository @Inject constructor(
                     "timestamp" to Timestamp.now()
                 )).await()
 
-            // 2. vote 하위 문서 생성 (투표 상태 관리용)
-            voteRepository.initializeVoteDocument(groupId)
+            // ⭐ 2. timeVote 컬렉션 초기화 (빈 더미 문서 생성하여 컬렉션 구조 확보)
+            // Firestore는 빈 컬렉션을 만들 수 없으므로, 초기 문서를 생성하여 컬렉션 구조를 확보
+            try {
+                val timeVoteRef = groupsCollection.document(groupId)
+                    .collection("timeVote")
+                    .document("_initialized")
+                
+                // 이미 존재하는지 확인 후 생성
+                val timeVoteSnapshot = timeVoteRef.get().await()
+                if (!timeVoteSnapshot.exists()) {
+                    timeVoteRef.set(mapOf(
+                        "initialized" to true,
+                        "createdAt" to Timestamp.now()
+                    )).await()
+                    Log.d(TAG, "✅ timeVote 컬렉션 초기화 완료: groupId=$groupId")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ timeVote 컬렉션 초기화 중 오류 (이미 존재할 수 있음): ${e.message}")
+            }
 
-            // 3. 모든 멤버의 users 문서에 groupId를 groups 배열에 추가 (일괄 쓰기 사용)
+            // ⭐ 3. placeVote 컬렉션 초기화 (빈 더미 문서 생성하여 컬렉션 구조 확보)
+            // 투표 시작 시 실제 placeVote 문서가 생성되지만, 그룹 생성 시점에 구조를 확보
+            try {
+                val placeVoteRef = groupsCollection.document(groupId)
+                    .collection("placeVote")
+                    .document("_initialized")
+                
+                // 이미 존재하는지 확인 후 생성
+                val placeVoteSnapshot = placeVoteRef.get().await()
+                if (!placeVoteSnapshot.exists()) {
+                    placeVoteRef.set(mapOf(
+                        "initialized" to true,
+                        "createdAt" to Timestamp.now()
+                    )).await()
+                    Log.d(TAG, "✅ placeVote 컬렉션 초기화 완료: groupId=$groupId")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ placeVote 컬렉션 초기화 중 오류 (이미 존재할 수 있음): ${e.message}")
+            }
+
+            // 4. 모든 멤버의 users 문서에 groupId를 groups 배열에 추가 (일괄 쓰기 사용)
             val batch = db.batch()
             allMemberUids.forEach { uid ->
                 val userRef = usersCollection.document(uid)
@@ -86,7 +125,7 @@ class GroupRepository @Inject constructor(
             }
             batch.commit().await()
 
-            Log.d("GroupRepository", "Group created successfully with ID: $groupId, Members: ${allMemberUids.size}, Vote document created")
+            Log.d("GroupRepository", "Group created successfully with ID: $groupId, Members: ${allMemberUids.size}")
             groupId
         } catch (e: Exception) {
             Log.e("GroupRepository", "Group creation with members failed: ${e.message}", e)
@@ -312,6 +351,25 @@ class GroupRepository @Inject constructor(
                 tx.update(groupRef, "status", "TIME_VOTE_REQUIRED")
                 null
             }.await()
+
+            // ⭐ 투표 시작 시 placeVote 문서 생성 (여러 사용자 동기화를 위해)
+            try {
+                val placeVoteRef = groupRef.collection("placeVote").document("placeVote")
+                val placeVoteSnapshot = placeVoteRef.get().await()
+                if (!placeVoteSnapshot.exists()) {
+                    placeVoteRef.set(
+                        mapOf(
+                            "status" to "RANKING",
+                            "rankedUsers" to emptyList<String>(),
+                            "finalCandidates" to emptyList<Map<String, Any>>(),
+                            "finalVotedUsers" to emptyList<String>()
+                        )
+                    ).await()
+                    Log.d(TAG, "✅ placeVote 문서 생성 완료: groupId=$groupId")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ placeVote 문서 생성 중 오류 (이미 존재할 수 있음): ${e.message}")
+            }
 
             Log.d(TAG, "Voting STARTED for group: $groupId")
             true
@@ -652,7 +710,8 @@ class GroupRepository @Inject constructor(
             deleteCollection(groupRef.collection("inputLocations"))
             deleteCollection(groupRef.collection("placeCandidates"))
             deleteCollection(groupRef.collection("timeCandidates"))
-            deleteCollection(groupRef.collection("vote"))
+            deleteCollection(groupRef.collection("placeVote"))
+            deleteCollection(groupRef.collection("timeVote"))
 
             groupRef.delete().await()
 
@@ -678,8 +737,11 @@ class GroupRepository @Inject constructor(
     /**
      * Firestore 컬렉션의 모든 문서를 삭제하는 유틸리티 함수입니다.
      */
+    /**
+     * 컬렉션의 모든 문서를 재귀적으로 삭제합니다.
+     * 하위 컬렉션도 함께 삭제합니다.
+     */
     private suspend fun deleteCollection(collectionRef: CollectionReference, batchSize: Int = 100) {
-        // 재귀적으로 모든 문서 삭제
         while (true) {
             val snapshot = collectionRef.limit(batchSize.toLong()).get().await()
             if (snapshot.isEmpty) {
@@ -688,9 +750,36 @@ class GroupRepository @Inject constructor(
 
             val batch = db.batch()
             snapshot.documents.forEach { document ->
+                // 하위 컬렉션 목록 가져오기 (Firestore는 하위 컬렉션 목록을 직접 제공하지 않으므로
+                // 문서의 하위 컬렉션을 확인하기 위해 문서를 읽어야 함)
+                // 하지만 성능상의 이유로, 알려진 하위 컬렉션만 삭제하는 방식으로 처리
                 batch.delete(document.reference)
             }
             batch.commit().await()
+        }
+    }
+    
+    /**
+     * 문서와 모든 하위 컬렉션을 재귀적으로 삭제합니다.
+     */
+    private suspend fun deleteDocumentRecursively(docRef: DocumentReference) {
+        try {
+            // 알려진 하위 컬렉션 삭제
+            val knownSubcollections = listOf("times", "voters")
+            knownSubcollections.forEach { subcollectionName ->
+                try {
+                    val subcollectionRef = docRef.collection(subcollectionName)
+                    deleteCollection(subcollectionRef)
+                } catch (e: Exception) {
+                    Log.w(TAG, "⚠️ 하위 컬렉션 삭제 중 오류 (없을 수 있음): $subcollectionName, ${e.message}")
+                }
+            }
+            
+            // 문서 삭제
+            docRef.delete().await()
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 문서 재귀 삭제 실패: ${docRef.path}, ${e.message}", e)
+            throw e
         }
     }
 
@@ -717,13 +806,14 @@ class GroupRepository @Inject constructor(
     }
 
     /**
-     * 전체 투표 초기화: 모든 투표 결과를 삭제하고 그룹을 초기 상태로 되돌립니다.
+     * 전체 투표 초기화: 모든 투표 결과를 초기화하고 그룹을 초기 상태로 되돌립니다.
+     * ⭐ 중요: 문서나 컬렉션은 삭제하지 않고 필드만 초기화합니다.
      * - 그룹 상태를 "GROUP_CREATED"로 변경
-     * - 확정된 시간/장소 삭제
-     * - 모든 투표 데이터 삭제 (시간 투표, 장소 투표, 순위 투표)
-     * - 모든 멤버의 후보군 초기화 (userRankings, placeCandidates 등)
-     * - 입력된 위치 정보 초기화 (inputLocations)
-     * - 중간 지점 정보 초기화 (midPoint)
+     * - 확정된 시간/장소 필드 삭제
+     * - 모든 투표 데이터 필드 초기화 (시간 투표, 장소 투표, 순위 투표)
+     * - 모든 멤버의 후보군 필드 초기화 (userRankings, placeCandidates 등)
+     * - 입력된 위치 정보 필드 초기화 (inputLocations)
+     * - 중간 지점 정보 필드 삭제 (midPoint)
      */
     suspend fun resetAllVotes(context: Context, groupId: String): Boolean {
         return try {
@@ -739,67 +829,229 @@ class GroupRepository @Inject constructor(
                 )
             ).await()
 
-            // 2. Vote 문서 완전 초기화 (그룹 생성 시와 동일한 상태로)
-            // resetVoteStatus 대신 initializeVoteDocument를 사용하여 완전히 초기화
-            voteRepository.initializeVoteDocument(groupId)
-
-            // 3. 시간 투표 컬렉션 전체 삭제 (재귀적으로 모든 날짜와 하위 컬렉션 삭제)
-            // timeVotes 구조: groups/{groupId}/timeVotes/{date}/times/{time}/voters
-            // 각 날짜 문서의 하위 컬렉션(times)도 함께 삭제해야 함
-            val timeVotesRef = groupRef.collection("timeVotes")
-            while (true) {
-                val dateSnapshot = timeVotesRef.limit(100).get().await()
-                if (dateSnapshot.isEmpty) {
-                    break
-                }
+            // 2. ⭐ placeVote 문서 필드만 초기화 (문서는 유지)
+            // placeVote 구조: groups/{groupId}/placeVote/placeVote (단일 문서)
+            val placeVoteRef = groupRef.collection("placeVote")
+            try {
+                val placeVoteDocRef = placeVoteRef.document("placeVote")
+                val placeVoteSnapshot = placeVoteDocRef.get().await()
                 
-                val batch = db.batch()
-                dateSnapshot.documents.forEach { dateDoc ->
-                    // 각 날짜 문서의 하위 컬렉션(times) 삭제
-                    deleteCollection(dateDoc.reference.collection("times"))
-                    // 날짜 문서 삭제
-                    batch.delete(dateDoc.reference)
+                if (placeVoteSnapshot.exists()) {
+                    // 문서가 있으면 필드만 초기화
+                    placeVoteDocRef.update(
+                        mapOf(
+                            "status" to "RANKING",
+                            "rankedUsers" to emptyList<String>(),
+                            "finalCandidates" to emptyList<Map<String, Any>>(),
+                            "finalVotedUsers" to emptyList<String>(),
+                            "winningPlaceId" to FieldValue.delete(),
+                            "winningPlaceName" to FieldValue.delete()
+                        )
+                    ).await()
+                    Log.d(TAG, "✅ placeVote 문서 필드 초기화 완료")
+                } else {
+                    // 문서가 없으면 초기 상태로 생성
+                    placeVoteDocRef.set(
+                        mapOf(
+                            "status" to "RANKING",
+                            "rankedUsers" to emptyList<String>(),
+                            "finalCandidates" to emptyList<Map<String, Any>>(),
+                            "finalVotedUsers" to emptyList<String>()
+                        )
+                    ).await()
+                    Log.d(TAG, "✅ placeVote 문서 생성 완료")
                 }
-                batch.commit().await()
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ placeVote 초기화 중 오류: ${e.message}")
             }
 
-            // 4. 장소 후보 컬렉션 전체 삭제
-            mapRepository.clearPlaceCandidates(groupId)
-
-            // 5. 시간 후보 컬렉션 전체 삭제
-            deleteCollection(groupRef.collection("timeCandidates"))
-
-            // 6. ⭐ 모든 멤버의 장소 순위 지정(userRankings) 컬렉션 전체 삭제
-            deleteCollection(groupRef.collection("userRankings"))
-
-            // 7. ⭐ 모든 멤버의 입력 위치(inputLocations) 컬렉션 전체 삭제
-            // 단, 호스트의 기본 inputLocation은 유지 (그룹 생성 시 생성되는 기본값)
-            val groupSnapshot = groupRef.get().await()
-            @Suppress("UNCHECKED_CAST")
-            val memberUids = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
-            val hostUid = groupSnapshot.get("hostUid") as? String
+            // 3. ⭐ timeVote 컬렉션 완전히 비우기 (_initialized 문서 제외)
+            // timeVote 구조: groups/{groupId}/timeVote/{date}/times/{time} (voters는 배열 필드)
+            val timeVoteRef = groupRef.collection("timeVote")
             
-            // 모든 inputLocations 삭제 후 호스트의 기본값만 다시 생성
-            deleteCollection(groupRef.collection("inputLocations"))
-            
-            // 호스트의 기본 inputLocation 재생성 (그룹 생성 시와 동일한 상태로)
-            if (hostUid != null) {
-                groupRef.collection("inputLocations")
-                    .document(hostUid)
-                    .set(mapOf(
-                        "latLng" to com.google.firebase.firestore.GeoPoint(0.0, 0.0),
-                        "transportMode" to "UNKNOWN",
-                        "timestamp" to com.google.firebase.Timestamp.now()
-                    )).await()
+            try {
+                // ⭐ 모든 날짜 문서를 가져와서 완전히 삭제 (재시도 로직 포함)
+                var retryCount = 0
+                val maxRetries = 10
+                
+                while (retryCount < maxRetries) {
+                    val dateSnapshot = timeVoteRef.limit(100).get().await()
+                    
+                    if (dateSnapshot.isEmpty) {
+                        Log.d(TAG, "✅ timeVote 컬렉션이 완전히 비어있음 (시도 ${retryCount + 1})")
+                        break
+                    }
+                    
+                    Log.d(TAG, "🔄 timeVote 완전 삭제 시작: ${dateSnapshot.size()}개 날짜 문서 (시도 ${retryCount + 1})")
+                    
+                    // 각 날짜 문서와 하위 컬렉션 완전히 삭제
+                    dateSnapshot.documents.forEach { dateDoc ->
+                        try {
+                            // ⭐ _initialized 문서는 건너뛰기
+                            if (dateDoc.id == "_initialized") {
+                                return@forEach
+                            }
+                            
+                            // 1. 각 날짜 문서의 하위 컬렉션(times)의 모든 문서 삭제
+                            val timesRef = dateDoc.reference.collection("times")
+                            
+                            // ⭐ times 컬렉션의 모든 문서를 삭제 (재시도 로직 포함)
+                            var timesRetry = 0
+                            var hasMoreTimes = true
+                            while (timesRetry < 5 && hasMoreTimes) {
+                                val timesSnapshot = timesRef.limit(100).get().await()
+                                
+                                if (timesSnapshot.isEmpty) {
+                                    hasMoreTimes = false
+                                    break
+                                }
+                                
+                                // 모든 시간 문서 삭제
+                                timesSnapshot.documents.forEach { timeDoc ->
+                                    try {
+                                        timeDoc.reference.delete().await()
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "⚠️ 시간 문서 삭제 중 오류: ${timeDoc.id}, ${e.message}")
+                                    }
+                                }
+                                
+                                timesRetry++
+                                if (timesRetry < 5 && timesSnapshot.size() >= 100) {
+                                    // 더 많은 문서가 있을 수 있으므로 잠시 대기 후 재시도
+                                    kotlinx.coroutines.delay(200)
+                                }
+                            }
+                            
+                            // 2. ⭐ 하위 컬렉션 삭제 완료 후 날짜 문서도 완전히 삭제
+                            kotlinx.coroutines.delay(300)
+                            
+                            try {
+                                dateDoc.reference.delete().await()
+                                Log.d(TAG, "✅ 날짜 문서 완전 삭제 완료: ${dateDoc.id}")
+                            } catch (e: Exception) {
+                                Log.w(TAG, "⚠️ 날짜 문서 삭제 중 오류: ${dateDoc.id}, ${e.message}")
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "⚠️ 날짜 문서 삭제 중 오류: ${dateDoc.id}, ${e.message}")
+                        }
+                    }
+                    
+                    retryCount++
+                    
+                    // 잠시 대기 후 다시 확인 (Firestore 동기화 시간 확보)
+                    if (retryCount < maxRetries) {
+                        kotlinx.coroutines.delay(500)
+                    }
+                }
+                
+                Log.d(TAG, "✅ timeVote 컬렉션 완전히 비움 완료 (_initialized 문서 제외)")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ timeVote 초기화 중 오류: ${e.message}")
+            }
+
+            // 4. ⭐ 장소 후보 컬렉션 필드만 초기화 (문서는 유지)
+            // placeCandidates는 문서 자체가 후보이므로 삭제가 맞지만, 사용자 요청에 따라 필드만 초기화
+            try {
+                val placeCandidatesRef = groupRef.collection("placeCandidates")
+                val placeCandidatesSnapshot = placeCandidatesRef.limit(100).get().await()
+                
+                placeCandidatesSnapshot.documents.forEach { doc ->
+                    try {
+                        // voterUids 필드만 초기화
+                        doc.reference.update(
+                            mapOf("voterUids" to emptyList<String>())
+                        ).await()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "⚠️ placeCandidate 필드 초기화 중 오류: ${doc.id}, ${e.message}")
+                    }
+                }
+                
+                Log.d(TAG, "✅ placeCandidates 필드 초기화 완료")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ placeCandidates 초기화 중 오류: ${e.message}")
+            }
+
+            // 5. ⭐ 시간 후보 컬렉션 필드만 초기화 (문서는 유지)
+            try {
+                val timeCandidatesRef = groupRef.collection("timeCandidates")
+                val timeCandidatesSnapshot = timeCandidatesRef.limit(100).get().await()
+                
+                timeCandidatesSnapshot.documents.forEach { doc ->
+                    try {
+                        // voterUids 필드만 초기화
+                        doc.reference.update(
+                            mapOf("voterUids" to emptyList<String>())
+                        ).await()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "⚠️ timeCandidate 필드 초기화 중 오류: ${doc.id}, ${e.message}")
+                    }
+                }
+                
+                Log.d(TAG, "✅ timeCandidates 필드 초기화 완료")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ timeCandidates 초기화 중 오류: ${e.message}")
+            }
+
+            // 6. ⭐ 모든 멤버의 장소 순위 지정(userRankings) 필드만 초기화 (문서는 유지)
+            try {
+                val userRankingsRef = groupRef.collection("userRankings")
+                val userRankingsSnapshot = userRankingsRef.limit(100).get().await()
+                
+                userRankingsSnapshot.documents.forEach { doc ->
+                    try {
+                        // rankedPlaces 필드만 초기화
+                        doc.reference.update(
+                            mapOf("rankedPlaces" to emptyList<Map<String, Any>>())
+                        ).await()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "⚠️ userRanking 필드 초기화 중 오류: ${doc.id}, ${e.message}")
+                    }
+                }
+                
+                Log.d(TAG, "✅ userRankings 필드 초기화 완료")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ userRankings 초기화 중 오류: ${e.message}")
+            }
+
+            // 7. ⭐ 모든 멤버의 입력 위치(inputLocations) 필드만 초기화 (문서는 유지)
+            // 호스트의 inputLocation은 그룹 생성 시 생성되므로 유지
+            try {
+                val inputLocationsRef = groupRef.collection("inputLocations")
+                val inputLocationsSnapshot = inputLocationsRef.limit(100).get().await()
+                
+                inputLocationsSnapshot.documents.forEach { doc ->
+                    try {
+                        // 위치 정보만 초기화 (문서는 유지)
+                        doc.reference.update(
+                            mapOf(
+                                "latLng" to GeoPoint(0.0, 0.0),
+                                "transportMode" to "UNKNOWN",
+                                "timestamp" to Timestamp.now()
+                            )
+                        ).await()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "⚠️ inputLocation 필드 초기화 중 오류: ${doc.id}, ${e.message}")
+                    }
+                }
+                
+                Log.d(TAG, "✅ inputLocations 필드 초기화 완료")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ inputLocations 초기화 중 오류: ${e.message}")
             }
 
             // 8. Room DB에서도 삭제
             deleteMeetingFromLocal(context, groupId)
+            
+            // 9. ⭐ 추가 지연을 두어 Firestore 동기화 완료 보장
+            kotlinx.coroutines.delay(1000)
 
-            Log.d(TAG, "All votes reset successfully for group: $groupId (including all user rankings, input locations, and midPoint)")
+            Log.d(TAG, "✅ 모든 투표 초기화 완료: groupId=$groupId (모든 필드 초기화 완료, 문서/컬렉션 구조 유지)")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to reset all votes for group $groupId: ${e.message}", e)
+            // ⭐ 상세한 에러 로깅
+            Log.e(TAG, "❌ 투표 초기화 실패: groupId=$groupId", e)
+            Log.e(TAG, "❌ 에러 타입: ${e.javaClass.simpleName}, 메시지: ${e.message}")
+            e.printStackTrace()
             false
         }
     }

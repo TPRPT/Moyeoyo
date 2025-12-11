@@ -82,14 +82,12 @@ class MainActivity : AppCompatActivity() {
             Places.initialize(this, getString(R.string.google_maps_key))
         }
         
-        // 상태바 설정: 하얀색 배경, 검은색 글자
+        // 상태바 설정: 앱 배경색과 동일하게 설정
+        window.statusBarColor = getColor(R.color.white)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            window.statusBarColor = getColor(R.color.white)
             var flags = window.decorView.systemUiVisibility
             flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
             window.decorView.systemUiVisibility = flags
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            window.statusBarColor = getColor(R.color.white)
         }
         
         setContentView(R.layout.activity_main_host)
