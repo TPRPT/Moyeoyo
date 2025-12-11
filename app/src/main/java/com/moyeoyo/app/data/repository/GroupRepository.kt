@@ -193,6 +193,9 @@ class GroupRepository @Inject constructor(
                 @Suppress("UNCHECKED_CAST")
                 val existingMemberUids = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
                 
+                // ⭐ 기존 hostUid 보존 (방장 변경 방지)
+                val existingHostUid = groupSnapshot.get("hostUid") as? String
+                
                 // 이미 멤버인 친구는 제외
                 newMemberUids = friendUids.filter { it !in existingMemberUids }
                 
@@ -200,9 +203,12 @@ class GroupRepository @Inject constructor(
                     return@runTransaction null // 이미 모두 멤버이므로 성공으로 간주
                 }
                 
-                // 그룹 멤버 배열 업데이트
+                // 그룹 멤버 배열 업데이트 (hostUid는 변경하지 않음)
                 val updatedMembers = existingMemberUids + newMemberUids
-                transaction.update(groupRef, "memberUids", updatedMembers)
+                transaction.update(groupRef, mapOf(
+                    "memberUids" to updatedMembers,
+                    "hostUid" to existingHostUid // ⭐ hostUid 명시적으로 보존
+                ))
                 
                 // 각 새 멤버의 inputLocations 문서 생성
                 newMemberUids.forEach { uid ->
@@ -230,7 +236,12 @@ class GroupRepository @Inject constructor(
             Log.d(TAG, "Members added successfully to group $groupId: ${newMemberUids.size} members")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "addMembersToGroup error: ${e.message}", e)
+            Log.e(TAG, "addMembersToGroup error for group $groupId: ${e.message}", e)
+            // ⭐ 예외 상세 정보 로깅
+            Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
+            if (e is IllegalStateException) {
+                Log.e(TAG, "IllegalStateException: ${e.message}")
+            }
             false
         }
     }
@@ -495,15 +506,21 @@ class GroupRepository @Inject constructor(
 
                 @Suppress("UNCHECKED_CAST")
                 val currentMembers = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
+                
+                // ⭐ 기존 hostUid 보존 (방장 변경 방지)
+                val existingHostUid = groupSnapshot.get("hostUid") as? String
 
                 if (!currentMembers.contains(memberUidToRemove)) {
                     Log.w(TAG, "Member to remove is not in the group.")
                     return@runTransaction null
                 }
 
-                // 1. 그룹 멤버 배열 업데이트 (groups/{groupId})
+                // 1. 그룹 멤버 배열 업데이트 (groups/{groupId}) - hostUid는 변경하지 않음
                 val newMembers = currentMembers.filter { it != memberUidToRemove }
-                transaction.update(groupRef, "memberUids", newMembers)
+                transaction.update(groupRef, mapOf(
+                    "memberUids" to newMembers,
+                    "hostUid" to existingHostUid // ⭐ hostUid 명시적으로 보존
+                ))
 
                 // 2. 강퇴된 사용자의 users 문서에서 groupId 제거
                 transaction.update(userRef, "groups", FieldValue.arrayRemove(groupId))
@@ -662,16 +679,19 @@ class GroupRepository @Inject constructor(
      * Firestore 컬렉션의 모든 문서를 삭제하는 유틸리티 함수입니다.
      */
     private suspend fun deleteCollection(collectionRef: CollectionReference, batchSize: Int = 100) {
-        val snapshot = collectionRef.limit(batchSize.toLong()).get().await()
-        if (snapshot.isEmpty) {
-            return
-        }
+        // 재귀적으로 모든 문서 삭제
+        while (true) {
+            val snapshot = collectionRef.limit(batchSize.toLong()).get().await()
+            if (snapshot.isEmpty) {
+                break
+            }
 
-        val batch = db.batch()
-        snapshot.documents.forEach { document ->
-            batch.delete(document.reference)
+            val batch = db.batch()
+            snapshot.documents.forEach { document ->
+                batch.delete(document.reference)
+            }
+            batch.commit().await()
         }
-        batch.commit().await()
     }
 
     private suspend fun saveMeetingToLocal(
@@ -701,25 +721,47 @@ class GroupRepository @Inject constructor(
      * - 그룹 상태를 "GROUP_CREATED"로 변경
      * - 확정된 시간/장소 삭제
      * - 모든 투표 데이터 삭제 (시간 투표, 장소 투표, 순위 투표)
+     * - 모든 멤버의 후보군 초기화 (userRankings, placeCandidates 등)
+     * - 입력된 위치 정보 초기화 (inputLocations)
+     * - 중간 지점 정보 초기화 (midPoint)
      */
     suspend fun resetAllVotes(context: Context, groupId: String): Boolean {
         return try {
             val groupRef = groupsCollection.document(groupId)
 
-            // 1. 그룹 상태를 GROUP_CREATED로 변경하고 확정된 시간/장소 삭제
+            // 1. 그룹 상태를 GROUP_CREATED로 변경하고 확정된 시간/장소, 중간 지점 삭제
             groupRef.update(
                 mapOf(
                     "status" to "GROUP_CREATED",
                     "confirmedTime" to FieldValue.delete(),
-                    "confirmedPlace" to FieldValue.delete()
+                    "confirmedPlace" to FieldValue.delete(),
+                    "midPoint" to FieldValue.delete() // ⭐ 중간 지점 정보 삭제
                 )
             ).await()
 
-            // 2. Vote 문서 초기화 (순위 투표)
-            voteRepository.resetVoteStatus(groupId)
+            // 2. Vote 문서 완전 초기화 (그룹 생성 시와 동일한 상태로)
+            // resetVoteStatus 대신 initializeVoteDocument를 사용하여 완전히 초기화
+            voteRepository.initializeVoteDocument(groupId)
 
-            // 3. 시간 투표 컬렉션 전체 삭제
-            deleteCollection(groupRef.collection("timeVotes"))
+            // 3. 시간 투표 컬렉션 전체 삭제 (재귀적으로 모든 날짜와 하위 컬렉션 삭제)
+            // timeVotes 구조: groups/{groupId}/timeVotes/{date}/times/{time}/voters
+            // 각 날짜 문서의 하위 컬렉션(times)도 함께 삭제해야 함
+            val timeVotesRef = groupRef.collection("timeVotes")
+            while (true) {
+                val dateSnapshot = timeVotesRef.limit(100).get().await()
+                if (dateSnapshot.isEmpty) {
+                    break
+                }
+                
+                val batch = db.batch()
+                dateSnapshot.documents.forEach { dateDoc ->
+                    // 각 날짜 문서의 하위 컬렉션(times) 삭제
+                    deleteCollection(dateDoc.reference.collection("times"))
+                    // 날짜 문서 삭제
+                    batch.delete(dateDoc.reference)
+                }
+                batch.commit().await()
+            }
 
             // 4. 장소 후보 컬렉션 전체 삭제
             mapRepository.clearPlaceCandidates(groupId)
@@ -727,10 +769,34 @@ class GroupRepository @Inject constructor(
             // 5. 시간 후보 컬렉션 전체 삭제
             deleteCollection(groupRef.collection("timeCandidates"))
 
-            // 6. Room DB에서도 삭제
+            // 6. ⭐ 모든 멤버의 장소 순위 지정(userRankings) 컬렉션 전체 삭제
+            deleteCollection(groupRef.collection("userRankings"))
+
+            // 7. ⭐ 모든 멤버의 입력 위치(inputLocations) 컬렉션 전체 삭제
+            // 단, 호스트의 기본 inputLocation은 유지 (그룹 생성 시 생성되는 기본값)
+            val groupSnapshot = groupRef.get().await()
+            @Suppress("UNCHECKED_CAST")
+            val memberUids = groupSnapshot.get("memberUids") as List<String>? ?: emptyList()
+            val hostUid = groupSnapshot.get("hostUid") as? String
+            
+            // 모든 inputLocations 삭제 후 호스트의 기본값만 다시 생성
+            deleteCollection(groupRef.collection("inputLocations"))
+            
+            // 호스트의 기본 inputLocation 재생성 (그룹 생성 시와 동일한 상태로)
+            if (hostUid != null) {
+                groupRef.collection("inputLocations")
+                    .document(hostUid)
+                    .set(mapOf(
+                        "latLng" to com.google.firebase.firestore.GeoPoint(0.0, 0.0),
+                        "transportMode" to "UNKNOWN",
+                        "timestamp" to com.google.firebase.Timestamp.now()
+                    )).await()
+            }
+
+            // 8. Room DB에서도 삭제
             deleteMeetingFromLocal(context, groupId)
 
-            Log.d(TAG, "All votes reset successfully for group: $groupId")
+            Log.d(TAG, "All votes reset successfully for group: $groupId (including all user rankings, input locations, and midPoint)")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset all votes for group $groupId: ${e.message}", e)

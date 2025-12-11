@@ -45,20 +45,29 @@
         android:name="com.moyeoyo.app.ui.groups.CreateGroupFragment"
         android:label="Create Group">
         <action
-            android:id="@+id/action_createGroupFragment_to_selectFriendsFragment"
-            app:destination="@id/selectFriendsFragment" />
+            android:id="@+id/action_createGroupFragment_to_selectFriendsForGroupCreationFragment"
+            app:destination="@id/selectFriendsForGroupCreationFragment" />
         <action
             android:id="@+id/action_createGroupFragment_to_groupDetailFragment"
             app:destination="@id/groupDetailFragment" />
     </fragment>
     
     <fragment
+        android:id="@+id/selectFriendsForGroupCreationFragment"
+        android:name="com.moyeoyo.app.ui.groups.SelectFriendsForGroupCreationFragment"
+        android:label="Select Friends">
+        <argument
+            android:name="groupName"
+            app:argType="string" />
+    </fragment>
+    
+    <fragment
         android:id="@+id/selectFriendsFragment"
         android:name="com.moyeoyo.app.ui.groups.SelectFriendsFragment"
         android:label="Select Friends">
-        <action
-            android:id="@+id/action_selectFriendsFragment_to_groupDetailFragment"
-            app:destination="@id/groupDetailFragment" />
+        <argument
+            android:name="groupId"
+            app:argType="string" />
     </fragment>
     
     <fragment
