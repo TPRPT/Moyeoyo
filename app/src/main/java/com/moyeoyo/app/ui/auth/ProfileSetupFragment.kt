@@ -45,6 +45,12 @@ import androidx.navigation.fragment.findNavController
 import com.moyeoyo.app.ui.location.CurrentLocationFragment
 import com.moyeoyo.app.databinding.FragmentProfileSetupBinding
 import java.io.File
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.widget.TextView
+import kotlinx.coroutines.*
+
 
 class ProfileSetupFragment : Fragment() {
 
@@ -80,6 +86,20 @@ class ProfileSetupFragment : Fragment() {
     // 위치 데이터를 저장할 Map 변수 (LatLng 객체를 포함하여 임시 저장)
     private var homeLocationData: Map<String, Any>? = null
     private var workLocationData: Map<String, Any>? = null
+
+    // ----- 음성 인식 관련 변수 -----
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private lateinit var sttIntent: Intent
+    private var isHomeVoiceInput: Boolean = true
+
+    // 듣는 중 UI
+    private lateinit var listeningHome: View
+    private lateinit var listeningWork: View
+    private lateinit var listeningHomeText: TextView
+    private lateinit var listeningWorkText: TextView
+
+    private var listeningAnimationActive = false
+
 
     // Fragment Result 리스너는 onViewCreated에서 설정
 
@@ -216,6 +236,25 @@ class ProfileSetupFragment : Fragment() {
             requestLocationPermission()
         }
 
+        listeningHome = binding.layoutListeningHome
+        listeningWork = binding.layoutListeningWork
+        listeningHomeText = binding.textListeningHome
+        listeningWorkText = binding.textListeningWork
+
+        listeningHome.visibility = View.GONE
+        listeningWork.visibility = View.GONE
+
+        binding.btnVoiceHome.setOnClickListener {
+            isHomeVoiceInput = true
+            startVoiceRecognition()
+        }
+
+        binding.btnVoiceWork.setOnClickListener {
+            isHomeVoiceInput = false
+            startVoiceRecognition()
+        }
+
+
         // 프로필 이미지 클릭 → 다이얼로그(사진 찍기 / 갤러리)
         imgProfile.setOnClickListener { showImagePickerDialog() }
         btnChangePhoto.setOnClickListener { showImagePickerDialog() }
@@ -227,6 +266,8 @@ class ProfileSetupFragment : Fragment() {
         binding.btnDeleteAccount.setOnClickListener { showDeleteAccountDialog() }
 
         loadCurrentUserData()
+        setupSpeechRecognizer()
+
     }
 
     override fun onResume() {
@@ -242,8 +283,100 @@ class ProfileSetupFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        speechRecognizer.destroy()
         _binding = null
     }
+
+    private fun setupSpeechRecognizer() {
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
+
+        sttIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+        }
+
+        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                startListeningAnimation()
+            }
+
+            override fun onEndOfSpeech() {
+                stopListeningAnimation()
+            }
+
+            override fun onError(error: Int) {
+                stopListeningAnimation()
+            }
+
+            override fun onResults(results: Bundle?) {
+                stopListeningAnimation()
+
+                val spokenText = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.get(0) ?: return
+
+                if (isHomeVoiceInput) {
+                    inputHome.setText(spokenText)
+                    startPlaceAutocomplete(true)
+                } else {
+                    inputWork.setText(spokenText)
+                    startPlaceAutocomplete(false)
+                }
+            }
+
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onBeginningOfSpeech() {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+    }
+
+    private fun startVoiceRecognition() {
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 5001)
+            return
+        }
+
+        speechRecognizer.startListening(sttIntent)
+    }
+
+    private fun startListeningAnimation() {
+        listeningAnimationActive = true
+
+        if (isHomeVoiceInput) {
+            listeningHome.visibility = View.VISIBLE
+            listeningWork.visibility = View.GONE
+        } else {
+            listeningWork.visibility = View.VISIBLE
+            listeningHome.visibility = View.GONE
+        }
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val dots = listOf("", ".", "..", "...")
+            var i = 0
+            while (listeningAnimationActive) {
+                val text = "듣는 중${dots[i % dots.size]}"
+                if (isHomeVoiceInput) listeningHomeText.text = text
+                else listeningWorkText.text = text
+                delay(400)
+                i++
+            }
+        }
+    }
+
+    private fun stopListeningAnimation() {
+        listeningAnimationActive = false
+        listeningHome.visibility = View.GONE
+        listeningWork.visibility = View.GONE
+    }
+
+
+
 
     // ===================== 위치 관련 =====================
 
