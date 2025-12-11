@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+<LinearLayout
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    android:background="@color/white">
 
     <!-- 툴바 -->
     <com.google.android.material.appbar.MaterialToolbar
@@ -27,20 +32,6 @@
         android:paddingHorizontal="20dp"
         android:paddingTop="12dp"
         android:paddingBottom="8dp" />
-
-    <!-- 대기 메시지 (다른 멤버 투표 대기 중일 때 표시) -->
-    <TextView
-        android:id="@+id/tvWaitingMessage"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="아직 그룹원의 모든 사용자가 가능한 시간대를 저장하지 않았습니다"
-        android:textColor="@color/text_secondary"
-        android:textSize="14sp"
-        android:gravity="center"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="12dp"
-        android:background="@color/gray_100"
-        android:visibility="gone" />
 
     <!-- 상단 주차/날짜 헤더 -->
     <LinearLayout
@@ -104,27 +95,78 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:fillViewport="true"
-        android:paddingHorizontal="16dp">
+        android:paddingHorizontal="20dp"
+        android:paddingBottom="100dp">
 
-        <GridLayout
-            android:id="@+id/gridTimeSlots"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="4"
-            android:paddingVertical="12dp"
-            android:alignmentMode="alignMargins"
-            android:useDefaultMargins="true"
-            android:rowOrderPreserved="false" />
-    </androidx.core.widget.NestedScrollView>
+            android:orientation="vertical">
 
-    <!-- 하단 버튼 -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnCompleteVote"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="저장"
-        android:textColor="@color/white"
-        android:backgroundTint="@color/light_gray"
-        android:textSize="16sp" />
+            <GridLayout
+                android:id="@+id/gridTimeSlots"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="4"
+                android:paddingVertical="12dp"
+                android:alignmentMode="alignMargins"
+                android:useDefaultMargins="true"
+                android:rowOrderPreserved="false" />
+
+            <!-- 대기 메시지 (다른 멤버 투표 대기 중일 때 표시) -->
+            <TextView
+                android:id="@+id/tvWaitingMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⏳ 아직 그룹원이 시간 투표를 완료하지 않았습니다"
+                android:textColor="@color/gray_600"
+                android:textSize="13sp"
+                android:padding="12dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_input_field"
+                android:visibility="gone" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>
+
+    <!-- 하단 고정 버튼 -->
+    <LinearLayout
+        android:id="@+id/bottomButtonLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:padding="20dp"
+        android:elevation="8dp"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnReset"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="초기화"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_round_button"
+            app:backgroundTint="@color/white"
+            android:layout_marginEnd="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCompleteVote"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="저장"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_round_button"
+            app:backgroundTint="@color/black" />
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
 
