@@ -223,6 +223,9 @@ class ProfileSetupFragment : Fragment() {
         // 저장 버튼
         btnSave.setOnClickListener { saveProfile() }
 
+        // 회원 탈퇴 버튼
+        binding.btnDeleteAccount.setOnClickListener { showDeleteAccountDialog() }
+
         loadCurrentUserData()
     }
 
@@ -745,6 +748,95 @@ class ProfileSetupFragment : Fragment() {
             "${requireContext().packageName}.provider",
             image
         )
+    }
+
+    // ===================== 회원 탈퇴 =====================
+
+    private fun showDeleteAccountDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("회원 탈퇴")
+            .setMessage("정말 회원 탈퇴를 하시겠습니까?\n탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.")
+            .setPositiveButton("탈퇴") { _, _ ->
+                deleteAccount()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun deleteAccount() {
+        val user = auth.currentUser
+        if (user == null) {
+            Snackbar.make(requireView(), "로그인 정보가 없습니다.", Snackbar.LENGTH_SHORT).show()
+            return
+        }
+
+        progressDialog.setMessage("회원 탈퇴 처리 중...")
+        progressDialog.show()
+
+        val uid = user.uid
+
+        // 1. Firestore에서 사용자 데이터 삭제
+        firestore.collection("users").document(uid)
+            .delete()
+            .addOnSuccessListener {
+                // 2. Storage에서 프로필 이미지 삭제 (있는 경우)
+                val photoUrl = user.photoUrl?.toString()
+                if (!photoUrl.isNullOrEmpty() && photoUrl.contains("firebasestorage")) {
+                    try {
+                        val storageRef = storage.reference.child("profile_images/${uid}.jpg")
+                        storageRef.delete()
+                            .addOnSuccessListener {
+                                Log.d("DELETE_ACCOUNT", "프로필 이미지 삭제 완료")
+                                deleteFirebaseAuthUser(user)
+                            }
+                            .addOnFailureListener { e ->
+                                Log.w("DELETE_ACCOUNT", "프로필 이미지 삭제 실패: ${e.message}")
+                                // 이미지 삭제 실패해도 계정 삭제는 진행
+                                deleteFirebaseAuthUser(user)
+                            }
+                    } catch (e: Exception) {
+                        Log.w("DELETE_ACCOUNT", "프로필 이미지 삭제 중 오류: ${e.message}")
+                        deleteFirebaseAuthUser(user)
+                    }
+                } else {
+                    deleteFirebaseAuthUser(user)
+                }
+            }
+            .addOnFailureListener { e ->
+                progressDialog.dismiss()
+                Snackbar.make(
+                    requireView(),
+                    "회원 탈퇴 실패: ${e.message}",
+                    Snackbar.LENGTH_LONG
+                ).show()
+                Log.e("DELETE_ACCOUNT", "Firestore 사용자 데이터 삭제 실패", e)
+            }
+    }
+
+    private fun deleteFirebaseAuthUser(user: com.google.firebase.auth.FirebaseUser) {
+        user.delete()
+            .addOnSuccessListener {
+                progressDialog.dismiss()
+                Snackbar.make(
+                    requireView(),
+                    "회원 탈퇴가 완료되었습니다.",
+                    Snackbar.LENGTH_SHORT
+                ).show()
+
+                // 로그인 화면으로 이동
+                requireView().postDelayed({
+                    findNavController().navigate(R.id.loginFragment)
+                }, 1000)
+            }
+            .addOnFailureListener { e ->
+                progressDialog.dismiss()
+                Snackbar.make(
+                    requireView(),
+                    "회원 탈퇴 실패: ${e.message}",
+                    Snackbar.LENGTH_LONG
+                ).show()
+                Log.e("DELETE_ACCOUNT", "Firebase Auth 사용자 삭제 실패", e)
+            }
     }
 }
 
