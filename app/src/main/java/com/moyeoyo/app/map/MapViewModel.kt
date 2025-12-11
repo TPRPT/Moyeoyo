@@ -222,6 +222,9 @@ class MapViewModel @Inject constructor(
                                 isDistanceLoading = false
                             )
                         }
+                        // ⭐ 중간 지점 계산 후 자동으로 멤버별 이동 소요 시간 계산
+                        computeDistancesByMode(adjustedMembers, center)
+                        
                         viewModelScope.launch(Dispatchers.IO) {
                             runCatching { repo.saveComputedCenter(groupId, center) }
                                 .onSuccess {
