@@ -19,6 +19,7 @@ import com.moyeoyo.app.R
 import com.moyeoyo.app.data.model.Notification
 import com.moyeoyo.app.data.model.NotificationUi
 import com.moyeoyo.app.data.repository.NotificationRepository
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import com.moyeoyo.app.data.repository.FriendRepository
@@ -28,7 +29,11 @@ import java.util.*
 import androidx.appcompat.app.AlertDialog
 import android.widget.Switch
 import android.content.SharedPreferences
+import com.moyeoyo.app.data.repository.GroupRepository
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class NotificationFragment : Fragment() {
 
     private val notificationRepository = NotificationRepository()
@@ -38,6 +43,9 @@ class NotificationFragment : Fragment() {
         FirebaseAuth.getInstance(),
         NotificationRepository()
     )
+    
+    @Inject
+    lateinit var groupRepository: GroupRepository
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: NotificationAdapter
@@ -45,6 +53,9 @@ class NotificationFragment : Fragment() {
     private lateinit var emptyText: TextView
     private lateinit var switchNotification: Switch
     private lateinit var sharedPreferences: SharedPreferences
+    
+    // ⭐ 읽지 않은 알림 ID 저장 (onResume에서 저장, onPause에서 읽음 처리)
+    private var unreadNotificationIds: MutableSet<String> = mutableSetOf()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -108,45 +119,69 @@ class NotificationFragment : Fragment() {
         recyclerView.adapter = adapter
         initSwipeToDelete(adapter)
 
-        loadNotifications()
+        // ⭐ 실시간 알림 리스너 시작
+        observeNotifications()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // ⭐ 알림창에 들어올 때 읽지 않은 알림 ID 저장
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val notifications = notificationRepository.getNotifications()
+                unreadNotificationIds = notifications
+                    .filter { !it.read && it.type != "friend_request" }
+                    .map { it.id }
+                    .toMutableSet()
+                Log.d("NotificationFragment", "onResume: 읽지 않은 알림 ${unreadNotificationIds.size}개 저장")
+            } catch (e: Exception) {
+                Log.e("NotificationFragment", "onResume에서 알림 로드 실패: ${e.message}", e)
+            }
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // ⭐ 알림창을 떠날 때 읽지 않은 알림 전체 읽음 처리
+        if (unreadNotificationIds.isNotEmpty()) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    notificationRepository.markNotificationsAsRead(unreadNotificationIds.toList())
+                    Log.d("NotificationFragment", "onPause: ${unreadNotificationIds.size}개 알림 읽음 처리 완료")
+                    unreadNotificationIds.clear()
+                } catch (e: Exception) {
+                    Log.e("NotificationFragment", "onPause에서 읽음 처리 실패: ${e.message}", e)
+                }
+            }
+        }
     }
 
     // -------------------------------------------------------------------
-    // 🔵 Firestore Notifications 불러오기
+    // 🔵 실시간 알림 리스너 (Firestore 변경 감지)
     // -------------------------------------------------------------------
-    private fun loadNotifications() {
+    private fun observeNotifications() {
         viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val rawList = notificationRepository.getNotifications()
+            notificationRepository.observeNotifications().collectLatest { rawList ->
+                try {
+                    // 1) UI 업데이트 (최신순 정렬)
+                    val sorted = rawList
+                        .sortedByDescending { it.createdAt?.toDate()?.time ?: 0L }
+                        .map { convertToUi(it) }
+                        .sortedByDescending { it.timestamp }   // 최신순 보장
 
-                // 1) 읽지 않은 알림 리스트 추출
-                val unreadIds = rawList.filter { !it.read }.map { it.id }
+                    tvNotificationCount.text = "${sorted.size}개"
 
-                // 2) UI 먼저 표시 (현재는 모두 선명하게)
-                val sorted = rawList
-                    .sortedByDescending { it.createdAt?.toDate()?.time ?: 0L }
-                    .map { convertToUi(it) }
-                    .sortedByDescending { it.timestamp }   // 최신순 보장
+                    adapter.items.clear()
+                    adapter.items.addAll(sorted)
+                    adapter.notifyDataSetChanged()
 
-                tvNotificationCount.text = "${sorted.size}개"
+                    emptyText.visibility = if (sorted.isEmpty()) View.VISIBLE else View.GONE
 
-                adapter.items.clear()
-                adapter.items.addAll(sorted)
-                adapter.notifyDataSetChanged()
+                    // ⭐ 자동 읽음 처리 제거 - onPause에서 처리하도록 변경
 
-                emptyText.visibility = if (sorted.isEmpty()) View.VISIBLE else View.GONE
-
-                val unreadNormalIds = rawList
-                    .filter { !it.read && it.type != "friend_request" }
-                    .map { it.id }
-
-                if (unreadNormalIds.isNotEmpty()) {
-                    notificationRepository.markNotificationsAsRead(unreadNormalIds)
+                } catch (e: Exception) {
+                    Log.e("NotificationFragment", "Error updating notifications: ${e.message}", e)
                 }
-
-            } catch (e: Exception) {
-                Log.e("NotificationFragment", "Error: ${e.message}", e)
-                Toast.makeText(requireContext(), "알림을 불러오지 못했습니다.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -263,22 +298,36 @@ class NotificationFragment : Fragment() {
                             return@setOnClickListener
                         }
 
-                        // 단건 읽음 처리
+                        // ⭐ 그룹 존재 여부 확인
                         viewLifecycleOwner.lifecycleScope.launch {
-                            notificationRepository.markNotificationAsRead(item.id)
-                        }
-
-                        // GroupDetailFragment로 Navigation
-                        findNavController().navigate(
-                            R.id.action_notificationFragment_to_groupDetailFragment,
-                            Bundle().apply {
-                                putString("groupId", item.groupId)
-                                putString("groupName", "") // 그룹 이름은 나중에 로드
+                            val group = groupRepository.getGroupById(item.groupId)
+                            
+                            // 그룹이 존재하지 않으면 메시지만 표시하고 네비게이션하지 않음
+                            if (group == null) {
+                                Log.w("NotificationFragment", "그룹이 존재하지 않습니다. groupId: ${item.groupId}")
+                                Toast.makeText(
+                                    requireContext(),
+                                    "존재하지 않는 그룹입니다.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@launch
                             }
-                        )
+                            
+                            // 단건 읽음 처리
+                            notificationRepository.markNotificationAsRead(item.id)
 
-                        // UI 흐림 처리 반영
-                        holder.card.alpha = 0.4f
+                            // GroupDetailFragment로 Navigation
+                            findNavController().navigate(
+                                R.id.action_notificationFragment_to_groupDetailFragment,
+                                Bundle().apply {
+                                    putString("groupId", item.groupId)
+                                    putString("groupName", group.groupName)
+                                }
+                            )
+
+                            // UI 흐림 처리 반영
+                            holder.card.alpha = 0.4f
+                        }
                     }
 
                     else -> {
@@ -313,8 +362,7 @@ class NotificationFragment : Fragment() {
                             Toast.LENGTH_SHORT
                         ).show()
 
-                        // UI 갱신
-                        loadNotifications()
+                        // ⭐ UI 갱신은 실시간 리스너(observeNotifications)에서 자동으로 처리됨
                     } else {
                         Toast.makeText(
                             requireContext(),
@@ -328,7 +376,7 @@ class NotificationFragment : Fragment() {
                 viewLifecycleOwner.lifecycleScope.launch {
                     notificationRepository.markNotificationAsRead(item.id)
                     notificationRepository.markNotificationAsHandled(item.id)
-                    loadNotifications()
+                    // ⭐ UI 갱신은 실시간 리스너(observeNotifications)에서 자동으로 처리됨
                 }
             }
             .create()

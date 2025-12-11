@@ -91,6 +91,7 @@ class ProfileSetupFragment : Fragment() {
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var sttIntent: Intent
     private var isHomeVoiceInput: Boolean = true
+    private var voiceInputText: String? = null // 음성 인식으로 입력된 텍스트
 
     // 듣는 중 UI
     private lateinit var listeningHome: View
@@ -158,6 +159,21 @@ class ProfileSetupFragment : Fragment() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             handlePlaceResult(result, isHome = false)
         }
+
+    // 음성 인식 권한 요청 런처
+    private val audioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // 권한이 허용되면 음성 인식 시작
+            try {
+                speechRecognizer.stopListening()
+            } catch (_: Exception) {}
+            speechRecognizer.startListening(sttIntent)
+        } else {
+            Snackbar.make(requireView(), "음성 인식 권한이 필요합니다.", Snackbar.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -317,6 +333,22 @@ class ProfileSetupFragment : Fragment() {
 
             override fun onError(error: Int) {
                 stopListeningAnimation()
+                val errorMessage = when (error) {
+                    SpeechRecognizer.ERROR_AUDIO -> "오디오 오류"
+                    SpeechRecognizer.ERROR_CLIENT -> "클라이언트 오류"
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "권한 부족"
+                    SpeechRecognizer.ERROR_NETWORK -> "네트워크 오류"
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "네트워크 타임아웃"
+                    SpeechRecognizer.ERROR_NO_MATCH -> "인식 결과 없음"
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "인식기 사용 중"
+                    SpeechRecognizer.ERROR_SERVER -> "서버 오류"
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "음성 입력 타임아웃"
+                    else -> "알 수 없는 오류"
+                }
+                android.util.Log.e("ProfileSetupFragment", "음성 인식 오류: $errorMessage ($error)")
+                if (isAdded && view != null) {
+                    Snackbar.make(requireView(), "음성 인식 중 오류가 발생했습니다: $errorMessage", Snackbar.LENGTH_SHORT).show()
+                }
             }
 
             override fun onResults(results: Bundle?) {
@@ -325,6 +357,9 @@ class ProfileSetupFragment : Fragment() {
                 val spokenText = results
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.get(0) ?: return
+
+                // 음성 인식 텍스트를 저장하여 검색어로 사용
+                voiceInputText = spokenText
 
                 if (isHomeVoiceInput) {
                     inputHome.setText(spokenText)
@@ -349,10 +384,12 @@ class ProfileSetupFragment : Fragment() {
                 android.Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 5001)
+            // 권한 요청
+            audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
             return
         }
 
+        // 권한이 이미 있으면 바로 시작
         try {
             speechRecognizer.stopListening()
         } catch (_: Exception) {}
@@ -602,10 +639,20 @@ class ProfileSetupFragment : Fragment() {
                         Glide.with(this).load(photoUrl).circleCrop().into(imgProfile)
                     }
 
-                    btnSave.text = "프로필 수정 완료"
+                    // ⭐ nickname 필드가 있는지 확인하여 기존 사용자/신규 사용자 구분
+                    val hasNickname = !nickname.isNullOrEmpty()
                     
-                    // 기존 사용자이므로 회원 탈퇴 버튼 표시
-                    binding.btnDeleteAccount.visibility = View.VISIBLE
+                    if (hasNickname) {
+                        // 기존 사용자: 프로필 수정 모드
+                        btnSave.text = "프로필 수정 완료"
+                        // 기존 사용자이므로 회원 탈퇴 버튼 표시
+                        binding.btnDeleteAccount.visibility = View.VISIBLE
+                    } else {
+                        // 신규 사용자/회원가입 중: 프로필 작성 모드
+                        btnSave.text = "프로필 저장"
+                        // 회원가입 중이므로 회원 탈퇴 버튼 숨김
+                        binding.btnDeleteAccount.visibility = View.GONE
+                    }
 
                 } else {
                     Log.w("PROFILE", "Firestore에 사용자 문서가 존재하지 않음: $uid")
@@ -635,10 +682,18 @@ class ProfileSetupFragment : Fragment() {
                 Place.Field.ID
             )
 
-            val intent = Autocomplete.IntentBuilder(
+            val builder = Autocomplete.IntentBuilder(
                 AutocompleteActivityMode.OVERLAY,
                 fields
-            ).build(requireContext())
+            )
+            
+            // ⭐ 음성 인식으로 입력된 텍스트가 있으면 초기 검색어로 설정
+            voiceInputText?.let { query ->
+                builder.setInitialQuery(query)
+                voiceInputText = null // 사용 후 초기화
+            }
+
+            val intent = builder.build(requireContext())
 
             if (isHome) {
                 homeAddressLauncher.launch(intent)

@@ -171,6 +171,7 @@ class TimeVoteFragment : Fragment() {
         allMembersVotedDialog?.dismiss()
         allMembersVotedDialog = null
         hasShownAllMembersVotedDialog = false
+        userDeferredFinalVote = false // Fragment가 파괴될 때 플래그 리셋
         currentVoteObserver?.cancel()
         _binding = null
     }
@@ -1269,6 +1270,7 @@ class TimeVoteFragment : Fragment() {
 
     private var allMembersVotedDialog: androidx.appcompat.app.AlertDialog? = null
     private var hasShownAllMembersVotedDialog = false
+    private var userDeferredFinalVote = false // 사용자가 "나중에"를 선택했는지 추적
 
     /**
      * 모든 멤버 투표 완료 다이얼로그 표시
@@ -1278,17 +1280,18 @@ class TimeVoteFragment : Fragment() {
         overlappingTimes: List<String>,
         hasAllVotedButNoOverlap: Boolean
     ) {
-        // ⭐ 다이얼로그 중복 표시 방지
-        if (hasNavigatedToFinalVote || hasShownAllMembersVotedDialog) {
+        // ⭐ 다이얼로그 중복 표시 방지 (나중에 선택한 경우도 제외)
+        if (hasNavigatedToFinalVote || hasShownAllMembersVotedDialog || userDeferredFinalVote) {
             return
         }
         
         hasShownAllMembersVotedDialog = true
         allMembersVotedDialog?.dismiss()
         
+        // ⭐ 겹치는 시간 관련 문장과 시간 데이터 제거 (자동 확정 다이얼로그와 겹치지 않도록)
         val message = if (overlappingTimes.isNotEmpty()) {
             if (overlappingTimes.size == 1) {
-                "모든 그룹원이 시간 투표를 완료했습니다!\n\n겹치는 시간이 한 개밖에 없어 자동으로 해당 시간으로 선택됩니다.\n\n${overlappingTimes[0]}"
+                "모든 그룹원이 시간 투표를 완료했습니다!"
             } else {
                 "모든 그룹원이 시간 투표를 완료했습니다!\n\n최종 시간 투표를 진행합니다."
             }
@@ -1296,10 +1299,12 @@ class TimeVoteFragment : Fragment() {
             "모든 그룹원이 시간 투표를 완료했습니다!\n\n하지만 겹치는 시간이 없습니다.\n후보군을 초기화하고 다시 투표하시겠습니까?"
         }
         
-        allMembersVotedDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        val builder = androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle("모든 그룹원 투표 완료")
             .setMessage(message)
-            .setPositiveButton("확인") { _, _ ->
+            .setPositiveButton("진행하기") { _, _ ->
+                // 💡 '진행하기'를 누르면 '보류' 상태를 리셋하고 최종 투표로 이동
+                userDeferredFinalVote = false
                 hasShownAllMembersVotedDialog = false
                 if (overlappingTimes.isNotEmpty()) {
                     if (overlappingTimes.size == 1) {
@@ -1314,12 +1319,25 @@ class TimeVoteFragment : Fragment() {
                     showNoOverlappingTimeDialog()
                 }
             }
+            .setNegativeButton("나중에") { dialog, _ ->
+                // 💡 '나중에'를 누르면 '보류' 상태를 true로 설정
+                userDeferredFinalVote = true
+                hasShownAllMembersVotedDialog = false // 다시 다이얼로그가 표시될 수 있도록 리셋
+                android.util.Log.d("TimeVoteFragment", 
+                    "⏸️ '나중에' 선택 - 보류 상태로 설정, 투표 기록은 Firestore에 유지됨")
+                dialog.dismiss()
+            }
             .setCancelable(false)
             .setOnDismissListener {
                 hasShownAllMembersVotedDialog = false
             }
-            .create()
         
+        // 겹치는 시간이 없는 경우에는 "나중에" 버튼을 표시하지 않음
+        if (hasAllVotedButNoOverlap) {
+            builder.setNegativeButton(null, null)
+        }
+        
+        allMembersVotedDialog = builder.create()
         allMembersVotedDialog?.show()
     }
 
@@ -1545,7 +1563,8 @@ class TimeVoteFragment : Fragment() {
             
             // 모든 멤버가 투표한 날짜가 있는 경우 처리
             // 초기화 중이면 자동 이동하지 않음
-            if (dateWithAllVoted != null && !hasNavigatedToFinalVote && !isResetting) {
+            // 사용자가 "나중에"를 선택한 경우도 제외
+            if (dateWithAllVoted != null && !hasNavigatedToFinalVote && !isResetting && !userDeferredFinalVote) {
                 // 대기 중 메시지 닫기 및 화면 메시지 숨기기
                 dismissWaitingDialog()
                 hideWaitingMessageOnScreen()

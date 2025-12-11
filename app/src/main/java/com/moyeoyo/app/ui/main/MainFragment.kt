@@ -24,6 +24,7 @@ import com.moyeoyo.app.data.repository.GroupRepository
 import com.moyeoyo.app.data.repository.FriendRepository
 import com.moyeoyo.app.data.repository.NotificationRepository
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import android.app.ProgressDialog
 import javax.inject.Inject
@@ -105,36 +106,39 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         btnNotifications.setOnClickListener {
             findNavController().navigate(R.id.notificationFragment)
         }
+
+        // ⭐ 실시간 알림 배지 업데이트 시작
+        observeNotificationBadge()
     }
 
     override fun onResume() {
         super.onResume()
         loadUserProfile()
         loadGroups()
-        updateNotificationBadge()
+        // ⭐ 실시간 알림 배지 업데이트는 observeNotificationBadge()에서 처리
     }
 
     // ─────────────────────────────
-    // 🔥 알림 뱃지 업데이트 (최종 정답)
+    // 🔥 실시간 알림 뱃지 업데이트
     // ─────────────────────────────
-    fun updateNotificationBadge() {
+    private fun observeNotificationBadge() {
         viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val allNotifications = notificationRepository.getNotifications()
-
-                val hasUnread = allNotifications.any { n ->
-                    when (n.type) {
-                        "friend_request" -> !n.handled       // 친구요청: handled=false
-                        else -> !n.read                      // 일반 알림: read=false
+            notificationRepository.observeNotifications().collectLatest { allNotifications ->
+                try {
+                    val hasUnread = allNotifications.any { n ->
+                        when (n.type) {
+                            "friend_request" -> !n.handled       // 친구요청: handled=false
+                            else -> !n.read                      // 일반 알림: read=false
+                        }
                     }
+
+                    notificationBadge.visibility =
+                        if (hasUnread) View.VISIBLE else View.GONE
+
+                } catch (e: Exception) {
+                    Log.e("MAIN", "Error checking notifications: ${e.message}")
+                    notificationBadge.visibility = View.GONE
                 }
-
-                notificationBadge.visibility =
-                    if (hasUnread) View.VISIBLE else View.GONE
-
-            } catch (e: Exception) {
-                Log.e("MAIN", "Error checking notifications: ${e.message}")
-                notificationBadge.visibility = View.GONE
             }
         }
     }

@@ -423,7 +423,25 @@ class GroupRepository @Inject constructor(
                 return Result.failure(IllegalArgumentException("날짜 파싱 실패"))
             }
 
-            // ⭐ 트랜잭션으로 원자적 연산 보장
+            // ⭐ 현재 상태 확인
+            val currentGroup = groupsCollection.document(groupId).get().await()
+            val currentStatus = currentGroup.getString("status")
+            
+            // ⭐ 1단계: TIME_FINALIZING 상태로 변경 (푸시 알림 전송) - 이미 TIME_FINALIZING이 아닌 경우에만 변경
+            if (currentStatus != "TIME_FINALIZING") {
+                groupsCollection.document(groupId)
+                    .update("status", "TIME_FINALIZING")
+                    .await()
+                
+                Log.d(TAG, "✅ TIME_FINALIZING 상태로 변경: groupId=$groupId")
+                
+                // ⭐ 푸시 알림 전송 시간 확보 (2초 대기)
+                kotlinx.coroutines.delay(2000)
+            } else {
+                Log.d(TAG, "ℹ️ 이미 TIME_FINALIZING 상태이므로 변경하지 않음: groupId=$groupId")
+            }
+            
+            // ⭐ 2단계: 트랜잭션으로 최종 시간 확정 및 LOCATION_INPUT_REQUIRED 상태로 변경
             db.runTransaction { tx ->
                 val groupRef = groupsCollection.document(groupId)
                 val snapshot = tx.get(groupRef)
@@ -452,6 +470,7 @@ class GroupRepository @Inject constructor(
 
     /**
      * 최종 시간 확정
+     * ⭐ TIME_FINALIZING 상태를 거쳐서 푸시 알림이 전송되도록 함
      */
     suspend fun setFinalTime(groupId: String, date: String, time: String): Boolean {
         return try {
@@ -480,6 +499,25 @@ class GroupRepository @Inject constructor(
                 return false
             }
 
+            // ⭐ 현재 상태 확인
+            val currentGroup = groupsCollection.document(groupId).get().await()
+            val currentStatus = currentGroup.getString("status")
+            
+            // ⭐ 1단계: TIME_FINALIZING 상태로 변경 (푸시 알림 전송) - 이미 TIME_FINALIZING이 아닌 경우에만 변경
+            if (currentStatus != "TIME_FINALIZING") {
+                groupsCollection.document(groupId)
+                    .update("status", "TIME_FINALIZING")
+                    .await()
+                
+                Log.d(TAG, "✅ TIME_FINALIZING 상태로 변경: groupId=$groupId")
+                
+                // ⭐ 푸시 알림 전송 시간 확보 (2초 대기)
+                kotlinx.coroutines.delay(2000)
+            } else {
+                Log.d(TAG, "ℹ️ 이미 TIME_FINALIZING 상태이므로 변경하지 않음: groupId=$groupId")
+            }
+            
+            // ⭐ 2단계: 최종 시간 확정 및 LOCATION_INPUT_REQUIRED 상태로 변경
             groupsCollection.document(groupId)
                 .update(
                     "confirmedTime", timestamp,
@@ -497,6 +535,7 @@ class GroupRepository @Inject constructor(
 
     /**
      * ⭐ NEW: 확정된 일정 정보(장소/시간)를 Firestore에 저장하고 그룹 상태를 변경합니다.
+     * ⭐ FINAL_PLACE_VOTE 상태를 거쳐서 푸시 알림이 전송되도록 함
      */
     suspend fun confirmGroupSchedule(
         context: Context,
@@ -508,6 +547,20 @@ class GroupRepository @Inject constructor(
         val groupRef = groupsCollection.document(groupId)
 
         return try {
+            // ⭐ 현재 상태가 FINAL_PLACE_VOTE가 아닌 경우에만 FINAL_PLACE_VOTE로 먼저 변경
+            val currentGroup = groupRef.get().await()
+            val currentStatus = currentGroup.getString("status")
+            
+            if (currentStatus != "FINAL_PLACE_VOTE") {
+                // ⭐ 1단계: FINAL_PLACE_VOTE 상태로 변경 (푸시 알림 전송)
+                groupRef.update("status", "FINAL_PLACE_VOTE").await()
+                Log.d(TAG, "✅ FINAL_PLACE_VOTE 상태로 변경: groupId=$groupId")
+                
+                // ⭐ 푸시 알림 전송 시간 확보 (2초 대기)
+                kotlinx.coroutines.delay(2000)
+            }
+            
+            // ⭐ 2단계: 최종 확정 정보 저장 및 FINALIZED 상태로 변경
             val updates = hashMapOf<String, Any>(
                 "confirmedPlace" to confirmedPlace,
                 "confirmedTime" to confirmedTime,

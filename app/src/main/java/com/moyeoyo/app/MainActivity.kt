@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.moyeoyo.app.NOTIFICATION_RECEIVED") {
-                updateNotificationBadge()
+                // ⭐ 알림 배지 업데이트는 MainFragment의 실시간 리스너(observeNotificationBadge)에서 자동으로 처리됨
             }
         }
     }
@@ -138,6 +138,18 @@ class MainActivity : AppCompatActivity() {
         
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)
+        
+        // ⭐ 포그라운드 알림 다이얼로그 표시
+        if (intent.getBooleanExtra("showNotificationDialog", false)) {
+            val title = intent.getStringExtra("notificationTitle")
+            val message = intent.getStringExtra("notificationMessage")
+            val groupId = intent.getStringExtra("groupId")
+            val notificationType = intent.getStringExtra("notificationType")
+            
+            if (title != null && message != null) {
+                showNotificationDialog(title, message, groupId, notificationType)
+            }
+        }
     }
     
     override fun onDestroy() {
@@ -152,12 +164,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         // MainFragment가 활성화되어 있으면 알림 배지 업데이트
-        // Fragment가 준비될 때까지 약간의 지연을 두고 호출
-        if (auth.currentUser != null) {
-            window.decorView.post {
-                updateNotificationBadge()
-            }
-        }
+        // ⭐ 알림 배지 업데이트는 MainFragment의 실시간 리스너(observeNotificationBadge)에서 자동으로 처리됨
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -168,25 +175,19 @@ class MainActivity : AppCompatActivity() {
         // 푸시 알림 클릭 처리
         handleNotificationIntent(intent)
         
-        // 알림 배지 업데이트
-        updateNotificationBadge()
-    }
-    
-    /**
-     * MainFragment의 알림 배지 업데이트
-     */
-    private fun updateNotificationBadge() {
-        try {
-            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
-            val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
+        // ⭐ 포그라운드 알림 다이얼로그 표시
+        if (intent.getBooleanExtra("showNotificationDialog", false)) {
+            val title = intent.getStringExtra("notificationTitle")
+            val message = intent.getStringExtra("notificationMessage")
+            val groupId = intent.getStringExtra("groupId")
+            val notificationType = intent.getStringExtra("notificationType")
             
-            if (currentFragment is MainFragment && currentFragment.isAdded) {
-                // MainFragment의 updateNotificationBadge를 직접 호출
-                currentFragment.updateNotificationBadge()
+            if (title != null && message != null) {
+                showNotificationDialog(title, message, groupId, notificationType)
             }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to update notification badge: ${e.message}")
         }
+        
+        // ⭐ 알림 배지 업데이트는 MainFragment의 실시간 리스너(observeNotificationBadge)에서 자동으로 처리됨
     }
     
     /**
@@ -215,12 +216,24 @@ class MainActivity : AppCompatActivity() {
                     groupId != null && notificationType != null && notificationType in listOf("time_vote", "location_input", "final_vote", "finalized", "ranking", "reminder") -> {
                         Log.d("MainActivity", "Group notification clicked: navigating to group detail - groupId: $groupId, type: $notificationType")
                         
+                        // 그룹 정보 가져오기
+                        val group = groupRepository.getGroupById(groupId)
+                        
+                        // ⭐ 그룹이 존재하지 않으면 메시지만 표시하고 네비게이션하지 않음
+                        if (group == null) {
+                            Log.w("MainActivity", "그룹이 존재하지 않습니다. groupId: $groupId")
+                            android.widget.Toast.makeText(
+                                this@MainActivity,
+                                "존재하지 않는 그룹입니다.",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                            return@launch
+                        }
+                        
                         // 알림 자동 읽음 처리
                         notificationRepository.markNotificationAsReadByTypeAndGroup(notificationType, groupId)
                         
-                        // 그룹 정보 가져오기
-                        val group = groupRepository.getGroupById(groupId)
-                        val groupName = group?.groupName ?: "모임"
+                        val groupName = group.groupName
                         
                         // MainFragment로 먼저 이동 (백스택에 없을 수 있음)
                         navController?.navigate(R.id.mainFragment)
@@ -239,6 +252,31 @@ class MainActivity : AppCompatActivity() {
                 Log.e("MainActivity", "Failed to handle notification intent: ${e.message}", e)
             }
         }
+    }
+
+    /**
+     * 포그라운드 알림 다이얼로그 표시 (헤드업 알림 대체)
+     */
+    private fun showNotificationDialog(title: String, message: String, groupId: String?, notificationType: String?) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("확인") { dialog, _ ->
+                dialog.dismiss()
+                // 알림 클릭 처리
+                if (groupId != null && notificationType != null) {
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        putExtra("groupId", groupId)
+                        putExtra("notificationType", notificationType)
+                    }
+                    handleNotificationIntent(intent)
+                }
+            }
+            .setCancelable(true)
+            .setOnCancelListener {
+                // 다이얼로그가 취소되면 그냥 닫기
+            }
+            .show()
     }
 
     private fun saveFCMToken() {

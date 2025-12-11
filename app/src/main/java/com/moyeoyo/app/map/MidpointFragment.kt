@@ -59,6 +59,7 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
     lateinit var groupRepository: GroupRepository
 
     private val args: MidpointFragmentArgs by navArgs()
+    private val groupId: String get() = args.groupId
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -83,7 +84,6 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
             ?.getMapAsync(this)
 
         // 그룹 ID 설정
-        val groupId = args.groupId
         viewModel.setGroupId(groupId)
 
         setupViews()
@@ -97,7 +97,6 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
     override fun onResume() {
         super.onResume()
         // ⭐ Fragment가 다시 나타날 때 상태 확인 및 복원
-        val groupId = args.groupId
         val currentState = viewModel.state.value
         
         // 상태가 비어있거나 중간값이 없는 경우 다시 로드
@@ -147,23 +146,7 @@ class MidpointFragment : Fragment(), OnMapReadyCallback {
                 if (pendingNearbyDialog && !s.isNearbyLoading) {
                     if (s.weightedCenter != null) {
                         pendingNearbyDialog = false
-                        // ⭐ 중간값 계산 완료 시 그룹 상태를 LOCATION_DONE으로 변경 (아직 변경되지 않은 경우만)
-                        val groupId = args.groupId
-                        if (groupId.isNotEmpty()) {
-                            CoroutineScope(Dispatchers.IO).launch {
-                                try {
-                                    val currentGroup = groupRepository.getGroupDetail(groupId)
-                                    if (currentGroup?.status == "LOCATION_INPUT_REQUIRED") {
-                                        val success = groupRepository.updateGroupStatus(groupId, "LOCATION_DONE")
-                                        if (success) {
-                                            android.util.Log.d("MidpointFragment", "✅ 그룹 상태 변경: LOCATION_INPUT_REQUIRED → LOCATION_DONE")
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("MidpointFragment", "그룹 상태 변경 중 오류: ${e.message}")
-                                }
-                            }
-                        }
+                        // ⭐ 주변 장소 검색 버튼을 눌렀을 때는 상태를 변경하지 않음 (이미 LocationInputFragment에서 변경됨)
                         // RecommendedPlaceFragment로 이동
                         findNavController().navigate(
                             R.id.action_midpointFragment_to_recommendedPlaceFragment,

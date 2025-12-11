@@ -74,6 +74,207 @@ async function sendPushToMembers(
   }
 }
 
+/* ------------------------------------------------------
+  모든 멤버 완료 여부 확인 함수들
+-------------------------------------------------------*/
+
+/**
+ * 모든 멤버가 시간 투표를 완료했는지 확인
+ */
+async function checkAllMembersTimeVoted(groupId: string, memberUids: string[]): Promise<boolean> {
+  if (memberUids.length === 0) return false;
+
+  try {
+    // 현재 주의 모든 날짜 확인 (월~일, 7일)
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // 이번 주 월요일
+    monday.setHours(0, 0, 0, 0);
+
+    const datesToCheck: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+      datesToCheck.push(dateStr);
+    }
+
+    // 최소 하나의 날짜에 모든 멤버가 투표했는지 확인
+    for (const dateStr of datesToCheck) {
+      const dateRef = db.collection("groups")
+        .doc(groupId)
+        .collection("timeVote")
+        .doc(dateStr);
+
+      const dateDoc = await dateRef.get();
+      if (!dateDoc.exists) continue;
+
+      const timesSnapshot = await dateRef.collection("times").get();
+      const votedMembers = new Set<string>();
+
+      timesSnapshot.docs.forEach((timeDoc) => {
+        const voters = timeDoc.data().voters as string[] || [];
+        voters.forEach((uid: string) => votedMembers.add(uid));
+      });
+
+      // 모든 멤버가 투표했는지 확인
+      const allVoted = memberUids.every((uid) => votedMembers.has(uid));
+      if (allVoted) {
+        // 겹치는 시간이 있는지 확인
+        const overlappingTimes: string[] = [];
+        const timeVoteCounts = new Map<string, number>();
+
+        timesSnapshot.docs.forEach((timeDoc) => {
+          const voters = timeDoc.data().voters as string[] || [];
+          const time = timeDoc.id;
+          timeVoteCounts.set(time, voters.length);
+        });
+
+        timeVoteCounts.forEach((count, time) => {
+          if (count === memberUids.length) {
+            overlappingTimes.push(time);
+          }
+        });
+
+        // 겹치는 시간이 있으면 완료로 간주
+        if (overlappingTimes.length > 0) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("checkAllMembersTimeVoted error:", error);
+    return false;
+  }
+}
+
+/**
+ * 모든 멤버가 최종 시간 투표를 완료했는지 확인
+ */
+async function checkAllMembersFinalTimeVoted(groupId: string, memberUids: string[]): Promise<boolean> {
+  if (memberUids.length === 0) return false;
+
+  try {
+    // 현재 주의 모든 날짜 확인 (월~일, 7일)
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // 이번 주 월요일
+    monday.setHours(0, 0, 0, 0);
+
+    const datesToCheck: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD 형식
+      datesToCheck.push(dateStr);
+    }
+
+    // 최소 하나의 날짜에 모든 멤버가 최종 시간 투표를 완료했는지 확인
+    for (const dateStr of datesToCheck) {
+      const dateRef = db.collection("groups")
+        .doc(groupId)
+        .collection("timeVote")
+        .doc(dateStr);
+
+      const dateDoc = await dateRef.get();
+      if (!dateDoc.exists) continue;
+
+      const finalVotedUsers = dateDoc.data()?.finalVotedUsers as string[] || [];
+      
+      // 모든 멤버가 최종 시간 투표를 완료했는지 확인
+      const allFinalVoted = finalVotedUsers.length === memberUids.length &&
+                           memberUids.every((uid) => finalVotedUsers.includes(uid));
+      
+      if (allFinalVoted) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("checkAllMembersFinalTimeVoted error:", error);
+    return false;
+  }
+}
+
+/**
+ * 모든 멤버가 위치를 입력했는지 확인
+ */
+async function checkAllMembersLocationInputted(groupId: string, memberUids: string[]): Promise<boolean> {
+  if (memberUids.length === 0) return false;
+
+  try {
+    const inputLocationsSnapshot = await db.collection("groups")
+      .doc(groupId)
+      .collection("inputLocations")
+      .get();
+
+    const inputtedUids = new Set<string>();
+
+    inputLocationsSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      const latLng = data.latLng;
+
+      // 유효한 위치인지 확인
+      let lat: number | null = null;
+      let lng: number | null = null;
+
+      if (latLng && typeof latLng === 'object') {
+        if ('latitude' in latLng && 'longitude' in latLng) {
+          lat = latLng.latitude;
+          lng = latLng.longitude;
+        } else if ('lat' in latLng && 'lng' in latLng) {
+          lat = latLng.lat;
+          lng = latLng.lng;
+        }
+      }
+
+      const isValidLocation = lat != null && lng != null &&
+        lat !== 0 && lng !== 0 &&
+        lat >= -90 && lat <= 90 &&
+        lng >= -180 && lng <= 180;
+
+      if (isValidLocation) {
+        inputtedUids.add(doc.id);
+      }
+    });
+
+    // 모든 멤버가 입력했는지 확인
+    return memberUids.every((uid) => inputtedUids.has(uid));
+  } catch (error) {
+    console.error("checkAllMembersLocationInputted error:", error);
+    return false;
+  }
+}
+
+/**
+ * 모든 멤버가 장소 순위 투표를 완료했는지 확인
+ */
+async function checkAllMembersRanked(groupId: string, memberUids: string[]): Promise<boolean> {
+  if (memberUids.length === 0) return false;
+
+  try {
+    const voteDoc = await db.collection("groups")
+      .doc(groupId)
+      .collection("placeVote")
+      .doc("placeVote")
+      .get();
+
+    if (!voteDoc.exists) return false;
+
+    const rankedUsers = voteDoc.data()?.rankedUsers as string[] || [];
+    
+    // 모든 멤버가 포함되었는지 확인
+    return rankedUsers.length === memberUids.length &&
+           memberUids.every((uid) => rankedUsers.includes(uid));
+  } catch (error) {
+    console.error("checkAllMembersRanked error:", error);
+    return false;
+  }
+}
+
 
 /* ------------------------------------------------------
   1) 친구 요청 알림
@@ -155,39 +356,55 @@ export const onGroupStatusChanged = onDocumentUpdated(
         break;
 
       case "TIME_FINALIZING":
-        await sendPushToMembers(
-          memberUids,
-          "🕒 최종 시간 투표",
-          "최종 약속 일정을 투표해주세요!",
-          { type: "location_input", groupId: groupId }
-        );
+        // ⭐ 모든 멤버가 시간 투표를 완료했을 때만 알림 전송
+        const timeVoteCompleted = await checkAllMembersTimeVoted(groupId, memberUids);
+        if (timeVoteCompleted) {
+          await sendPushToMembers(
+            memberUids,
+            "🕒 최종 시간 투표",
+            "최종 약속 일정을 투표해주세요!",
+            { type: "final_time_vote", groupId: groupId }
+          );
+        }
         break;
 
       case "LOCATION_INPUT_REQUIRED":
-        await sendPushToMembers(
-          memberUids,
-          "📍 시간 투표 완료!",
-          `${groupName}의 약속 일정이 확정되었습니다. 이제 출발 위치를 입력해주세요.`,
-          { type: "location_input", groupId: groupId }
-        );
+        // ⭐ 모든 멤버가 최종 시간 투표를 완료하고 일정이 확정되었을 때만 알림 전송
+        const finalTimeVoteCompleted = await checkAllMembersFinalTimeVoted(groupId, memberUids);
+        if (finalTimeVoteCompleted) {
+          await sendPushToMembers(
+            memberUids,
+            "📍 시간 투표 완료!",
+            `${groupName}의 약속 일정이 확정되었습니다. 이제 출발 위치를 입력해주세요.`,
+            { type: "location_input", groupId: groupId }
+          );
+        }
         break;
 
       case "PLACE_RANKING":
-        await sendPushToMembers(
-          memberUids,
-          "✨ 장소 순위 투표 시작",
-          "중간 지점 계산 완료! 주변 장소를 보고 순위를 투표해주세요.",
-          { type: "ranking", groupId: groupId }
-        );
+        // ⭐ 모든 멤버가 위치를 입력하고 중앙값이 계산되었을 때만 알림 전송
+        const locationInputCompleted = await checkAllMembersLocationInputted(groupId, memberUids);
+        if (locationInputCompleted) {
+          await sendPushToMembers(
+            memberUids,
+            "✨ 장소 순위 투표 시작",
+            "중간 지점 계산 완료! 주변 장소를 보고 순위를 투표해주세요.",
+            { type: "ranking", groupId: groupId }
+          );
+        }
         break;
 
       case "FINAL_PLACE_VOTE":
-        await sendPushToMembers(
-          memberUids,
-          "🔥 최종 장소 투표",
-          "마지막으로 최종 약속 장소를 투표해주세요!",
-          { type: "final_vote", groupId: groupId }
-        );
+        // ⭐ 모든 멤버가 장소 순위 투표를 완료했을 때만 알림 전송
+        const rankingCompleted = await checkAllMembersRanked(groupId, memberUids);
+        if (rankingCompleted) {
+          await sendPushToMembers(
+            memberUids,
+            "🔥 최종 장소 투표",
+            "마지막으로 최종 약속 장소를 투표해주세요!",
+            { type: "final_place_vote", groupId: groupId }
+          );
+        }
         break;
 
       case "FINALIZED":

@@ -19,6 +19,7 @@ import com.moyeoyo.app.data.local.saveMeetingToLocal
 import com.moyeoyo.app.data.model.NearbyPlace
 import com.moyeoyo.app.databinding.FragmentFinalVoteBinding
 import com.moyeoyo.app.data.repository.GroupRepository
+import com.moyeoyo.app.data.repository.MapRepository
 import com.moyeoyo.app.widget.NextMeetingWidgetProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -35,6 +36,9 @@ class FinalVoteFragment : Fragment() {
     @Inject
     lateinit var groupRepository: GroupRepository
     
+    @Inject
+    lateinit var mapRepository: MapRepository
+    
     private lateinit var adapter: FinalCandidateAdapter
     private val finalCandidates = mutableListOf<FinalCandidate>()
     private var selectedCandidate: FinalCandidate? = null
@@ -42,6 +46,7 @@ class FinalVoteFragment : Fragment() {
     
     private var winningPlaceDialog: AlertDialog? = null
     private var hasShownWinningDialog = false // ⭐ 다이얼로그 중복 표시 방지 플래그
+    private var hasVoted = false // ⭐ 투표 완료 여부
 
     private val args: FinalVoteFragmentArgs by navArgs()
 
@@ -146,12 +151,61 @@ class FinalVoteFragment : Fragment() {
                 return@observe
             }
             
-            finalCandidates.clear()
-            finalCandidates.addAll(candidates)
+            val uid = auth.currentUser?.uid ?: return@observe
             
-            adapter.submitList(candidates.toList()) {
-                android.util.Log.d("FinalVoteFragment", 
-                    "✅ RecyclerView 어댑터 업데이트 완료 - 아이템 수: ${adapter.itemCount}")
+            // ⭐ 사용자가 투표한 장소 확인 (비동기)
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val placeCandidates = mapRepository.getPlaceCandidates(args.groupId)
+                    // 현재 사용자가 투표한 placeId 찾기
+                    val votedPlaceId = placeCandidates.firstOrNull { uid in it.voterUids }?.placeId
+                    
+                    finalCandidates.clear()
+                    
+                    // ⭐ 사용자가 투표한 장소를 찾아서 selectedCandidate로 설정
+                    var votedCandidate: FinalCandidate? = null
+                    val updatedCandidates = candidates.map { candidate ->
+                        val isVoted = votedPlaceId == candidate.place.placeId
+                        if (isVoted && votedCandidate == null) {
+                            votedCandidate = candidate.copy(isSelected = true)
+                            votedCandidate!!
+                        } else {
+                            candidate.copy(isSelected = false)
+                        }
+                    }
+                    
+                    // ⭐ 투표한 장소가 있으면 selectedCandidate로 설정
+                    if (votedCandidate != null && !hasVoted) {
+                        selectedCandidate = votedCandidate
+                        android.util.Log.d("FinalVoteFragment", 
+                            "✅ 사용자가 투표한 장소 확인: ${votedCandidate.place.name}")
+                    }
+                    
+                    finalCandidates.addAll(updatedCandidates)
+                    
+                    adapter.submitList(updatedCandidates.toList()) {
+                        android.util.Log.d("FinalVoteFragment", 
+                            "✅ RecyclerView 어댑터 업데이트 완료 - 아이템 수: ${adapter.itemCount}")
+                    }
+                    
+                    // ⭐ 투표한 장소가 있으면 버튼 표시 (하지만 비활성화)
+                    if (selectedCandidate != null) {
+                        if (hasVoted) {
+                            binding.btnSubmitVote.visibility = View.VISIBLE
+                            binding.btnSubmitVote.isEnabled = false
+                            binding.btnSubmitVote.text = "투표 완료"
+                            binding.btnSubmitVote.alpha = 0.5f
+                        } else {
+                            binding.btnSubmitVote.visibility = View.VISIBLE
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("FinalVoteFragment", "투표한 장소 확인 실패: ${e.message}", e)
+                    // 오류 발생 시 기본 동작
+                    finalCandidates.clear()
+                    finalCandidates.addAll(candidates)
+                    adapter.submitList(candidates.toList())
+                }
             }
         }
 
@@ -167,7 +221,11 @@ class FinalVoteFragment : Fragment() {
             if (success) {
                 android.util.Log.d("FinalVoteFragment", 
                     "✅ 투표 완료 - 승리 장소 결정은 ViewModel에서 처리됨")
-                // 투표 제출 완료 시 진동 피드백은 제거 (최종 확정 시에만 진동)
+                // ⭐ 투표 완료 시 버튼 비활성화
+                hasVoted = true
+                binding.btnSubmitVote.isEnabled = false
+                binding.btnSubmitVote.text = "투표 완료"
+                binding.btnSubmitVote.alpha = 0.5f
             }
         }
 

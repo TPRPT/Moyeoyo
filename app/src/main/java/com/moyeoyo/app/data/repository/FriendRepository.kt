@@ -115,7 +115,7 @@ class FriendRepository @Inject constructor(
     }
 
     // ===========================
-    // 친구 요청 목록
+    // 친구 요청 목록 (받은 요청)
     // ===========================
     suspend fun getPendingRequests(): List<String> {
         val uid = auth.currentUser?.uid ?: return emptyList()
@@ -130,6 +130,22 @@ class FriendRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Get pending requests failed: ${e.message}")
             emptyList()
+        }
+    }
+
+    // ===========================
+    // ⭐ 이미 보낸 친구 요청 확인 (보낸 요청)
+    // ===========================
+    suspend fun hasSentFriendRequest(receiverUid: String): Boolean {
+        val senderUid = auth.currentUser?.uid ?: return false
+
+        return try {
+            val requestId = "${senderUid}_${receiverUid}"
+            val doc = friendRequestsCollection.document(requestId).get().await()
+            doc.exists()
+        } catch (e: Exception) {
+            Log.e(TAG, "Check sent friend request failed: ${e.message}")
+            false
         }
     }
 

@@ -26,6 +26,7 @@ import com.google.firebase.storage.FirebaseStorage
 import androidx.lifecycle.lifecycleScope
 import com.moyeoyo.app.R
 import com.moyeoyo.app.data.repository.GroupRepository
+import com.moyeoyo.app.data.repository.NotificationRepository
 import com.moyeoyo.app.ui.groups.adapter.GroupPhotoAdapter
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.tasks.await
@@ -42,6 +43,8 @@ class PhotoTabFragment : Fragment() {
     }
 
     @Inject lateinit var groupRepository: GroupRepository
+
+    private val notificationRepository = NotificationRepository()
 
     private lateinit var recyclerPhotos: RecyclerView
     private lateinit var btnAddPhoto: View
@@ -246,6 +249,41 @@ class PhotoTabFragment : Fragment() {
                     .document(photoId)
                     .set(photoData)
                     .await()
+
+                // ⭐ 그룹 멤버들에게 사진 추가 알림 전송
+                try {
+                    val group = groupRepository.getGroupDetail(groupId)
+                    val groupName = group?.groupName ?: "모임"
+                    val memberUids = group?.memberUids ?: emptyList()
+                    
+                    // 업로드한 사용자 제외한 다른 멤버들에게 알림 전송
+                    val otherMembers = memberUids.filter { it != currentUser.uid }
+                    
+                    if (otherMembers.isNotEmpty()) {
+                        otherMembers.forEach { memberUid ->
+                            // 각 멤버의 Firestore 알림 컬렉션에 알림 생성
+                            val notificationData = hashMapOf<String, Any>(
+                                "title" to "📷 새 사진이 추가되었습니다",
+                                "message" to "${groupName}에 새 사진이 추가되었습니다.",
+                                "type" to "photo_added",
+                                "groupId" to groupId,
+                                "read" to false,
+                                "handled" to false,
+                                "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                            )
+                            
+                            firestore.collection("users")
+                                .document(memberUid)
+                                .collection("notifications")
+                                .add(notificationData)
+                                .await()
+                        }
+                        android.util.Log.d("PhotoTabFragment", "✅ 사진 추가 알림 전송 완료: ${otherMembers.size}명")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("PhotoTabFragment", "❌ 사진 추가 알림 전송 실패: ${e.message}", e)
+                    // 알림 전송 실패해도 사진 업로드는 성공한 것으로 처리
+                }
 
                 progressDialog.dismiss()
                 Toast.makeText(requireContext(), "사진이 업로드되었습니다.", Toast.LENGTH_SHORT).show()

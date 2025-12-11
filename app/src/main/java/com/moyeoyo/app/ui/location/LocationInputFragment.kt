@@ -43,6 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.lifecycleScope
 import java.util.Locale
 import javax.inject.Inject
 
@@ -268,6 +269,22 @@ class LocationInputFragment : Fragment() {
         val goToMidpoint = rootView?.findViewById<View>(R.id.btn_go_to_midpoint)
         goToMidpoint?.setOnClickListener {
             if (goToMidpoint.isEnabled) {
+                // ⭐ 중간값 계산하기 버튼을 누를 때 PLACE_RANKING 상태로 변경 (알림 전송을 위해)
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        val currentGroup = groupRepository.getGroupDetail(groupId)
+                        // ⭐ LOCATION_INPUT_REQUIRED 또는 LOCATION_DONE 상태일 때 PLACE_RANKING으로 변경
+                        if (currentGroup?.status == "LOCATION_INPUT_REQUIRED" || currentGroup?.status == "LOCATION_DONE") {
+                            val success = groupRepository.updateGroupStatus(groupId, "PLACE_RANKING")
+                            if (success) {
+                                Log.d("LocationInput", "✅ 그룹 상태 변경: ${currentGroup.status} → PLACE_RANKING (중간값 계산하기 버튼 클릭)")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LocationInput", "그룹 상태 변경 중 오류: ${e.message}")
+                    }
+                }
+                
                 val action = LocationInputFragmentDirections.actionLocationInputFragmentToMidpointFragment(
                     groupId = groupId
                 )
@@ -687,13 +704,14 @@ class LocationInputFragment : Fragment() {
                         // ⭐ 모든 멤버 위치 입력 완료 다이얼로그 표시
                         showAllMembersLocationInputtedDialog()
                         
-                        CoroutineScope(Dispatchers.IO).launch {
+                        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                             try {
                                 val currentGroup = groupRepository.getGroupDetail(groupId)
-                                if (currentGroup?.status == "LOCATION_INPUT_REQUIRED") {
-                                    val success = groupRepository.updateGroupStatus(groupId, "LOCATION_DONE")
+                                // ⭐ 모든 멤버가 위치를 입력했을 때 PLACE_RANKING 상태로 변경 (알림 전송을 위해)
+                                if (currentGroup?.status == "LOCATION_INPUT_REQUIRED" || currentGroup?.status == "LOCATION_DONE") {
+                                    val success = groupRepository.updateGroupStatus(groupId, "PLACE_RANKING")
                                     if (success) {
-                                        Log.d("LocationInput", "✅ 그룹 상태 변경: LOCATION_INPUT_REQUIRED → LOCATION_DONE")
+                                        Log.d("LocationInput", "✅ 그룹 상태 변경: ${currentGroup.status} → PLACE_RANKING (모든 멤버 위치 입력 완료)")
                                     }
                                 }
                             } catch (e: Exception) {

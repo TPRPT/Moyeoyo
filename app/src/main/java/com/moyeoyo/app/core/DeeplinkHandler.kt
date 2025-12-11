@@ -89,18 +89,32 @@ class DeeplinkHandler constructor(
             if (currentUid in group.memberUids) {
                 // 약속 정보 링크(status가 FINALIZED)인 경우 메시지 없이 바로 이동
                 if (group.status == "FINALIZED") {
-                    // 메시지 없이 바로 그룹 상세 페이지로 이동
+                    // ⭐ FINALIZED 상태: 메시지 없이 바로 그룹 상세 페이지로 이동
                     navController?.let { nav ->
-                        val action = com.moyeoyo.app.ui.main.MainFragmentDirections.actionMainFragmentToGroupDetailFragment(
-                            groupId = groupId,
-                            groupName = group.groupName
-                        )
-                        nav.navigate(action)
+                        try {
+                            // ⭐ MainFragment로 먼저 이동하지 않고 직접 GroupDetailFragment로 이동
+                            nav.navigate(
+                                com.moyeoyo.app.R.id.groupDetailFragment,
+                                android.os.Bundle().apply {
+                                    putString("groupId", groupId)
+                                    putString("groupName", group.groupName)
+                                }
+                            )
+                        } catch (e: Exception) {
+                            android.util.Log.e("DeeplinkHandler", "네비게이션 실패, Intent 사용: ${e.message}")
+                            // fallback to Intent
+                            val intent = Intent(context, MainActivity::class.java).apply {
+                                putExtra("groupId", groupId)
+                                putExtra("groupName", group.groupName)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            }
+                            context.startActivity(intent)
+                        }
                     } ?: run {
                         val intent = Intent(context, MainActivity::class.java).apply {
                             putExtra("groupId", groupId)
                             putExtra("groupName", group.groupName)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         }
                         context.startActivity(intent)
                     }
@@ -110,16 +124,28 @@ class DeeplinkHandler constructor(
                     
                     // 그룹 상세 페이지로 이동
                     navController?.let { nav ->
-                        val action = com.moyeoyo.app.ui.main.MainFragmentDirections.actionMainFragmentToGroupDetailFragment(
-                            groupId = groupId,
-                            groupName = group.groupName
-                        )
-                        nav.navigate(action)
+                        try {
+                            nav.navigate(
+                                com.moyeoyo.app.R.id.groupDetailFragment,
+                                android.os.Bundle().apply {
+                                    putString("groupId", groupId)
+                                    putString("groupName", group.groupName)
+                                }
+                            )
+                        } catch (e: Exception) {
+                            android.util.Log.e("DeeplinkHandler", "네비게이션 실패, Intent 사용: ${e.message}")
+                            val intent = Intent(context, MainActivity::class.java).apply {
+                                putExtra("groupId", groupId)
+                                putExtra("groupName", group.groupName)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            }
+                            context.startActivity(intent)
+                        }
                     } ?: run {
                         val intent = Intent(context, MainActivity::class.java).apply {
                             putExtra("groupId", groupId)
                             putExtra("groupName", group.groupName)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         }
                         context.startActivity(intent)
                     }

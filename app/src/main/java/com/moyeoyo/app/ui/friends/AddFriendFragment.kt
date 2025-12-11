@@ -44,6 +44,8 @@ class AddFriendFragment : Fragment() {
     private lateinit var tvName: TextView
     private lateinit var tvEmail: TextView
     private lateinit var btnSendRequest: Button
+    private lateinit var tvInitial: TextView
+    private lateinit var imgProfile: ImageView
 
     private var foundUserUid: String? = null
 
@@ -74,6 +76,8 @@ class AddFriendFragment : Fragment() {
         tvName = view.findViewById(R.id.tvName)
         tvEmail = view.findViewById(R.id.tvEmail)
         btnSendRequest = view.findViewById(R.id.btn_send_request)
+        tvInitial = view.findViewById(R.id.tvInitial)
+        imgProfile = view.findViewById(R.id.imgProfile)
 
         // 처음에는 카드 숨김
         cardSearchResult.visibility = View.GONE
@@ -133,24 +137,32 @@ class AddFriendFragment : Fragment() {
                 tvName.text = nickname ?: "알 수 없음"
                 tvEmail.text = email
 
-                // 프로필 사진 로드
-                val tvInitial = view?.findViewById<TextView>(R.id.tvInitial)
-                val imgProfile = view?.findViewById<ImageView>(R.id.imgProfile)
-                
+                // ⭐ 프로필 사진 로드 (동기화를 위해 캐시 무시)
                 if (!photoUrl.isNullOrEmpty()) {
-                    tvInitial?.visibility = View.GONE
-                    imgProfile?.visibility = View.VISIBLE
-                    imgProfile?.let {
-                        com.bumptech.glide.Glide.with(requireContext())
-                            .load(photoUrl)
-                            .circleCrop()
-                            .placeholder(R.drawable.ic_user_placeholder)
-                            .into(it)
-                    }
+                    tvInitial.visibility = View.GONE
+                    imgProfile.visibility = View.VISIBLE
+                    Glide.with(requireContext())
+                        .load(photoUrl)
+                        .skipMemoryCache(true) // 메모리 캐시 무시하여 최신 이미지 로드
+                        .circleCrop()
+                        .placeholder(R.drawable.ic_user_placeholder)
+                        .into(imgProfile)
                 } else {
-                    tvInitial?.visibility = View.VISIBLE
-                    imgProfile?.visibility = View.GONE
-                    tvInitial?.text = (nickname ?: uid.take(1)).uppercase()
+                    tvInitial.visibility = View.VISIBLE
+                    imgProfile.visibility = View.GONE
+                    tvInitial.text = (nickname ?: uid.take(1)).uppercase()
+                }
+
+                // ⭐ 이미 보낸 친구 요청이 있는지 확인
+                val hasSentRequest = friendRepository.hasSentFriendRequest(uid)
+                if (hasSentRequest) {
+                    btnSendRequest.isEnabled = false
+                    btnSendRequest.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.gray_300)
+                    btnSendRequest.text = "요청 완료"
+                } else {
+                    btnSendRequest.isEnabled = true
+                    btnSendRequest.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.color_primary)
+                    btnSendRequest.text = "친구 요청"
                 }
 
                 cardSearchResult.visibility = View.VISIBLE
@@ -186,7 +198,7 @@ class AddFriendFragment : Fragment() {
                 //textSearchResult.visibility = View.GONE
 
                 btnSendRequest.isEnabled = false
-                btnSendRequest.backgroundTintList = requireContext().getColorStateList(R.color.gray_300)
+                btnSendRequest.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.gray_300)
                 btnSendRequest.text = "요청 완료"
             } else {
                 Toast.makeText(requireContext(), "친구 요청 실패", Toast.LENGTH_LONG).show()
@@ -242,7 +254,7 @@ class AddFriendFragment : Fragment() {
                     setOnClickListener { showDeleteConfirmation(uid, nickname ?: uid.take(8)) }
                 }
 
-                // 프로필 사진 및 이메일 로드
+                // ⭐ 프로필 사진 및 이메일 로드 (동기화를 위해 캐시 무시)
                 viewLifecycleOwner.lifecycleScope.launch {
                     val photoUrl = friendRepository.getUserPhotoUrl(uid)
                     val email = friendRepository.getUserEmail(uid)
@@ -252,6 +264,7 @@ class AddFriendFragment : Fragment() {
                         imgProfile.visibility = View.VISIBLE
                         Glide.with(requireContext())
                             .load(photoUrl)
+                            .skipMemoryCache(true) // 메모리 캐시 무시하여 최신 이미지 로드
                             .circleCrop()
                             .placeholder(R.drawable.ic_user_placeholder)
                             .into(imgProfile)

@@ -3,9 +3,13 @@ package com.moyeoyo.app.data.repository
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.HttpsCallableResult
 import com.moyeoyo.app.data.model.Notification
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
 class NotificationRepository(
@@ -280,5 +284,59 @@ class NotificationRepository(
         }
     }
 
+    /**
+     * ⭐ 실시간 알림 리스너 (Flow 반환)
+     * Firestore의 알림 컬렉션 변경을 실시간으로 감지합니다.
+     */
+    fun observeNotifications(): Flow<List<Notification>> = callbackFlow {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+
+        val listenerRegistration = db.collection("users")
+            .document(uid)
+            .collection("notifications")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(TAG, "observeNotifications error: ${error.message}")
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+
+                if (snapshot == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+
+                val notifications = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        Notification(
+                            id = doc.id,
+                            title = doc.getString("title"),
+                            message = doc.getString("message"),
+                            type = doc.getString("type") ?: "unknown",
+                            groupId = doc.getString("groupId"),
+                            senderUid = doc.getString("senderUid"),
+                            read = doc.getBoolean("read") ?: false,
+                            handled = doc.getBoolean("handled") ?: false,
+                            createdAt = doc.getTimestamp("createdAt")
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Mapping error: ${e.message}")
+                        null
+                    }
+                }
+
+                trySend(notifications)
+            }
+
+        awaitClose {
+            listenerRegistration.remove()
+        }
+    }
 
 }
