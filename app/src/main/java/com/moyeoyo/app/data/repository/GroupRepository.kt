@@ -423,15 +423,11 @@ class GroupRepository @Inject constructor(
                 return Result.failure(IllegalArgumentException("날짜 파싱 실패"))
             }
 
-            // ⭐ 현재 상태 확인
             val currentGroup = groupsCollection.document(groupId).get().await()
             val currentStatus = currentGroup.getString("status")
             val memberUids = currentGroup.get("memberUids") as? List<String> ?: emptyList()
             
-            // ⭐ 모든 멤버가 시간 투표를 완료했는지 확인 (중복 알림 방지)
             val allMembersVoted = if (memberUids.isNotEmpty()) {
-                // 현재 주의 모든 날짜 확인
-                val now = java.util.Calendar.getInstance()
                 val monday = java.util.Calendar.getInstance()
                 monday.set(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.MONDAY)
                 monday.set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -457,28 +453,20 @@ class GroupRepository @Inject constructor(
                 false
             }
             
-            // ⭐ 1단계: TIME_FINALIZING 상태로 변경 (푸시 알림 전송) - 모든 멤버가 완료했을 때만 변경
             if (currentStatus != "TIME_FINALIZING" && allMembersVoted) {
                 groupsCollection.document(groupId)
                     .update("status", "TIME_FINALIZING")
                     .await()
                 
-                Log.d(TAG, "✅ TIME_FINALIZING 상태로 변경: groupId=$groupId (모든 멤버 시간 투표 완료)")
-                
-                // ⭐ 푸시 알림 전송 시간 확보 (2초 대기)
+                Log.d(TAG, "TIME_FINALIZING 상태로 변경: groupId=$groupId")
                 kotlinx.coroutines.delay(2000)
             } else {
-                if (currentStatus == "TIME_FINALIZING") {
-                    Log.d(TAG, "ℹ️ 이미 TIME_FINALIZING 상태이므로 변경하지 않음: groupId=$groupId")
-                } else {
-                    Log.d(TAG, "ℹ️ 아직 모든 멤버가 시간 투표를 완료하지 않음: groupId=$groupId")
+                if (currentStatus != "TIME_FINALIZING") {
                     return Result.failure(IllegalStateException("아직 모든 멤버가 시간 투표를 완료하지 않았습니다."))
                 }
             }
             
-            // ⭐ 2단계: 모든 멤버가 최종 시간 투표를 완료했는지 확인
             val allMembersFinalVoted = if (memberUids.isNotEmpty()) {
-                val now = java.util.Calendar.getInstance()
                 val monday = java.util.Calendar.getInstance()
                 monday.set(java.util.Calendar.DAY_OF_WEEK, java.util.Calendar.MONDAY)
                 monday.set(java.util.Calendar.HOUR_OF_DAY, 0)
@@ -504,13 +492,10 @@ class GroupRepository @Inject constructor(
                 false
             }
             
-            // ⭐ 모든 멤버가 최종 시간 투표를 완료했을 때만 LOCATION_INPUT_REQUIRED로 변경
             if (!allMembersFinalVoted) {
-                Log.d(TAG, "ℹ️ 아직 모든 멤버가 최종 시간 투표를 완료하지 않음: groupId=$groupId")
                 return Result.failure(IllegalStateException("아직 모든 멤버가 최종 시간 투표를 완료하지 않았습니다."))
             }
             
-            // ⭐ 3단계: 트랜잭션으로 최종 시간 확정 및 LOCATION_INPUT_REQUIRED 상태로 변경
             db.runTransaction { tx ->
                 val groupRef = groupsCollection.document(groupId)
                 val snapshot = tx.get(groupRef)
@@ -539,7 +524,6 @@ class GroupRepository @Inject constructor(
 
     /**
      * 최종 시간 확정
-     * ⭐ TIME_FINALIZING 상태를 거쳐서 푸시 알림이 전송되도록 함
      */
     suspend fun setFinalTime(groupId: String, date: String, time: String): Boolean {
         return try {
@@ -568,25 +552,18 @@ class GroupRepository @Inject constructor(
                 return false
             }
 
-            // ⭐ 현재 상태 확인
             val currentGroup = groupsCollection.document(groupId).get().await()
             val currentStatus = currentGroup.getString("status")
             
-            // ⭐ 1단계: TIME_FINALIZING 상태로 변경 (푸시 알림 전송) - 이미 TIME_FINALIZING이 아닌 경우에만 변경
             if (currentStatus != "TIME_FINALIZING") {
                 groupsCollection.document(groupId)
                     .update("status", "TIME_FINALIZING")
                     .await()
                 
-                Log.d(TAG, "✅ TIME_FINALIZING 상태로 변경: groupId=$groupId")
-                
-                // ⭐ 푸시 알림 전송 시간 확보 (2초 대기)
+                Log.d(TAG, "TIME_FINALIZING 상태로 변경: groupId=$groupId")
                 kotlinx.coroutines.delay(2000)
-            } else {
-                Log.d(TAG, "ℹ️ 이미 TIME_FINALIZING 상태이므로 변경하지 않음: groupId=$groupId")
             }
             
-            // ⭐ 2단계: 최종 시간 확정 및 LOCATION_INPUT_REQUIRED 상태로 변경
             groupsCollection.document(groupId)
                 .update(
                     "confirmedTime", timestamp,
@@ -616,49 +593,36 @@ class GroupRepository @Inject constructor(
         val groupRef = groupsCollection.document(groupId)
 
         return try {
-            // ⭐ 현재 상태 확인
             val currentGroup = groupRef.get().await()
             val currentStatus = currentGroup.getString("status")
             val memberUids = currentGroup.get("memberUids") as? List<String> ?: emptyList()
             
-            // ⭐ 모든 멤버가 장소 순위 투표를 완료했는지 확인 (중복 알림 방지)
             val allMembersRanked = if (memberUids.isNotEmpty()) {
                 voteRepository.checkAllUsersRanked(groupId, memberUids)
             } else {
                 false
             }
             
-            // ⭐ 모든 멤버가 장소 순위 투표를 완료했을 때만 FINAL_PLACE_VOTE로 변경
             if (currentStatus != "FINAL_PLACE_VOTE" && allMembersRanked) {
-                // ⭐ 1단계: FINAL_PLACE_VOTE 상태로 변경 (푸시 알림 전송)
                 groupRef.update("status", "FINAL_PLACE_VOTE").await()
-                Log.d(TAG, "✅ FINAL_PLACE_VOTE 상태로 변경: groupId=$groupId (모든 멤버 장소 순위 투표 완료)")
-                
-                // ⭐ 푸시 알림 전송 시간 확보 (2초 대기)
+                Log.d(TAG, "FINAL_PLACE_VOTE 상태로 변경: groupId=$groupId")
                 kotlinx.coroutines.delay(2000)
             } else {
-                if (currentStatus == "FINAL_PLACE_VOTE") {
-                    Log.d(TAG, "ℹ️ 이미 FINAL_PLACE_VOTE 상태이므로 변경하지 않음: groupId=$groupId")
-                } else {
-                    Log.d(TAG, "ℹ️ 아직 모든 멤버가 장소 순위 투표를 완료하지 않음: groupId=$groupId")
+                if (currentStatus != "FINAL_PLACE_VOTE") {
                     return false
                 }
             }
             
-            // ⭐ 모든 멤버가 최종 장소 투표를 완료했는지 확인
             val allMembersFinalVoted = if (memberUids.isNotEmpty()) {
                 voteRepository.checkAllUsersFinalVoted(groupId, memberUids)
             } else {
                 false
             }
             
-            // ⭐ 모든 멤버가 최종 장소 투표를 완료했을 때만 FINALIZED로 변경
             if (!allMembersFinalVoted) {
-                Log.d(TAG, "ℹ️ 아직 모든 멤버가 최종 장소 투표를 완료하지 않음: groupId=$groupId")
                 return false
             }
             
-            // ⭐ 2단계: 최종 확정 정보 저장 및 FINALIZED 상태로 변경
             val updates = hashMapOf<String, Any>(
                 "confirmedPlace" to confirmedPlace,
                 "confirmedTime" to confirmedTime,

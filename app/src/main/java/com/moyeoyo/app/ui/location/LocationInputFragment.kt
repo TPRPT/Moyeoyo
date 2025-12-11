@@ -701,7 +701,6 @@ class LocationInputFragment : Fragment() {
                     if (allInputted) {
                         isLocationLocked = true
                         
-                        // ⭐ 모든 멤버 위치 입력 완료 다이얼로그 표시
                         showAllMembersLocationInputtedDialog()
                         
                         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
@@ -709,18 +708,11 @@ class LocationInputFragment : Fragment() {
                                 val currentGroup = groupRepository.getGroupDetail(groupId)
                                 val currentStatus = currentGroup?.status
                                 
-                                // ⭐ 모든 멤버가 위치를 입력했을 때만 PLACE_RANKING 상태로 변경 (중복 알림 방지)
-                                // 이미 PLACE_RANKING 이상의 상태면 변경하지 않음
                                 if ((currentStatus == "LOCATION_INPUT_REQUIRED" || currentStatus == "LOCATION_DONE") && 
                                     currentStatus != "PLACE_RANKING" && 
                                     currentStatus != "FINAL_PLACE_VOTE" && 
                                     currentStatus != "FINALIZED") {
-                                    val success = groupRepository.updateGroupStatus(groupId, "PLACE_RANKING")
-                                    if (success) {
-                                        Log.d("LocationInput", "✅ 그룹 상태 변경: $currentStatus → PLACE_RANKING (모든 멤버 위치 입력 완료)")
-                                    }
-                                } else {
-                                    Log.d("LocationInput", "ℹ️ 상태 변경 불필요: 현재 상태=$currentStatus")
+                                    groupRepository.updateGroupStatus(groupId, "PLACE_RANKING")
                                 }
                             } catch (e: Exception) {
                                 Log.e("LocationInput", "그룹 상태 변경 중 오류: ${e.message}")
