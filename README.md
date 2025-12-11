@@ -5,7 +5,7 @@
 
 ---
 
-## 🚀 핵심 기능 (Core Features)
+## 핵심 기능 (Core Features)
 
 1. **Midpoint Calculation** - 모두에게 공평한 중간 지점 계산
 2. **Location Recommendations & Filtering** - 중간 지점 주변 장소 추천 및 필터링
@@ -50,7 +50,7 @@
 
 ---
 
-## 👨‍💻 역할 분담 (Team Roles)
+## 역할 분담 (Team Roles)
 
 ### [은아](https://github.com/github-tprpt) - Backend & Data Lead & Push Notifications
 
