@@ -170,5 +170,19 @@
             android:textSize="16sp"
             android:layout_marginBottom="32dp" />
 
+        <TextView
+            android:id="@+id/btn_delete_account"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="회원 탈퇴"
+            android:textColor="#999999"
+            android:textSize="12sp"
+            android:padding="8dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="32dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground" />
+
     </LinearLayout>
 </ScrollView>
