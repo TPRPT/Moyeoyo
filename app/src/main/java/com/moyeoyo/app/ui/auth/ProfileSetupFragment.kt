@@ -152,7 +152,8 @@ class ProfileSetupFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Fragment Result 리스너 설정
-        setFragmentResultListener(CurrentLocationFragment.RESULT_KEY) { _, bundle ->
+        requireActivity().supportFragmentManager.setFragmentResultListener(CurrentLocationFragment.RESULT_KEY, viewLifecycleOwner) { _, bundle ->
+            Log.d("ProfileSetup", "Fragment result received in listener: $bundle")
             handleConfirmedLocation(bundle)
         }
 
@@ -223,6 +224,17 @@ class ProfileSetupFragment : Fragment() {
         btnSave.setOnClickListener { saveProfile() }
 
         loadCurrentUserData()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Fragment가 다시 나타날 때 Fragment Result를 확인
+        // Navigation으로 돌아올 때 Fragment Result가 이미 설정되어 있을 수 있음
+        findNavController().previousBackStackEntry?.savedStateHandle?.get<Bundle>(CurrentLocationFragment.RESULT_KEY)?.let { bundle ->
+            Log.d("ProfileSetup", "Fragment result found in savedStateHandle: $bundle")
+            findNavController().previousBackStackEntry?.savedStateHandle?.remove<Bundle>(CurrentLocationFragment.RESULT_KEY)
+            handleConfirmedLocation(bundle)
+        }
     }
 
     override fun onDestroyView() {
@@ -320,36 +332,60 @@ class ProfileSetupFragment : Fragment() {
     }
 
     private fun handleConfirmedLocation(bundle: Bundle) {
+        Log.d("ProfileSetup", "handleConfirmedLocation called with bundle: $bundle")
+        
         @Suppress("UNCHECKED_CAST")
         val locationMap =
             bundle.getSerializable(CurrentLocationFragment.EXTRA_LOCATION_DATA) as? Map<String, Any>
         val isHome = bundle.getBoolean(CurrentLocationFragment.EXTRA_IS_HOME, true)
 
-        if (locationMap != null) {
-            val address = locationMap["address"] as? String ?: "주소 확인됨"
-            val targetInput = if (isHome) inputHome else inputWork
-            targetInput.setText(address)
+        Log.d("ProfileSetup", "handleConfirmedLocation: locationMap = $locationMap")
+        Log.d("ProfileSetup", "handleConfirmedLocation: isHome = $isHome")
 
-            // lat/lng를 LatLng 객체로 변환하여 저장
+        if (locationMap != null) {
+            // handlePlaceResult와 동일한 방식으로 처리
+            val name = locationMap["name"] as? String
+            val address = locationMap["address"] as? String ?: ""
+            
+            // name을 우선으로 사용, 없으면 address 사용 (handlePlaceResult와 동일)
+            val addressText = name ?: address ?: "선택된 장소"
+            val targetInput = if (isHome) inputHome else inputWork
+            targetInput.setText(addressText)
+            
+            Log.d("ProfileSetup", "handleConfirmedLocation: Setting input text to: $addressText")
+
+            // Fragment Result에서는 lat/lng가 분리되어 전달됨
             val lat = (locationMap["lat"] as? Number)?.toDouble()
             val lng = (locationMap["lng"] as? Number)?.toDouble()
             
             if (lat != null && lng != null) {
                 val latLng = LatLng(lat, lng)
-                val finalLocationMap = locationMap.toMutableMap().apply {
-                    put("latLng", latLng)
-                }
+                
+                // handlePlaceResult와 동일한 구조로 locationMap 생성
+                val finalLocationMap = hashMapOf<String, Any>(
+                    "name" to (name ?: (if (isHome) "집" else "직장")),
+                    "address" to address,
+                    "latLng" to latLng,
+                    "placeId" to (locationMap["placeId"] as? String ?: "")
+                )
+                
+                Log.d("ProfileSetup", "handleConfirmedLocation: finalLocationMap = $finalLocationMap")
                 
                 if (isHome) {
                     homeLocationData = finalLocationMap
+                    Log.d("ProfileSetup", "handleConfirmedLocation: homeLocationData set = $homeLocationData")
                 } else {
                     workLocationData = finalLocationMap
+                    Log.d("ProfileSetup", "handleConfirmedLocation: workLocationData set = $workLocationData")
                 }
+                
                 Snackbar.make(requireView(), "위치가 지도에서 최종 설정되었습니다.", Snackbar.LENGTH_SHORT).show()
             } else {
+                Log.e("ProfileSetup", "handleConfirmedLocation: lat or lng is null")
                 Snackbar.make(requireView(), "위치 정보가 올바르지 않습니다.", Snackbar.LENGTH_SHORT).show()
             }
         } else {
+            Log.e("ProfileSetup", "handleConfirmedLocation: locationMap is null")
             Snackbar.make(requireView(), "위치 설정 결과 수신 실패.", Snackbar.LENGTH_SHORT).show()
         }
     }
@@ -390,22 +426,28 @@ class ProfileSetupFragment : Fragment() {
                         inputNickname.setText(nickname)
                     }
                     if (!homeAddress.isNullOrEmpty() && homeLat != null && homeLng != null) {
-                        inputHome.setText(homeAddress)
-                        homeLocationData = mapOf(
-                            "name" to (homeMap?.get("name") ?: "집"),
-                            "address" to homeAddress,
-                            "latLng" to LatLng(homeLat, homeLng),
-                            "placeId" to (homePlaceId ?: "")
-                        )
+                        // 이미 사용자가 새로운 위치를 설정했다면 덮어쓰지 않음
+                        if (homeLocationData == null) {
+                            inputHome.setText(homeAddress)
+                            homeLocationData = mapOf(
+                                "name" to (homeMap?.get("name") ?: "집"),
+                                "address" to homeAddress,
+                                "latLng" to LatLng(homeLat, homeLng),
+                                "placeId" to (homePlaceId ?: "")
+                            )
+                        }
                     }
                     if (!workAddress.isNullOrEmpty() && workLat != null && workLng != null) {
-                        inputWork.setText(workAddress)
-                        workLocationData = mapOf(
-                            "name" to (workMap?.get("name") ?: "직장"),
-                            "address" to workAddress,
-                            "latLng" to LatLng(workLat, workLng),
-                            "placeId" to (workPlaceId ?: "")
-                        )
+                        // 이미 사용자가 새로운 위치를 설정했다면 덮어쓰지 않음
+                        if (workLocationData == null) {
+                            inputWork.setText(workAddress)
+                            workLocationData = mapOf(
+                                "name" to (workMap?.get("name") ?: "직장"),
+                                "address" to workAddress,
+                                "latLng" to LatLng(workLat, workLng),
+                                "placeId" to (workPlaceId ?: "")
+                            )
+                        }
                     }
 
                     if (!photoUrl.isNullOrEmpty()) {

@@ -46,27 +46,58 @@ class FirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.d(TAG, "From: ${remoteMessage.from}")
 
+        // 데이터 페이로드 가져오기
+        val data = remoteMessage.data
+
+        // 리마인더 알림인 경우 로컬 알림 스케줄링 (notification이 있든 없든 처리)
+        val notificationType = data["type"]
+        val groupId = data["groupId"]
+        
+        if (notificationType == "reminder" && groupId != null) {
+            Log.d(TAG, "Reminder notification received (data only), scheduling local notification for group: $groupId")
+            val scheduler = LocalNotificationScheduler(this)
+            scheduler.scheduleReminderNotification(groupId)
+        }
+
         // 💡 알림 페이로드가 있는 경우 (앱이 백그라운드일 때 기본 처리됨)
         remoteMessage.notification?.let {
             Log.d(TAG, "Message Notification Body: ${it.body}")
+            Log.d(TAG, "Message data payload: $data")
             // 포그라운드에서 수신 시 알림을 직접 띄웁니다.
-            sendNotification(it.title, it.body)
-        }
-
-        // 💡 데이터 페이로드가 있는 경우 (친구 요청 UID 등)
-        remoteMessage.data.isNotEmpty().let {
-            Log.d(TAG, "Message data payload: " + remoteMessage.data)
-            // 여기에서 알림 데이터를 처리하여 특정 화면으로 이동시킬 수 있습니다.
+            // 리마인더가 아닌 경우에만 즉시 알림 표시
+            if (notificationType != "reminder") {
+                sendNotification(it.title, it.body, data)
+            }
         }
     }
 
     /**
      * 수신된 FCM 메시지를 Android Notification으로 표시합니다.
      */
-    private fun sendNotification(title: String?, messageBody: String?) {
+    private fun sendNotification(title: String?, messageBody: String?, data: Map<String, String> = emptyMap()) {
+        // 리마인더 푸시 알림인 경우 로컬 알림으로 스케줄링
+        val notificationType = data["type"]
+        val groupId = data["groupId"]
+        
+        if (notificationType == "reminder" && groupId != null) {
+            Log.d(TAG, "Reminder notification received, scheduling local notification for group: $groupId")
+            val scheduler = LocalNotificationScheduler(this)
+            scheduler.scheduleReminderNotification(groupId)
+            // 리마인더는 즉시 표시하지 않고 로컬 알림으로만 처리
+            return
+        }
+        
         // 알림 클릭 시 메인 화면으로 이동하도록 Intent를 설정합니다.
         val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            groupId?.let {
+                putExtra("groupId", it)
+                Log.d(TAG, "Notification groupId: $it")
+            }
+            notificationType?.let {
+                putExtra("notificationType", it)
+                Log.d(TAG, "Notification type: $it")
+            }
         }
 
         // NotificationActivity로 이동하도록 수정할 수도 있습니다.

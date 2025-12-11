@@ -24,4 +24,7 @@ interface NextMeetingDao {
 
     @Query("SELECT groupId FROM next_meeting")
     suspend fun getAllGroupIds(): List<String>
+    
+    @Query("SELECT * FROM next_meeting WHERE groupId = :groupId")
+    suspend fun getByGroupId(groupId: String): NextMeetingEntity?
 }

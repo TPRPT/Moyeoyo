@@ -213,11 +213,12 @@ class NotificationFragment : Fragment() {
                     }
 
                     // 🔵 그룹 관련 알림 → 그룹 상세로 이동
-                    "time_vote", "location_input", "final_vote", "finalized", "ranking" -> {
-                        if (item.groupId == null) {
+                    "time_vote", "location_input", "final_vote", "finalized", "ranking", "reminder" -> {
+                        if (item.groupId == null || item.groupId.isBlank()) {
+                            Log.e("NotificationFragment", "그룹 ID가 없습니다. 알림 ID: ${item.id}, 타입: ${item.type}")
                             Toast.makeText(
                                 requireContext(),
-                                "그룹 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT
+                                "그룹 정보를 찾을 수 없습니다. 알림에 그룹 ID가 포함되지 않았습니다.", Toast.LENGTH_LONG
                             ).show()
                             return@setOnClickListener
                         }

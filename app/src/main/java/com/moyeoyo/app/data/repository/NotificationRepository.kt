@@ -120,6 +120,78 @@ class NotificationRepository(
             Log.e(TAG, "markNotificationAsRead error: ${e.message}")
         }
     }
+    
+    /**
+     * type과 groupId로 최신 알림을 찾아서 읽음 처리
+     * 푸시 알림 클릭 시 자동 읽음 처리용
+     */
+    suspend fun markNotificationAsReadByTypeAndGroup(type: String, groupId: String? = null) {
+        val uid = auth.currentUser?.uid ?: return
+
+        try {
+            var query = db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .whereEqualTo("type", type)
+                .whereEqualTo("read", false)
+            
+            if (groupId != null) {
+                query = query.whereEqualTo("groupId", groupId)
+            }
+            
+            // orderBy 없이 모든 미읽음 알림을 가져와서 가장 최신 것 선택
+            val snapshot = query.get().await()
+            
+            // createdAt이 가장 최신인 알림 찾기 (클라이언트 측 정렬)
+            val latestDoc = snapshot.documents.maxByOrNull { doc ->
+                doc.getTimestamp("createdAt")?.seconds ?: 0L
+            }
+            
+            latestDoc?.let { doc ->
+                doc.reference.update("read", true).await()
+                Log.d(TAG, "Marked notification as read: type=$type, groupId=$groupId, id=${doc.id}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "markNotificationAsReadByTypeAndGroup error: ${e.message}")
+        }
+    }
+
+    /**
+     * 로컬 알림을 Firestore에 저장 (인앱 알림창 표시용)
+     */
+    suspend fun createLocalNotification(
+        title: String,
+        message: String,
+        type: String,
+        groupId: String? = null
+    ): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+
+        return try {
+            val notificationData = hashMapOf<String, Any>(
+                "title" to title,
+                "message" to message,
+                "type" to type,
+                "read" to false,
+                "handled" to false,
+                "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+            )
+            
+            groupId?.let { notificationData["groupId"] = it }
+            
+            db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .add(notificationData)
+                .await()
+            
+            Log.d(TAG, "Local notification created in Firestore")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create local notification: ${e.message}")
+            false
+        }
+    }
 
     /**
      * 알림 일괄 읽음 처리
