@@ -342,6 +342,10 @@ class ProfileSetupFragment : Fragment() {
             return
         }
 
+        try {
+            speechRecognizer.stopListening()
+        } catch (_: Exception) {}
+
         speechRecognizer.startListening(sttIntent)
     }
 
